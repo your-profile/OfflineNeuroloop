@@ -1,0 +1,23 @@
+experiment:
+  domain: "lunar_lander"           # robot | lunar_lander | flappy_bird
+  task: "passive"                  # passive | active | pooled
+                                   
+  neural_condition: "baseline"     # baseline | reward_shaping | lr_modulation | prioritization
+  model_granularity: "binary"      # binary | ternary | continuous
+
+neural:
+  # ablation parameters
+  model_noise: 0.0
+  smoothing_method: "none"          # none | majority_vote
+  credit_assignment: "window_based" # window_based | temporal_shift 
+  smoothing_window_size: 3
+  temporal_shift: 0.0
+
+mlp:
+  hidden_layer_sizes: [6, 4, 2]
+  activation: "relu"
+  learning_rate_init: 0.001
+
+rl:
+  n_episodes: 2000
+  window_size_s: 4 
