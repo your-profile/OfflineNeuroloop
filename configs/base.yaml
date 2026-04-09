@@ -1,23 +1,30 @@
 experiment:
-  domain: "lunar_lander"           # robot | lunar_lander | flappy_bird
-  task: "passive"                  # passive | active | pooled
-                                   
-  neural_condition: "baseline"     # baseline | reward_shaping | lr_modulation | prioritization
-  model_granularity: "binary"      # binary | ternary | continuous
+  domain: "lunar_lander"                  # robot | lunar_lander | flappy_bird
+  task: "passive"                         # passive | active | pooled    
+  condition: "baseline"                   # baseline (0) | reward_shaping (1) | lr_modulation (2) | prioritization (3)           
+  experiment_list: [0]                    # baseline (0) | reward_shaping (1) | lr_modulation (2) | prioritization (3)
+  model_granularity: "binary"             # binary | ternary | continuous
+  participant_list: [2, 3, 4]
+  condition_list: ["LW"]
+  random_state: 42
 
 neural:
-  # ablation parameters
   model_noise: 0.0
-  smoothing_method: "none"          # none | majority_vote
-  credit_assignment: "window_based" # window_based | temporal_shift 
+  smoothing_method: "none"            # none | majority_vote
+  credit_assignment: "window_based"   # window_based | temporal_shift 
   smoothing_window_size: 3
   temporal_shift: 0.0
+  window_size_s: 4.0
+  fnirs_rate_hz: 5.2
 
 mlp:
-  hidden_layer_sizes: [6, 4, 2]
+  binary_hidden_layer_sizes: [6, 4, 2]
+  ternary_hidden_layer_sizes: [12, 6, 2]
+  regressor_hidden_layer_sizes: [12, 6, 2]
   activation: "relu"
   learning_rate_init: 0.001
 
 rl:
-  n_episodes: 2000
-  window_size_s: 4 
+  n_episodes: 3000
+  algorithm: "DQN"
+  buffer_type: "ER"
