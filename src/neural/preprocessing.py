@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from typing import Tuple, List
+import statistics
 
 class DatasetProcessor:
     def __init__(self):
@@ -9,7 +10,15 @@ class DatasetProcessor:
         self.gap_threshold_s = 600
         self.fnirs_df = None
 
-    def align_streams(self, fnirs_df: pd.DataFrame, task_df: pd.DataFrame, labels_df: pd.DataFrame, resample_rate_hz: float = 5.2, label_tolerance_s: float = 0.3, neural_channels: List[str] = ["L_O_DSI", "L_D_DSI", "L_O_DSphi", "L_D_DSphi", "R_O_DSI", "R_D_DSI", "R_O_DSphi", "R_D_DSphi"], gap_threshold_s: float = 600, verbose = False) -> Tuple[pd.DataFrame, List[str]]:
+    def align_streams(self, 
+                      fnirs_df: pd.DataFrame, 
+                      task_df: pd.DataFrame, 
+                      labels_df: pd.DataFrame, 
+                      resample_rate_hz: float = 5.2, 
+                      label_tolerance_s: float = 0.3, 
+                      neural_channels: List[str] = ["L_O_DSI", "L_D_DSI", "L_O_DSphi", "L_D_DSphi", "R_O_DSI", "R_D_DSI", "R_O_DSphi", "R_D_DSphi"], 
+                      gap_threshold_s: float = 600, 
+                      verbose = False) -> Tuple[pd.DataFrame, List[str]]:
 
         if self.neural_channels == None:
             self.neural_channels = neural_channels
@@ -74,23 +83,14 @@ class DatasetProcessor:
 
         return aligned, fnirs_channels
 
-    def build_balanced_binary_dataset(
-        self, aligned_df: pd.DataFrame,
-        fnirs_channels: List[str],
-        label_col: str = 'binary_label_shifted',
-        window_duration_s: float = 6.0,
-        resample_rate_hz: float = 10.0,
-        random_state: int | None = None,
-        granularity = "binary"
-    ) -> tuple[np.ndarray, np.ndarray]:
-        import statistics
-
-        """Create a class-balanced (undersampled) binary dataset.
-
-        This uses the same windowing logic as `build_supervised_dataset`, but
-        returns a subset of windows so that the two binary classes have equal size
-        (or as close as possible if counts differ slightly).
-        """
+    def build_balanced_binary_dataset(self, 
+                                      aligned_df: pd.DataFrame,
+                                      fnirs_channels: List[str],
+                                      label_col: str = 'label_shifted',
+                                      window_duration_s: float = 6.0,
+                                      resample_rate_hz: float = 5.2,
+                                      random_state: int | None = None,
+                                      granularity: str = "binary"):
 
         X, y_binary, y_discrete, y_continuous = self.build_supervised_dataset(
             aligned_df=aligned_df,
@@ -100,73 +100,64 @@ class DatasetProcessor:
             resample_rate_hz=resample_rate_hz,
         )
 
+        gs = str(granularity).strip().lower()
+        mode = gs[0] if gs else "b"
         rng = np.random.default_rng(random_state)
 
+        def balanced(class_indices, n_per: int):
+            parts = [rng.choice(ix, size=n_per, replace=False) for ix in class_indices]
+            sel = np.concatenate(parts)
+            rng.shuffle(sel)
+            return sel
 
-        # First build full multi-label dataset
-        if granularity[0] == "d":
+        if mode == "b":
+            y = y_binary
+            classes = np.unique(y)
+            if len(classes) != 2:
+                raise ValueError(f"Expected exactly 2 classes for binary label, got {classes}.")
+            idx0 = np.flatnonzero(y == classes[0])
+            idx1 = np.flatnonzero(y == classes[1])
+            n_per = min(len(idx0), len(idx1))
+            if n_per <= 0:
+                raise ValueError("No samples in one or both binary classes.")
+            sel = balanced([idx0, idx1], n_per)
+            return X[sel], y[sel]
+
+        if mode == "d":
             y = y_discrete
             classes, counts = np.unique(y, return_counts=True)
-            min_n = counts.min()
-            med_n = statistics.median(counts)
-            target_n = (min_n+med_n)/2
-            idx_class0 = np.where(y == classes[0])[0]
-            idx_class1 = np.where(y == classes[1])[0]
-            idx_class2 = np.where(y == classes[2])[0]
+            if len(classes) != 3:
+                raise ValueError(f"Expected exactly 3 classes for discrete label, got {classes}.")
+            min_n = int(counts.min())
+            med_n = statistics.median(counts.tolist())
+            target_n = int(round((min_n + med_n) / 2))
+            class_indices = [np.flatnonzero(y == c) for c in classes]
+            n_per = min(target_n, *(len(ix) for ix in class_indices))
+            if n_per <= 0:
+                raise ValueError("No samples available for discrete balancing.")
+            sel = balanced(class_indices, n_per)
+            return X[sel], y[sel]
 
-        if granularity[0] == "b":
-            y = y_binary
-            classes, counts = np.unique(y, return_counts=True)
-            target_n = counts.min()
-            # target_n = (counts.min() + counts.max())//3
-            idx_class0 = np.where(y == classes[0])[0]
-            idx_class1 = np.where(y == classes[1])[0]
+        if mode == "c":
+            y = np.asarray(y_continuous, dtype=float)
+            n = len(y)
+            if n == 0:
+                raise ValueError("No samples for continuous target.")
+            edges = np.percentile(y, [100.0 / 3.0, 200.0 / 3.0])
+            y_bin = np.digitize(y, edges, right=True)
+            y_bin = np.clip(y_bin, 0, 2)
+            class_indices = [np.flatnonzero(y_bin == k) for k in (0, 1, 2)]
+            n_per = min(len(ix) for ix in class_indices)
+            if n_per <= 0:
+                sel = np.arange(n)
+                rng.shuffle(sel)
+                return X[sel], y[sel]
+            sel = balanced(class_indices, n_per)
+            return X[sel], y[sel]
 
-        if granularity[0] == "c":
-            y = y_continuous
-            percentiles = np.percentile(y, [0, 33.333, 66.666, 100])
-            y_binned = np.digitize(y, percentiles[1:-1], right=True)
-            classes = np.array([0,1,2])
-            #count values in each bucket
-            counts = np.array([(y_binned == i).sum() for i in range(3)])
-
-
-        if (granularity[0] == "b" and len(classes) != 2):
-            raise ValueError(f"Expected exactly 2 classes for binary label, got {classes}.")
-        if (granularity[0] == "d" and len(classes) != 3):
-            raise ValueError(f"Expected exactly 3 classes for discrete label, got {classes}.")
-
-
-        if len(idx_class0) < target_n:
-            class0_n = min(len(idx_class0), len(idx_class1))
-        else:
-            class0_n = target_n
-        if len(idx_class1) < target_n:
-            class1_n = min(len(idx_class0), len(idx_class1))
-        else:
-            class1_n = target_n
-        if granularity[0] == "d" and (len(idx_class2) < target_n):
-            class2_n = min(len(idx_class0), len(idx_class1), len(idx_class2))
-        else:
-            class2_n = target_n
-
-
-
-        select0 = rng.choice(idx_class0, size=class0_n, replace=False)
-        select1 = rng.choice(idx_class1, size=class1_n, replace=False)
-
-        if granularity[0] != "b":
-            select2 = rng.choice(idx_class2, size=class2_n, replace=False)
-            sel = np.concatenate([select0, select1, select2])
-        else:
-            sel = np.concatenate([select0, select1])
-
-        rng.shuffle(sel)
-
-        X_bal = X[sel]
-        y_bal = y[sel]
-
-        return X_bal, y_bal
+        raise ValueError(
+            f"Unknown granularity {granularity!r}; use 'binary', 'discrete', or 'continuous'."
+        )
 
     def shift_labels_for_delay(
         self, aligned_df: pd.DataFrame,
@@ -183,21 +174,20 @@ class DatasetProcessor:
         gaps = df.index.to_series().diff().dt.total_seconds()
         segment_id = (gaps > self.gap_threshold_s).cumsum()
 
-        for col_shifted, col_orig in [
-            ('binary_label_shifted',   label_col_binary),
-            ('discrete_label_shifted', label_col_discrete),
-            ('continuous_label_shifted', label_col_continuous),
-        ]:
+        for col_shifted, col_orig in [('binary_label_shifted',   label_col_binary),
+                                      ('discrete_label_shifted', label_col_discrete),
+                                      ('continuous_label_shifted', label_col_continuous)]:
             df[col_shifted] = np.nan
+
             for seg in segment_id.unique():
                 mask = segment_id == seg
                 seg_labels = df.loc[mask, col_orig]
                 df.loc[mask, col_shifted] = seg_labels.shift(-shift_periods).values
 
-        # drop rows at the end of each segment that have no valid future label
         df = df.dropna(subset=['binary_label_shifted', 'discrete_label_shifted', 'continuous_label_shifted'])
 
         self.fnirs_df = df
+
         return df
 
     def get_fnirs_sample(self,
@@ -221,57 +211,14 @@ class DatasetProcessor:
         fnirs_neural_data = self.fnirs_df.iloc[closest_idx][fnirs_channels]
 
         return fnirs_neural_data
-    # def shift_labels_for_delay(
-    #     self, aligned_df: pd.DataFrame,
-    #     delay_s: float,
-    #     label_col_binary: str = 'binary_optimal',
-    #     label_col_discrete: str = 'discrete_optimal',
-    #     label_col_continuous: str = 'continuous_optimal',
-    #     verbose: bool = False) -> pd.DataFrame:
 
-    #     """Shift labels backward in time to account for a fixed delay.
-
-    #     For example, with delay_s=6, a label observed at t is treated as referring
-    #     to neural activity around t-6 seconds.
-    #     """
-
-    #     df = aligned_df.copy()
-
-    #     # Convert time delay to number of rows using the DataFrame's sampling rate
-    #     dt = (df.index[1] - df.index[0]).total_seconds()  # assumes uniform sampling
-    #     shift_periods = int(round(delay_s / dt))
-
-    #     # Shift labels backward so each row gets the label from `delay_s` seconds ahead
-    #     df['binary_label_shifted'] = df[label_col_binary].shift(-shift_periods)
-    #     df['discrete_label_shifted'] = df[label_col_discrete].shift(-shift_periods)
-    #     df['continuous_label_shifted'] = df[label_col_continuous].shift(-shift_periods)
-
-    #     # Rows at the end will have NaN labels — drop or handle as needed
-    #     df = df.iloc[:-shift_periods] if shift_periods > 0 else df
-
-    #     return df
-
-        # df = aligned_df.copy()
-        # delay = pd.Timedelta(seconds=delay_s)
-        # df[f'binary_label_shifted'] = df[label_col_binary].shift(freq=delay)
-        # df[f'discrete_label_shifted'] = df[label_col_discrete].shift(freq=delay)
-        # df[f'continuous_label_shifted'] = df[label_col_continuous].shift(freq=delay)
-        
-        # return df
-
-    def build_supervised_dataset(
-        self, aligned_df: pd.DataFrame,
-        fnirs_channels: List[str],
-        label_col: str = 'label_shifted',
-        window_duration_s: float = 6.0,
-        resample_rate_hz: float = 10.0,
-        use_shifted_data: bool = True,
-        ) -> Tuple[np.ndarray, np.ndarray]:
-        """Construct (X, y) for supervised learning from the aligned dataframe.
-
-        A window of length `window_duration_s` is moved across the time axis with
-        1-step stride, and the label at the window end is used as the target.
-        """
+    def build_supervised_dataset(self, 
+                                 aligned_df: pd.DataFrame,
+                                 fnirs_channels: List[str],
+                                 label_col: str = 'label_shifted',
+                                 window_duration_s: float = 6.0,
+                                 resample_rate_hz: float = 10.0,
+                                 use_shifted_data: bool = True) -> Tuple[np.ndarray, np.ndarray]:
 
         if use_shifted_data:
             binary_label_col = 'binary_'+label_col
@@ -309,11 +256,10 @@ class DatasetProcessor:
             X = np.stack(X_list, axis=0)
         except:
             print(window_steps)
+
         y_binary = np.array(y_list_binary)
         y_ternary = np.array(y_list_ternary)
         y_continuous = np.array(y_list_continuous)
-
-        
 
         return X, y_binary, y_ternary, y_continuous
 

@@ -55,10 +55,11 @@ def run(cfg = None, run_name = "test"):
 
     shifted_df = processor.shift_labels_for_delay(aligned_df, delay_s = cfg["neural"]["temporal_shift"])
 
-    X_bin, y_bin = processor.build_balanced_binary_dataset(
+    X, y = processor.build_balanced_dataset(
         shifted_df,
         fnirs_channels = fnirs_channels,
         label_col = "label_shifted",
+        granularity = cfg["experiment"]["model_granularity"],
         window_duration_s = cfg["neural"]["window_size_s"],
         resample_rate_hz = cfg["neural"]["fnirs_rate_hz"],
         random_state= cfg["experiment"]["random_state"],
@@ -66,7 +67,7 @@ def run(cfg = None, run_name = "test"):
 
     # TODO: differentiate between binary, ternary and regressor models
     modelTrainer = ModelTrainer()
-    classifier, report = modelTrainer.train_classifier(X_bin, y_bin, random_state =  cfg["experiment"]["random_state"],)
+    classifier, report = modelTrainer.train_classifier(X, y, random_state =  cfg["experiment"]["random_state"],)
     print(report)
     
     results_dictionary, parameters_dictionary = train(env=env, 
@@ -74,11 +75,13 @@ def run(cfg = None, run_name = "test"):
             task_df = task_df, 
             agent = agent, 
             experiment_name = cfg["experiment"]["experiment_list"], 
+            episodes_num = cfg["rl"]["n_episodes"],
             clf = classifier, 
             fnirs_channel_names=fnirs_channels, 
             window_duration_s = cfg["neural"]["window_size_s"], 
             shift = cfg["neural"]["temporal_shift"], 
             fnirs_rate_hz = cfg["neural"]["fnirs_rate_hz"],
+            beta = cfg["neural"]["beta"],
             save_results = True,
             save_to_csv = False,
             verbose = False)

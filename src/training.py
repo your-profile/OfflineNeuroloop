@@ -29,6 +29,7 @@ def train(env:gymnasium.Env,
           shift: float = 0.0, 
           target_update: int = 20, 
           buffer_type: str = 'ER', 
+          beta: float = 1.0,
           experiment_conditions: List[str] = [], 
           save_results: bool = False, 
           save_to_csv: bool = False,
@@ -48,7 +49,6 @@ def train(env:gymnasium.Env,
     success, last_success, last_participant_episode, combined_episodes = (0.0, 0.0, 0, 0)
     epsilon = 1.0
     seed = np.random.randint(0, 5000)
-
 
     # training progress bar
     bar_format = '{l_bar}{bar:10}| {n:4}/{total_fmt} [{elapsed:>7}<{remaining:>7}, {rate_fmt}{postfix}]'
@@ -89,7 +89,7 @@ def train(env:gymnasium.Env,
             
             # get + adjust neural classification
             new_neural_signal = buffer.get_neural_credit(X = 3)
-            adjusted_neural_signal = utils.adjust_neural_classification(neural_signal)
+            adjusted_neural_signal = utils.adjust_neural_classification(neural_signal, beta=beta)
             
             # if action is Nan, skip
             if action != action:
@@ -99,20 +99,31 @@ def train(env:gymnasium.Env,
             if 0 in experiment_conditions:
                 if verbose:
                     print(f"Experiment Condition 0: Reward Augmentation -- Episode {episode} -- Participant: {participant}")
-                reward = reward + utils.adjust_reward(reward, adjusted_neural_signal)*5
+                reward = reward + adjusted_neural_signal
             
             # Priorirization experiment
             if 1 in experiment_conditions:
                 if verbose:
                     print(f"Experiment Condition 1: Prioritization -- Episode {episode} -- Participant: {participant}")
-                # priority = adjust_priority(neural_signal)
-                agent.remember(state, action, reward, next_state, done, priority = adjusted_neural_signal)
+                
+                # Calculate td error from last and current action distribution
+                try:
+                    next_action_dist = episode_df["optimal_actions"][idx + 1] if idx > 0 else action_dist
+                    prev_action_value = next_action_dist[action] if action < len(next_action_dist) else 0
+                    curr_action_value = action_dist[action] if action < len(action_dist) else 0
+                    priority = reward + curr_action_value - prev_action_value
+                except:
+                    print("Skipping TD Error")
+                    priority = 0
+
+                priority += adjusted_neural_signal
+       
+                agent.remember(state, action, reward, next_state, done, priority = priority)
             
             # Q Augmentation Experiment
             if 2 in experiment_conditions:
                 if verbose:
                     print(f"Experiment Condition 2: Q-Augmentation -- Episode {episode} -- Participant: {participant}")
-                # q_augment = adjust_qvalue(neural_signal, beta=beta)
                 agent.remember(state, action, reward, next_state, done, q_augmentation = adjusted_neural_signal)
             
             if buffer_type == "ER":
