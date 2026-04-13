@@ -1,11 +1,11 @@
 def load_domain(env: str = "None"):
-    if env == "lunar_lander":
+    if env[0].lower() == "l":
         from src.envs.lunar_lander import LunarLander
         env = LunarLander()
-    elif env == "flappy_bird":
+    elif env[0].lower() == "f":
         from src.envs.flappy_bird import FlappyBirdEnv
         env = FlappyBirdEnv()
-    elif env == "robot":
+    elif env[0].lower() == "r":
         print("TODO")
     else:
         Exception("Incorrect domain key received. Domains are: \n lunar_lander \n flappy_bird \n robot")
@@ -26,3 +26,28 @@ def load_agent(algorithm: str, buffer_type: str, space = (11, 4)):
             tau = 0.005,
             buffer_type=buffer_type) 
     return agent
+
+def get_conditions(domain, task: str, verbose = False):
+
+    domain_letter = str(domain[0]).upper()
+    condition_list = []
+
+    if task.lower() == "passive":
+        condition_list.append(str(domain_letter) + "W")
+        assert(len(condition_list) == 1)
+
+    
+    if task.lower() == "active":
+        condition_list.append(str(domain_letter) + "P")
+        assert(len(condition_list) == 1)
+
+    
+    if task.lower() == "pooled":
+        condition_list.append(str(domain_letter) + "W")
+        condition_list.append(str(domain_letter) + "P")
+        assert(len(condition_list) == 2)
+
+    if verbose: print(f"Condition List: {condition_list}")
+
+    return condition_list
+

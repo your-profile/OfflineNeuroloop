@@ -83,7 +83,7 @@ class DatasetProcessor:
 
         return aligned, fnirs_channels
 
-    def build_balanced_binary_dataset(self, 
+    def build_balanced_dataset(self, 
                                       aligned_df: pd.DataFrame,
                                       fnirs_channels: List[str],
                                       label_col: str = 'label_shifted',
@@ -92,7 +92,7 @@ class DatasetProcessor:
                                       random_state: int | None = None,
                                       granularity: str = "binary"):
 
-        X, y_binary, y_discrete, y_continuous = self.build_supervised_dataset(
+        X, y_binary, y_ternary, y_continuous = self.build_supervised_dataset(
             aligned_df=aligned_df,
             fnirs_channels=fnirs_channels,
             label_col=label_col,
@@ -124,17 +124,17 @@ class DatasetProcessor:
             return X[sel], y[sel]
 
         if mode == "d":
-            y = y_discrete
+            y = y_ternary
             classes, counts = np.unique(y, return_counts=True)
             if len(classes) != 3:
-                raise ValueError(f"Expected exactly 3 classes for discrete label, got {classes}.")
+                raise ValueError(f"Expected exactly 3 classes for ternary label, got {classes}.")
             min_n = int(counts.min())
             med_n = statistics.median(counts.tolist())
             target_n = int(round((min_n + med_n) / 2))
             class_indices = [np.flatnonzero(y == c) for c in classes]
             n_per = min(target_n, *(len(ix) for ix in class_indices))
             if n_per <= 0:
-                raise ValueError("No samples available for discrete balancing.")
+                raise ValueError("No samples available for ternary balancing.")
             sel = balanced(class_indices, n_per)
             return X[sel], y[sel]
 
@@ -156,14 +156,14 @@ class DatasetProcessor:
             return X[sel], y[sel]
 
         raise ValueError(
-            f"Unknown granularity {granularity!r}; use 'binary', 'discrete', or 'continuous'."
+            f"Unknown granularity {granularity!r}; use 'binary', 'ternary', or 'continuous'."
         )
 
     def shift_labels_for_delay(
         self, aligned_df: pd.DataFrame,
         delay_s: float,
         label_col_binary: str = 'binary_optimal',
-        label_col_discrete: str = 'discrete_optimal',
+        label_col_ternary: str = 'discrete_optimal',
         label_col_continuous: str = 'continuous_optimal',
         verbose: bool = False) -> pd.DataFrame:
         df = aligned_df.copy()
@@ -175,7 +175,7 @@ class DatasetProcessor:
         segment_id = (gaps > self.gap_threshold_s).cumsum()
 
         for col_shifted, col_orig in [('binary_label_shifted',   label_col_binary),
-                                      ('discrete_label_shifted', label_col_discrete),
+                                      ('ternary_label_shifted', label_col_ternary),
                                       ('continuous_label_shifted', label_col_continuous)]:
             df[col_shifted] = np.nan
 
@@ -184,7 +184,7 @@ class DatasetProcessor:
                 seg_labels = df.loc[mask, col_orig]
                 df.loc[mask, col_shifted] = seg_labels.shift(-shift_periods).values
 
-        df = df.dropna(subset=['binary_label_shifted', 'discrete_label_shifted', 'continuous_label_shifted'])
+        df = df.dropna(subset=['binary_label_shifted', 'ternary_label_shifted', 'continuous_label_shifted'])
 
         self.fnirs_df = df
 
@@ -222,7 +222,7 @@ class DatasetProcessor:
 
         if use_shifted_data:
             binary_label_col = 'binary_'+label_col
-            ternary_label_col = 'discrete_'+label_col
+            ternary_label_col = 'ternary_'+label_col
             continuous_label_col = 'continuous_'+label_col
         else:
             binary_label_col = 'binary_optimal'

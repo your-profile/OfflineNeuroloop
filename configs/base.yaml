@@ -1,30 +1,31 @@
 experiment:
-  domain: "lunar_lander"                  # robot | lunar_lander | flappy_bird
-  task: "passive"                         # passive | active | pooled    
-  condition: "baseline"                   # baseline (0) | reward_shaping (1) | lr_modulation (2) | prioritization (3)           
-  experiment_list: [0]                    # baseline (0) | reward_shaping (1) | lr_modulation (2) | prioritization (3)
+  domain: "Lunar Lander"                  # Robot | Lunar Lander | Flappy Bird
+  task: "Passive"                         # Passive | Active | Pooled    
+  condition: "Baseline"                   # Baseline (0) | Reward Augmentation (1) | Prioritization (2) | Q-Augmentation (3) | Epsilon Modulation (4) | LR Modulation (5)         
+  experiment_list: [0]                    # Baseline (0) | Reward Augmentation (1) | Prioritization (2) | Q-Augmentation (3) | Epsilon Modulation (4) | LR Modulation (5)         
   model_granularity: "binary"             # binary | ternary | continuous
   participant_list: [2, 3, 4]
-  condition_list: ["LW"]
   random_state: 42
 
 neural:
-  model_noise: 0.0
   smoothing_method: "none"            # none | majority_vote
   credit_assignment: "window_based"   # window_based | temporal_shift 
   smoothing_window_size: 3
   temporal_shift: 0.0
-  window_size_s: 4.0
+  window_size_s: 5.0
+  step_size_s: 1.0 
   fnirs_rate_hz: 5.2
+  beta: 1.0
 
 mlp:
-  binary_hidden_layer_sizes: [6, 4, 2]
-  ternary_hidden_layer_sizes: [12, 6, 2]
-  regressor_hidden_layer_sizes: [12, 6, 2]
-  activation: "relu"
-  learning_rate_init: 0.001
-
+  model_noise: 0.0
+  binary_hidden_layer_sizes: [10, 4, 2]
+  ternary_hidden_layer_sizes: [18, 5, 3]
+  regressor_hidden_layer_sizes: [20, 6, 2]
+  clf_activation: "relu"
+  reg_activation: "tanh"
 rl:
-  n_episodes: 3000
+  n_episodes: 30
   algorithm: "DQN"
   buffer_type: "ER"
+  learning_rate_init: 0.001

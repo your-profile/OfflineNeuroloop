@@ -1,51 +1,40 @@
 from pandas._libs.tslibs.offsets import MonthEnd
 from src.neural.loader import DataLoader
 from src.neural.preprocessing import DatasetProcessor
-from src.models.training import ModelTrainer
-from src.training import train
+from src.models.model_training import ModelTrainer
+from src.training_loop import train
 import src.utils as utils
 
-def run(cfg = None, run_name = "test"):
-
-    # if cfg is None:
-
-        # cfg = {"domain": "lunar_lander",
-        #        "participant_list": [2, 3, 4],
-        #        "condition_list": ["LW"],
-        #        "experiment"
-        #        "resample_rate": 10.0,
-        #        "fnirs_channels": ["L_O_DSI", "L_D_DSI", "L_O_DSphi", "L_D_DSphi", "R_O_DSI", "R_D_DSI", "R_O_DSphi", "R_D_DSphi"],
-        #        "label_shifted": "label_shifted",
-        #        "window_size_s": 4.0,
-        #        "fnirs_rate_hz": 5.2,
-        #        "temporal_shift": 3.0,
-        #        "buffer_type": "ER",
-        #        "random_state": 42,
-        # }
+def run(cfg, run_name = "test", verbose = False):
 
     env = utils.load_domain(cfg["experiment"]["domain"])
     agent = utils.load_agent(cfg["rl"]["algorithm"], cfg["rl"]["buffer_type"], space = (env.observation_space.shape[0], env.action_space.n))
-    print(env.observation_space.shape[0], env.action_space.n)
-
+    
+    if verbose: print(f"Observation Space for {cfg["experiment"]["domain"]}: {env.observation_space.shape[0]}, Action Space: {env.action_space.n}")
+    
+    #TODO: Make anonymous/internal
     labeled_data_source_folder = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/LabeledData/"
     rl_taskstats_source_folder = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/TaskData/"
     filtered_data_source_folder = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/FilteredData/"
 
+    # get conditions
+    condition_list = utils.get_conditions(cfg["experiment"]["domain"], cfg["experiment"]["task"], verbose = verbose)
+
+    # load neural and rl data
     loader = DataLoader(
         fnirs_data_source_path=filtered_data_source_folder,
         task_data_source_path=rl_taskstats_source_folder,
         labeled_data_source_path=labeled_data_source_folder,
         participant_list = cfg["experiment"]["participant_list"],
-        conditions_list = cfg["experiment"]["condition_list"],
+        conditions_list = condition_list,
     )
 
     fnirs_df = loader.load_fnirs()     
     task_df  = loader.load_task()
     labels_df = loader.load_labels()
 
-
+    # align timestamps
     processor = DatasetProcessor()
-
     aligned_df, fnirs_channels = processor.align_streams(
         fnirs_df,
         task_df,
@@ -65,16 +54,17 @@ def run(cfg = None, run_name = "test"):
         random_state= cfg["experiment"]["random_state"],
     )
 
-    # TODO: differentiate between binary, ternary and regressor models
     modelTrainer = ModelTrainer()
-    classifier, report = modelTrainer.train_classifier(X, y, random_state =  cfg["experiment"]["random_state"],)
-    print(report)
+    classifier, report = modelTrainer.train_classifier(X, y, granularity = cfg["experiment"]["model_granularity"], random_state =  cfg["experiment"]["random_state"])
     
-    results_dictionary, parameters_dictionary = train(env=env, 
+    print("MLP Report: \n", report)
+
+    results_dictionary = train(env=env, 
             processor = processor,
             task_df = task_df, 
             agent = agent, 
-            experiment_name = cfg["experiment"]["experiment_list"], 
+            experiment_list = cfg["experiment"]["experiment_list"], 
+            granularity = cfg["experiment"]["model_granularity"],
             episodes_num = cfg["rl"]["n_episodes"],
             clf = classifier, 
             fnirs_channel_names=fnirs_channels, 
@@ -82,9 +72,15 @@ def run(cfg = None, run_name = "test"):
             shift = cfg["neural"]["temporal_shift"], 
             fnirs_rate_hz = cfg["neural"]["fnirs_rate_hz"],
             beta = cfg["neural"]["beta"],
+            noise = cfg["mlp"]["model_noise"],
+            buffer_type = cfg["rl"]["buffer_type"],
+            steps = cfg["rl"]["steps"], 
             save_results = True,
             save_to_csv = False,
             verbose = False)
-    
-    print("Classifier Report: \n", report)
 
+    trial_dict = {}
+    trial_dict["results"] = results_dictionary
+    trial_dict["parameters"] = cfg
+
+    print("TODO: Save Trial Dict")

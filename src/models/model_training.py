@@ -5,6 +5,60 @@ from sklearn.metrics import mean_squared_error, r2_score, classification_report
 import numpy as np
 
 class ModelTrainer:
+
+    def noisy_output(self, model, X, granularity, flip_rate, seed=None):
+        if granularity[0] == "c":
+            return self.noisy_regressor(model, X, flip_rate, seed=None)
+        if granularity[0] == "b":
+            return self.noisy_binary(model, X, flip_rate, seed=None)
+        if granularity[0] == "c":
+            return self.noisy_ternary(model, X, flip_rate, seed=None)
+
+
+    def flip_labels(self, labels, flip_rate, classes, seed=None):
+        """Reassign a fraction of predictions to a wrong class with noise."""
+
+        if seed is not None:
+            np.random.seed(seed)
+        
+        noisy = labels.copy()
+        n = len(labels)
+        n_flip = int(n * flip_rate)
+        flip_idx = np.random.choice(n, size=n_flip, replace=False)
+        
+        for i in flip_idx:
+            wrong_classes = [c for c in classes if c != labels[i]]
+            noisy[i] = np.random.choice(wrong_classes)
+        
+        return noisy
+
+
+    def noisy_binary(self, model, preds, flip_rate=0.1, seed=None):
+        """
+        flip_rate=0.1 → ~0.1% of predictions are flipped to the other class.
+        Roughly degrades F1 by the flip_rate amount.
+        """
+        return self.flip_labels(preds, flip_rate, classes=[0, 1], seed=seed)
+
+
+    def noisy_ternary(self, model, preds, flip_rate=0.1, seed=None):
+        """
+        flip_rate=0.1 → ~10% of predictions flipped to one of the other two classes.
+        """
+        return self.flip_labels(preds, flip_rate, classes=[0, 1, 2], seed=seed)
+
+
+    def noisy_regressor(self, model, preds, noise_level=0.1, seed=None):
+        """
+        noise_level=0.1 → noise std = 10% of the prediction's own std.
+        Degrades R² roughly proportionally.
+        """
+        if seed is not None:
+            np.random.seed(seed)
+        
+        noise = np.random.normal(0, noise_level, size=preds.shape)
+        return preds + noise
+
     def train_classifier(self, 
                          X: np.ndarray, 
                          y: np.ndarray, 
@@ -24,7 +78,6 @@ class ModelTrainer:
             clf = MLPClassifier(
                         hidden_layer_sizes=(10, 5, 2),      
                         activation='relu',
-                        learning_rate=0.001,             
                         solver='adam',              
                         random_state=random_state)
 

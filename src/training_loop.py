@@ -1,17 +1,16 @@
 import numpy as np
 import pandas as pd
 from typing import List
-# import utils
+from src.models.model_training import ModelTrainer
 from src.networks.DQN import DQN
 from src.envs.lunar_lander import LunarLander
-# import utils
 from src.envs.lunar_lander import LunarLander
 import gymnasium
 from tqdm import trange
 import numpy as np
 import torch
 from src.neural.buffer import fNIRSBuffer
-from src.rl_loop import utils_rl as utils
+from src.rl_loop import utils_rl
 from src.neural.preprocessing import DatasetProcessor
 
 def train(env:gymnasium.Env, 
@@ -19,14 +18,15 @@ def train(env:gymnasium.Env,
           agent: DQN, 
           clf, 
           processor: DatasetProcessor,
-          experiment_name: str, 
+          experiment_list: list, 
           fnirs_channel_names: List[str], 
-          domain: str = "Lunar Lander", 
-          episodes_num: int = 500, 
-          steps: int = 300, 
-          window_duration_s: float = 60.0, 
+          episodes_num: int, 
+          steps: int, 
+          window_duration_s: float, 
+          granularity: str,
           fnirs_rate_hz: float = 5.2, 
           shift: float = 0.0, 
+          noise = 0.0,
           target_update: int = 20, 
           buffer_type: str = 'ER', 
           beta: float = 1.0,
@@ -37,6 +37,7 @@ def train(env:gymnasium.Env,
     ):
 
     decay = (0.01 / 1.0) ** (1 / episodes_num)
+    learning_rate = agent.lr
 
     # calculate window size + initialize buffer
     sample_period_s = 1.0 / fnirs_rate_hz
@@ -53,6 +54,7 @@ def train(env:gymnasium.Env,
     # training progress bar
     bar_format = '{l_bar}{bar:10}| {n:4}/{total_fmt} [{elapsed:>7}<{remaining:>7}, {rate_fmt}{postfix}]'
     pbar = trange(episodes_num, unit="ep", bar_format=bar_format, ascii=True)
+    ml = ModelTrainer()
 
     # for loop for participant task data
     for (participant, episode), episode_df in grouped:
@@ -81,7 +83,7 @@ def train(env:gymnasium.Env,
 
             # get associated fNIRS sample given timestep
             neural_features = buffer.get_features()
-            neural_signal = utils.get_neural_signal(features = neural_features, clf = clf)
+            neural_signal = utils_rl.get_neural_signal(features = neural_features, clf = clf)
 
             # update neural buffer
             fnirs_sample = processor.get_fnirs_sample(timestamp = rl_timestamp, temporal_shift = -shift, fnirs_channels = fnirs_channel_names)
@@ -89,20 +91,24 @@ def train(env:gymnasium.Env,
             
             # get + adjust neural classification
             new_neural_signal = buffer.get_neural_credit(X = 3)
-            adjusted_neural_signal = utils.adjust_neural_classification(neural_signal, beta=beta)
+
+            if noise > 0.0:
+                new_neural_signal  = ml.noisy_output(clf,  new_neural_signal, granularity, flip_rate = noise, seed = seed)
+
+            adjusted_neural_signal = utils_rl.adjust_neural_classification(neural_signal, beta=beta)
             
             # if action is Nan, skip
             if action != action:
                 continue
 
             # Reward Augmentation Experiment
-            if 0 in experiment_conditions:
+            if 1 in experiment_conditions:
                 if verbose:
                     print(f"Experiment Condition 0: Reward Augmentation -- Episode {episode} -- Participant: {participant}")
                 reward = reward + adjusted_neural_signal
             
             # Priorirization experiment
-            if 1 in experiment_conditions:
+            if 2 in experiment_conditions:
                 if verbose:
                     print(f"Experiment Condition 1: Prioritization -- Episode {episode} -- Participant: {participant}")
                 
@@ -121,7 +127,7 @@ def train(env:gymnasium.Env,
                 agent.remember(state, action, reward, next_state, done, priority = priority)
             
             # Q Augmentation Experiment
-            if 2 in experiment_conditions:
+            if 3 in experiment_conditions:
                 if verbose:
                     print(f"Experiment Condition 2: Q-Augmentation -- Episode {episode} -- Participant: {participant}")
                 agent.remember(state, action, reward, next_state, done, q_augmentation = adjusted_neural_signal)
@@ -134,10 +140,17 @@ def train(env:gymnasium.Env,
                 agent.remember(state, action, reward, next_state, done, priority = td_error)
 
             # Epsilon/Exploration Adjustment
-            if 3 in experiment_conditions:
+            if 4 in experiment_conditions:
                 if verbose:
-                    print(f"Experiment Condition 3: Exploration Modulation -- Episode {episode} -- Participant: {participant}")
-                epsilon = utils.adjust_epsilon(epsilon, adjusted_neural_signal)
+                    print(f"Experiment Condition 4: Exploration Modulation -- Epsilon {epsilon}")
+                epsilon = utils_rl.adjust_epsilon(epsilon, adjusted_neural_signal)
+
+            # Learning Rate Adjustment
+            if 5 in experiment_conditions:
+                if verbose:
+                    print(f"Experiment Condition 5: Learning Rate Modulation -- Learning Rate {learning_rate}")
+                learning_rate = utils_rl.adjust_epsilon(learning_rate, adjusted_neural_signal)
+                agent.set_lr(learning_rate)
 
             # print(f"Step: {step} | Action: {action} | Reward: {reward} | State: {state} | idx: {idx}")
 
@@ -209,7 +222,7 @@ def train(env:gymnasium.Env,
             pbar.update(0)
 
             if combined_episodes % target_update == 0:
-                success = utils.evaluate(env=LunarLander(), agent=agent, episodes=30, steps=600)
+                success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=30, steps=600)
                 all_episode_success.append(success)
                 last_success = success
             else:
@@ -229,37 +242,7 @@ def train(env:gymnasium.Env,
     print(combined_episodes, len(all_episode_steps))
     env.close()
     if save_results:
-        parameters = utils.Results.save_parameters(domain = domain,
-                                #   task = task,
-                                #   participant_list = participant_list,
-                                #   trial_key = trial_key,
-                                    experiment_key = experiment_name, 
-                                    algorithm_name = agent.algorithm, 
-                                    episodes = combined_episodes, 
-                                    state_dim = int(agent.n_observations), 
-                                    action_dim = int(agent.n_actions), 
-                                    learning_rate = float(agent.lr), 
-                                    gamma = agent.gamma, 
-                                    target_update = target_update, 
-                                    buffer_type = buffer_type, 
-                                    epsilon_type = "decay", 
-                                    credit_type = "none",
-                                    save_to_csv = save_to_csv
-                                #   temporal_shift = temporal_shift,
-                                #   resample_rate = resample_rate,
-                                #   window_size = window_size,
-                                #   step_size = step_size,
-                                #   random_state = random_state,
-                                #   model_name = model_name,
-                                #   model_granularity = model_granularity,
-                                #   model_architecture = model_architecture,
-                                #   model_solver = model_solver,
-                                #   model_activation = model_activation,
-                                #   model_report = model_report,
-                                    )
-
-        results = utils.Results.save_results(domain = domain,
-                                   experiment_name = experiment_name, 
+        results = utils_rl.Results.save_results(experiment_list = experiment_list, 
                                    episodes = last_participant_episode, 
                                    avg_rewards = all_average_rewards, 
                                    total_rewards = all_total_rewards, 
@@ -271,4 +254,4 @@ def train(env:gymnasium.Env,
 
     print("Summation of participant episodes seen: ", total_participant_episodes)
 
-    return results, parameters
+    return results

@@ -7,7 +7,7 @@ class Results():
     '''
     Results: Saving hyperparameters and final results for experiments
     '''
-    def save_results(domain, episodes, avg_rewards, total_rewards, success_rate, steps, experiment_name, save_to_csv = False):
+    def save_results(episodes, avg_rewards, total_rewards, success_rate, steps, experiment_list, save_to_csv = False):
         import datetime
 
         print(len(avg_rewards),len(total_rewards),len(success_rate),len(steps), episodes)
@@ -16,9 +16,8 @@ class Results():
         row = {
             "date": datetime.date.today(),
             "time": datetime.datetime.now(),
-            "experiment_name": experiment_name,
+            "experiment_list": experiment_list,
             "episodes": episodes,
-            "domain": domain,
             "average_reward": json.dumps(list(map(float, avg_rewards))),
             "total_reward": json.dumps(list(map(float, total_rewards))),
             "success_rate": json.dumps(list(map(float, success_rate))),
@@ -42,15 +41,14 @@ class Results():
         return row
         
 
-    def save_parameters(domain:str, episodes:int, state_dim:int, action_dim:int, learning_rate:float, gamma:float, epsilon_type:str, target_update:int, buffer_type:str, experiment_key:str, algorithm_name:str, credit_type:str, save_to_csv = False):
+    def save_parameters(domain:str, participant_list, algorithm_name, experiment_list, episodes:int, state_dim:int, action_dim:int, learning_rate:float, gamma:float, epsilon_type:str, target_update:int, resample_rate, window_size, step_size, buffer_type:str, credit_type:str, temporal_shift, save_to_csv = False):
         import datetime
         row = {"date": datetime.date.today(),
             "time": datetime.datetime.now(),
             "domain": domain,
             # "task": task,
-            # "participant_list": participant_list,
-            # "trial_key": trial_key,
-            "experiment_key": experiment_key,
+            "participant_list": participant_list,
+            "experiment_list": experiment_list,
             "algorithm": algorithm_name,
 
             "episodes": episodes,
@@ -61,10 +59,11 @@ class Results():
             "epsilon_type": epsilon_type,
             "target_update": target_update,
             "buffer_type": buffer_type,
-            # "temporal_shift": temporal_shift,
-            # "resample_rate": resample_rate,
-            # "window_size": window_size,
-            # "step_size": step_size,
+
+            "temporal_shift": temporal_shift,
+            "resample_rate": resample_rate,
+            "window_size": window_size,
+            "step_size": step_size,
             # "random_state": random_state,
             
             "credit_type": credit_type,
