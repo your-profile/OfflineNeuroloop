@@ -46,6 +46,7 @@ DOMAINS_TASKS = {
     # "flappy":  ["Passive", "Active", "Pooled"],
 }
 DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/'
+RESULTS_PATH = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/'
 
 def set_nested(cfg, keys, val):
     cfg[keys[0]][keys[1]] = val
@@ -111,7 +112,7 @@ for (domain, tasks), condition, granularity in itertools.product(
         
         print(cfg)
 
-        run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH)
+        run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH, RESULTS_PATH=RESULTS_PATH)
 
 # Ablation sweeps across the full condition grid
 for ablation, (domain, tasks), condition, granularity in itertools.product(
@@ -146,4 +147,4 @@ for ablation, (domain, tasks), condition, granularity in itertools.product(
                 cfg['buffer_type'] = "PER"
 
             set_nested(cfg, ablation["key"], val)
-            run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH)
+            run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH, RESULTS_PATH=RESULTS_PATH)

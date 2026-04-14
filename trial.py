@@ -5,8 +5,9 @@ from src.models.model_training import ModelTrainer
 from src.training_loop import train
 import src.utils as utils
 import os
+import csv
 
-def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.'):
+def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='.'):
 
     env = utils.load_domain(cfg["experiment"]["domain"], cfg["rl"]["steps"])
     agent = utils.load_agent(cfg["rl"]["algorithm"], cfg["rl"]["buffer_type"], space = (env.observation_space.shape[0], env.action_space.n))
@@ -87,11 +88,29 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.'):
             buffer_type = cfg["rl"]["buffer_type"],
             steps = cfg["rl"]["steps"], 
             save_results = True,
-            save_to_csv = True,
+            save_to_csv = False,
             verbose = False)
 
     trial_dict = {}
     trial_dict["results"] = results_dictionary
     trial_dict["parameters"] = cfg
 
-    print("TODO: Save Trial Dict")
+    def flatten_dict(d, parent_key='', sep='_'):
+        items = []
+        for k, v in d.items():
+            new_key = f"{parent_key}{sep}{k}" if parent_key else k
+            if isinstance(v, dict):
+                items.extend(flatten_dict(v, new_key, sep=sep).items())
+            else:
+                items.append((new_key, v))
+        return dict(items)
+
+    flat_trial = flatten_dict(trial_dict)
+
+    csv_path = os.path.join(RESULTS_PATH,'src/results/trial_results.csv')
+    write_header = not os.path.exists(os.path.join(RESULTS_PATH,'src/results/trial_results.csv'))
+    with open(csv_path, 'a', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=flat_trial.keys())
+        if write_header:
+            writer.writeheader()
+        writer.writerow(flat_trial)
