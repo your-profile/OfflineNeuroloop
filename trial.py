@@ -7,7 +7,7 @@ import src.utils as utils
 
 def run(cfg, run_name = "test", verbose = False):
 
-    env = utils.load_domain(cfg["experiment"]["domain"])
+    env = utils.load_domain(cfg["experiment"]["domain"], cfg["rl"]["steps"])
     agent = utils.load_agent(cfg["rl"]["algorithm"], cfg["rl"]["buffer_type"], space = (env.observation_space.shape[0], env.action_space.n))
     
     if verbose: print(f"Observation Space for {cfg["experiment"]["domain"]}: {env.observation_space.shape[0]}, Action Space: {env.action_space.n}")
@@ -54,7 +54,7 @@ def run(cfg, run_name = "test", verbose = False):
         random_state= cfg["experiment"]["random_state"],
     )
 
-    modelTrainer = ModelTrainer()
+    modelTrainer = ModelTrainer(cfg = cfg["mlp"], seed = cfg["experiment"]["random_state"])
     classifier, report = modelTrainer.train_classifier(X, y, granularity = cfg["experiment"]["model_granularity"], random_state =  cfg["experiment"]["random_state"])
     
     print("MLP Report: \n", report)
@@ -67,7 +67,9 @@ def run(cfg, run_name = "test", verbose = False):
             granularity = cfg["experiment"]["model_granularity"],
             episodes_num = cfg["rl"]["n_episodes"],
             clf = classifier, 
+            ml = modelTrainer, 
             fnirs_channel_names=fnirs_channels, 
+            smoothing_window_size =  cfg["neural"]["smoothing_window_size"], 
             window_duration_s = cfg["neural"]["window_size_s"], 
             shift = cfg["neural"]["temporal_shift"], 
             fnirs_rate_hz = cfg["neural"]["fnirs_rate_hz"],

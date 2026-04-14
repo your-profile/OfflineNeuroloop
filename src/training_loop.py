@@ -4,10 +4,10 @@ from typing import List
 from src.models.model_training import ModelTrainer
 from src.networks.DQN import DQN
 from src.envs.lunar_lander import LunarLander
-from src.envs.lunar_lander import LunarLander
 import gymnasium
 from tqdm import trange
 import numpy as np
+import src.utils as utils
 import torch
 from src.neural.buffer import fNIRSBuffer
 from src.rl_loop import utils_rl
@@ -18,6 +18,7 @@ def train(env:gymnasium.Env,
           agent: DQN, 
           clf, 
           processor: DatasetProcessor,
+          ml: ModelTrainer,
           experiment_list: list, 
           fnirs_channel_names: List[str], 
           episodes_num: int, 
@@ -27,6 +28,7 @@ def train(env:gymnasium.Env,
           fnirs_rate_hz: float = 5.2, 
           shift: float = 0.0, 
           noise = 0.0,
+          smoothing_window_size: int = 0,
           target_update: int = 20, 
           buffer_type: str = 'ER', 
           beta: float = 1.0,
@@ -44,17 +46,20 @@ def train(env:gymnasium.Env,
     buffer = fNIRSBuffer(window_duration_s=window_duration_s, sample_period_s=sample_period_s)
     grouped = task_df.groupby(['participantKey', 'episode'])
 
+    if granularity[0] == "b": gr = 0
+    if granularity[0] == "t": gr = 1
+    if granularity[0] == "c": gr = 2
+
     # rewards, timesteps, success rate
     all_average_rewards, all_total_rewards, all_episode_steps, all_episode_success = [],[],[],[]
-    classes_opt, classes_disc, classes_pred, smoothing_classes_pred = [],[],[],[]
+    classes_truth, classes_pred = [],[]
     success, last_success, last_participant_episode, combined_episodes = (0.0, 0.0, 0, 0)
     epsilon = 1.0
     seed = np.random.randint(0, 5000)
 
     # training progress bar
-    bar_format = '{l_bar}{bar:10}| {n:4}/{total_fmt} [{elapsed:>7}<{remaining:>7}, {rate_fmt}{postfix}]'
+    bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} < {remaining}, {rate_fmt}]'
     pbar = trange(episodes_num, unit="ep", bar_format=bar_format, ascii=True)
-    ml = ModelTrainer()
 
     # for loop for participant task data
     for (participant, episode), episode_df in grouped:
@@ -90,12 +95,14 @@ def train(env:gymnasium.Env,
             buffer.add_sample(timestamp = rl_timestamp, x = fnirs_sample, classification=neural_signal)
             
             # get + adjust neural classification
-            new_neural_signal = buffer.get_neural_credit(X = 3)
+            new_neural_signal = buffer.get_neural_credit(X = smoothing_window_size)
 
             if noise > 0.0:
-                new_neural_signal  = ml.noisy_output(clf,  new_neural_signal, granularity, flip_rate = noise, seed = seed)
+                new_neural_signal  = ml.noisy_output(clf,  new_neural_signal, granularity, flip_rate = noise)
 
             adjusted_neural_signal = utils_rl.adjust_neural_classification(neural_signal, beta=beta)
+            class_truth = processor.get_label_sample(timestamp = rl_timestamp, temporal_shift = -shift)
+            # print(class_truth.tolist())
             
             # if action is Nan, skip
             if action != action:
@@ -158,19 +165,13 @@ def train(env:gymnasium.Env,
             last_state_action_value = state_action_value
         
         # model optimality predictions
-        classes_pred.append(int(neural_signal)) #raw predictions
-        smoothing_classes_pred.append(new_neural_signal) #predictions with smoothing
-
-        # optimality ground truths (lunar lander)
-        if total_reward > 90.0:
-            classes_opt.append(0)
-            classes_disc.append(0)
-        elif total_reward > 17.0:
-            classes_opt.append(1)
-            classes_disc.append(1)
+        if smoothing_window_size > 1:
+            classes_pred.append(new_neural_signal) #predictions with smoothing
         else:
-            classes_opt.append(1)
-            classes_disc.append(2)
+            classes_pred.append(int(neural_signal)) #raw predictions
+            
+        classes_truth.append(class_truth.to_list()[gr])
+
 
         # save average reward, total reward and timesteps
         all_average_rewards.append(round(total_reward/step, 2))
@@ -217,10 +218,6 @@ def train(env:gymnasium.Env,
             # decay epsilon
             epsilon = max(0.01, epsilon*decay)
 
-            # bar update
-            pbar.set_postfix_str(f"Score: {total_reward: 7.2f}, Neural Signal: {neural_signal}, 50 Score Avg: {score_avg: 7.2f}, Eval: {last_success}")
-            pbar.update(0)
-
             if combined_episodes % target_update == 0:
                 success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=30, steps=600)
                 all_episode_success.append(success)
@@ -228,8 +225,8 @@ def train(env:gymnasium.Env,
             else:
                 all_episode_success.append(success)
 
-            if success > 0.40:
-                # save agent if above 40% success rate
+            if success > 0.60:
+                # save agent if above 60% success rate
                 torch.save({
                     'episode': episode,
                     'model_state_dict': agent.policy_net.state_dict(),
@@ -237,10 +234,18 @@ def train(env:gymnasium.Env,
                     "LLPolicy" + str(int(success*100
                 )))
 
+            # bar update
+            pbar.set_postfix_str(f"Score: {total_reward: 7.2f}, Neural Signal: {neural_signal}, 50 Score Avg: {score_avg: 7.2f}, Eval: {last_success}")
+            pbar.update(1)
             combined_episodes += 1
 
-    print(combined_episodes, len(all_episode_steps))
     env.close()
+    # print("Classes Truth: ", classes_truth)
+    # print("Classes Pred: ", classes_pred)
+
+    offline_model_report = ml.get_report([int(x) for x in classes_truth], [int(x) for x in classes_pred], (granularity[0] != "c"))
+    print(offline_model_report)
+
     if save_results:
         results = utils_rl.Results.save_results(experiment_list = experiment_list, 
                                    episodes = last_participant_episode, 

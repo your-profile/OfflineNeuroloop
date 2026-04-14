@@ -11,4 +11,4 @@ mlp:
 rl:
   n_episodes: 30
   algorithm: "DDPG"
-  steps: 10
+  steps: 600

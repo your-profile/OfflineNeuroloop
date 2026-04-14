@@ -26,7 +26,7 @@ class Results():
 
         if save_to_csv:
 
-            csv_filename = "/Users/juliasantaniello/Desktop/NEURO-LOOP/data/exp_results.csv"
+            csv_filename = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/results"
 
             write_header = not os.path.exists(csv_filename)
 
@@ -184,3 +184,4 @@ def evaluate(env, agent, steps=600, episodes=20):
                 break
 
     return successes/episodes
+    

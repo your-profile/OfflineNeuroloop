@@ -37,12 +37,12 @@ class fNIRSBuffer:
         If there is a tie, returns the most recent one among the tied classes.
         """
         if len(self.classifications) < X:
-            return None
+            return 0.0
 
         relevant_classes = list(self.classifications)[-X:]
 
         if len(relevant_classes) == 0:
-            return None
+            return 0.0
 
         classes, counts = np.unique(np.array(relevant_classes), return_counts=True)
         max_count = classes[np.argmax(counts)]

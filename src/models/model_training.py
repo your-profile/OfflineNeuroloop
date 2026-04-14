@@ -5,21 +5,46 @@ from sklearn.metrics import mean_squared_error, r2_score, classification_report
 import numpy as np
 
 class ModelTrainer:
+    def __init__(self, cfg, seed):
+        self.binary_hidden_layer_sizes = cfg["binary_hidden_layer_sizes"]
+        self.regressor_hidden_layer_sizes = cfg["regressor_hidden_layer_sizes"]
+        self.ternary_hidden_layer_sizes = cfg["ternary_hidden_layer_sizes"]
+        self.clf_activation = cfg["clf_activation"]
+        self.reg_activation = cfg["reg_activation"]
+        self.model_noise = cfg["model_noise"]
+        self.seed = seed
 
-    def noisy_output(self, model, X, granularity, flip_rate, seed=None):
+    def get_report(self, y_test, y_pred, classifier = False):
+
+        if classifier:
+            report = classification_report(y_test, y_pred, output_dict=False)
+        else:
+            mse = mean_squared_error(y_test, y_pred)
+            r2 = r2_score(y_test, y_pred)
+            mae = np.mean(np.abs(y_test - y_pred)) 
+
+            report = {
+                "R2": r2,
+                "MSE": mse,
+                "MAE": mae }
+        
+        return report
+
+
+    def noisy_output(self, model, X, granularity, flip_rate):
         if granularity[0] == "c":
-            return self.noisy_regressor(model, X, flip_rate, seed=None)
+            return self.noisy_regressor(model, X, flip_rate)
         if granularity[0] == "b":
-            return self.noisy_binary(model, X, flip_rate, seed=None)
+            return self.noisy_binary(model, X, flip_rate)
         if granularity[0] == "c":
-            return self.noisy_ternary(model, X, flip_rate, seed=None)
+            return self.noisy_ternary(model, X, flip_rate)
 
 
-    def flip_labels(self, labels, flip_rate, classes, seed=None):
+    def flip_labels(self, labels, flip_rate, classes):
         """Reassign a fraction of predictions to a wrong class with noise."""
 
-        if seed is not None:
-            np.random.seed(seed)
+        if self.seed is not None:
+            np.random.seed(self.seed)
         
         noisy = labels.copy()
         n = len(labels)
@@ -33,28 +58,28 @@ class ModelTrainer:
         return noisy
 
 
-    def noisy_binary(self, model, preds, flip_rate=0.1, seed=None):
+    def noisy_binary(self, model, preds, flip_rate=0.1):
         """
         flip_rate=0.1 → ~0.1% of predictions are flipped to the other class.
         Roughly degrades F1 by the flip_rate amount.
         """
-        return self.flip_labels(preds, flip_rate, classes=[0, 1], seed=seed)
+        return self.flip_labels(preds, flip_rate, classes=[0, 1])
 
 
-    def noisy_ternary(self, model, preds, flip_rate=0.1, seed=None):
+    def noisy_ternary(self, model, preds, flip_rate=0.1):
         """
         flip_rate=0.1 → ~10% of predictions flipped to one of the other two classes.
         """
-        return self.flip_labels(preds, flip_rate, classes=[0, 1, 2], seed=seed)
+        return self.flip_labels(preds, flip_rate, classes=[0, 1, 2])
 
 
-    def noisy_regressor(self, model, preds, noise_level=0.1, seed=None):
+    def noisy_regressor(self, model, preds, noise_level=0.1):
         """
         noise_level=0.1 → noise std = 10% of the prediction's own std.
         Degrades R² roughly proportionally.
         """
-        if seed is not None:
-            np.random.seed(seed)
+        if self.seed is not None:
+            np.random.seed(self.seed)
         
         noise = np.random.normal(0, noise_level, size=preds.shape)
         return preds + noise

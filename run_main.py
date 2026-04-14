@@ -4,14 +4,14 @@ from trial import run
 with open("configs/test.yaml") as f:
     base = yaml.safe_load(f)
 
-#TODO: configure experiment variables for: domain task type etc...
+#TODO: configure experiment variables for: smoothing method
 
 # Experimental Variables
-DOMAINS_TASKS = {
-    # "robot":        ["Passive", "Active", "Pooled"],
-    "lunar": ["Passive", "Active", "Pooled"],
-    # "flappy":  ["Passive", "Active", "Pooled"],
-}
+# DOMAINS_TASKS = {
+#     # "robot":        ["Passive", "Active", "Pooled"],
+#     "lunar": ["Passive", "Active", "Pooled"],
+#     # "flappy":  ["Passive", "Active", "Pooled"],
+# }
 
 # NEURAL_CONDITIONS = [
 #     "Baseline",
@@ -21,18 +21,18 @@ DOMAINS_TASKS = {
 #     "Epsilon Modulation",
 #     "LR Modulation",
 # ]
-
-GRANULARITIES = ["binary", "ternary", "continuous"]
+# 
+# GRANULARITIES = ["binary", "ternary", "continuous"]
 
 # Ablation Studies
 
-ABLATIONS = [
-    {"key": ["neural", "model_noise"], "vals": [0.05, 0.1, 0.2, 0.3]},
-    {"key": ["neural", "smoothing_method"], "vals": ["none", "majority_vote"]},
-    {"key": ["neural", "credit_assignment"], "vals": ["window_based", "temporal_shift"]},
-    {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]},
-    {"key": ["neural", "smoothing_window_size"], "vals": [1, 3, 5, 7]},
-]
+# ABLATIONS = [
+#     {"key": ["neural", "model_noise"], "vals": [0.05, 0.1, 0.2, 0.3]},
+#     {"key": ["neural", "smoothing_method"], "vals": ["none", "majority_vote"]},
+#     {"key": ["neural", "credit_assignment"], "vals": ["window_based", "temporal_shift"]},
+#     {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]},
+#     {"key": ["neural", "smoothing_window_size"], "vals": [1, 3, 5, 7]},
+# ]
 
 # testing: single condition, binary granularity, no ablation sweeps
 NEURAL_CONDITIONS = [
@@ -40,6 +40,11 @@ NEURAL_CONDITIONS = [
 ]
 ABLATIONS = []
 GRANULARITIES = ["binary"]
+DOMAINS_TASKS = {
+    # "robot":        ["Passive", "Active", "Pooled"],
+    "lunar": ["Passive"],
+    # "flappy":  ["Passive", "Active", "Pooled"],
+}
 
 def set_nested(cfg, keys, val):
     cfg[keys[0]][keys[1]] = val
@@ -102,6 +107,8 @@ for (domain, tasks), condition, granularity in itertools.product(
 
         if condition == "Prioritization":
             cfg['buffer_type'] = "PER"
+        
+        print(cfg)
 
         run(cfg, run_name=make_run_name(cfg))
 

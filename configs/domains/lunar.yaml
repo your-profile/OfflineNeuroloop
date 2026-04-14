@@ -11,4 +11,4 @@ mlp:
 rl:
   n_episodes: 30
   algorithm: "DQN"
-  steps: 300
+  steps: 500

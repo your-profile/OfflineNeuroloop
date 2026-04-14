@@ -9,6 +9,7 @@ class DatasetProcessor:
         self.verbose = True
         self.gap_threshold_s = 600
         self.fnirs_df = None
+        self.label_df = None
 
     def align_streams(self, 
                       fnirs_df: pd.DataFrame, 
@@ -84,13 +85,13 @@ class DatasetProcessor:
         return aligned, fnirs_channels
 
     def build_balanced_dataset(self, 
-                                      aligned_df: pd.DataFrame,
-                                      fnirs_channels: List[str],
-                                      label_col: str = 'label_shifted',
-                                      window_duration_s: float = 6.0,
-                                      resample_rate_hz: float = 5.2,
-                                      random_state: int | None = None,
-                                      granularity: str = "binary"):
+                            aligned_df: pd.DataFrame,
+                            fnirs_channels: List[str],
+                            label_col: str = 'label_shifted',
+                            window_duration_s: float = 6.0,
+                            resample_rate_hz: float = 5.2,
+                            random_state: int | None = None,
+                            granularity: str = "binary"):
 
         X, y_binary, y_ternary, y_continuous = self.build_supervised_dataset(
             aligned_df=aligned_df,
@@ -184,8 +185,10 @@ class DatasetProcessor:
                 seg_labels = df.loc[mask, col_orig]
                 df.loc[mask, col_shifted] = seg_labels.shift(-shift_periods).values
 
-        df = df.dropna(subset=['binary_label_shifted', 'ternary_label_shifted', 'continuous_label_shifted'])
+        self.label_df = df[['binary_label_shifted', 'ternary_label_shifted', 'continuous_label_shifted']].copy()
 
+        df = df.dropna(subset=['binary_label_shifted', 'ternary_label_shifted', 'continuous_label_shifted'])
+   
         self.fnirs_df = df
 
         return df
@@ -211,6 +214,27 @@ class DatasetProcessor:
         fnirs_neural_data = self.fnirs_df.iloc[closest_idx][fnirs_channels]
 
         return fnirs_neural_data
+
+    def get_label_sample(self,
+        timestamp,
+        temporal_shift: float = 4.0,
+        label_types: List[str] = ['binary_label_shifted', 'ternary_label_shifted', 'continuous_label_shifted']
+    ):
+        # Convert temporal_shift to Timedelta if it isn't already
+        if not isinstance(temporal_shift, pd.Timedelta):
+            temporal_shift = pd.Timedelta(seconds=temporal_shift)
+
+        # Find closest fNIRS sample to (timestamp + temporal_shift)
+        target_time = timestamp + temporal_shift
+
+        try:
+            closest_idx = (self.label_df['time'] - target_time).abs().argmin()
+        except:
+            closest_idx = (self.label_df.index.to_series() - target_time).abs().argmin()
+
+        label_data = self.label_df.iloc[closest_idx][label_types]
+
+        return label_data
 
     def build_supervised_dataset(self, 
                                  aligned_df: pd.DataFrame,

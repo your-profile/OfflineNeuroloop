@@ -1,4 +1,7 @@
-def load_domain(env: str = "None"):
+import gymnasium
+
+
+def load_domain(env: str, steps: int = None):
     if env[0].lower() == "l":
         from src.envs.lunar_lander import LunarLander
         env = LunarLander()
@@ -6,7 +9,7 @@ def load_domain(env: str = "None"):
         from src.envs.flappy_bird import FlappyBirdEnv
         env = FlappyBirdEnv()
     elif env[0].lower() == "r":
-        print("TODO")
+        env = gymnasium.make('FetchPickAndPlace-v4', max_episode_steps=steps)
     else:
         Exception("Incorrect domain key received. Domains are: \n lunar_lander \n flappy_bird \n robot")
 
@@ -50,4 +53,15 @@ def get_conditions(domain, task: str, verbose = False):
     if verbose: print(f"Condition List: {condition_list}")
 
     return condition_list
+
+def get_labels(granularity, domain, reward):
+
+    #optimality ground truths (lunar lander)
+
+    if reward > 90.0:
+        return 0
+    elif reward > 17.0:
+        return 1
+    else:
+        return 2
 

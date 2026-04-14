@@ -1,4 +1,4 @@
-experiment:
+experiment: 
   domain: "Lunar Lander"                  # Robot | Lunar Lander | Flappy Bird
   task: "Passive"                         # Passive | Active | Pooled    
   condition: "Baseline"                   # Baseline (0) | Reward Augmentation (1) | Prioritization (2) | Q-Augmentation (3) | Epsilon Modulation (4) | LR Modulation (5)         
@@ -8,13 +8,13 @@ experiment:
   random_state: 42
 
 neural:
-  model_noise: 0.0
+  model_noise: 0.1
   smoothing_method: "none"            # none | majority_vote
   credit_assignment: "window_based"   # window_based | temporal_shift 
-  smoothing_window_size: 3
+  smoothing_window_size: 1
   temporal_shift: 0.0
-  window_size_s: 5.0
-  step_size_s: 1.0 
+  window_size_s: 4.0
+  step_size_s: 0.5 
   fnirs_rate_hz: 5.2
   beta: 1.0
 
