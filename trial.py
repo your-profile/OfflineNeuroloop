@@ -4,8 +4,9 @@ from src.neural.preprocessing import DatasetProcessor
 from src.models.model_training import ModelTrainer
 from src.training_loop import train
 import src.utils as utils
+import os
 
-def run(cfg, run_name = "test", verbose = False):
+def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.'):
 
     env = utils.load_domain(cfg["experiment"]["domain"], cfg["rl"]["steps"])
     agent = utils.load_agent(cfg["rl"]["algorithm"], cfg["rl"]["buffer_type"], space = (env.observation_space.shape[0], env.action_space.n))
@@ -13,9 +14,17 @@ def run(cfg, run_name = "test", verbose = False):
     if verbose: print(f"Observation Space for {cfg["experiment"]["domain"]}: {env.observation_space.shape[0]}, Action Space: {env.action_space.n}")
     
     #TODO: Make anonymous/internal
-    labeled_data_source_folder = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/LabeledData/"
-    rl_taskstats_source_folder = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/TaskData/"
-    filtered_data_source_folder = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/FilteredData/"
+    if not os.path.exists(os.path.join(DATA_PATH, 'fNIRS/LabeledData/')):
+        try:
+            DATA_PATH = os.path.join(os.environ.get("HOME", ""),
+                        '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/')
+            assert os.path.exists(os.path.join(DATA_PATH, 'fNIRS/LabeledData/'))
+        except AssertionError:
+            print("Please store path to participant date in DATA_PATH")
+
+    labeled_data_source_folder = os.path.join(DATA_PATH, 'fNIRS/LabeledData/')
+    rl_taskstats_source_folder = os.path.join(DATA_PATH, 'TaskData/')
+    filtered_data_source_folder = os.path.join(DATA_PATH, 'fNIRS/FilteredData/')
 
     # get conditions
     condition_list = utils.get_conditions(cfg["experiment"]["domain"], cfg["experiment"]["task"], verbose = verbose)
@@ -78,7 +87,7 @@ def run(cfg, run_name = "test", verbose = False):
             buffer_type = cfg["rl"]["buffer_type"],
             steps = cfg["rl"]["steps"], 
             save_results = True,
-            save_to_csv = False,
+            save_to_csv = True,
             verbose = False)
 
     trial_dict = {}
