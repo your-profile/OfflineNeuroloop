@@ -1,7 +1,7 @@
 import itertools, copy, yaml
 from trial import run
 
-with open("configs/test.yaml") as f:
+with open("configs/base.yaml") as f:
     base = yaml.safe_load(f)
 
 #TODO: configure experiment variables for: smoothing method
@@ -39,10 +39,10 @@ NEURAL_CONDITIONS = [
 ABLATIONS = []
 
 GRANULARITIES = ["binary", "ternary", "continuous"]
-# GRANULARITIES = ["ternary"]
+# GRANULARITIES = ["binary"]
 
 DOMAINS_TASKS = {
-    # "Lunar": ["Passive"],
+    "Lunar": ["Passive"],
     # "Robot": ["Passive"],
     "Flappy": ["Passive"],
 }
@@ -55,15 +55,15 @@ def set_nested(cfg, keys, val):
 def make_run_name(cfg):
     e = cfg["experiment"]
     n = cfg["neural"]
-    print("RUN NAME:", (
-        f"{e['domain']}__{e['task']}__{e['condition']}"
-        f"__{e['model_granularity']}"
-        f"__noise{n['model_noise']}__{n['smoothing_window_size']}"
-        f"__{n['temporal_shift']}"
-        f"__{n['temporal_shift']}"
-        f"__{n['smoothing_window_size']}"
+    # print("RUN NAME:", (
+    #     f"{e['domain']}__{e['task']}__{e['condition']}"
+    #     f"__{e['model_granularity']}"
+    #     f"__noise{n['model_noise']}__{n['smoothing_window_size']}"
+    #     f"__{n['temporal_shift']}"
+    #     f"__{n['temporal_shift']}"
+    #     f"__{n['smoothing_window_size']}"
 
-    ))
+    # ))
     return (
         f"{e['domain']}__{e['task']}__{e['condition']}"
         f"__{e['model_granularity']}"
@@ -111,7 +111,7 @@ for (domain, tasks), condition, granularity in itertools.product(
         if condition == "Prioritization":
             cfg['buffer_type'] = "PER"
         
-        print(cfg)
+        # print(cfg)
 
         run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH, RESULTS_PATH=RESULTS_PATH)
 

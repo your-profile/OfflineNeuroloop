@@ -68,6 +68,10 @@ def train(env:gymnasium.Env,
     sample_period_s = 1.0 / fnirs_rate_hz
     buffer = fNIRSBuffer(window_duration_s=window_duration_s, sample_period_s=sample_period_s)
     grouped = task_df.groupby(['participantKey', 'episode'])
+    
+    # # Calculate total number of participant episodes by counting unique (participantKey, episode) pairs
+    total_participant_episodes = task_df.drop_duplicates(subset=["participantKey", "episode"]).shape[0]
+    # print(f"Total participant episodes: {total_participant_episodes}")
 
     if granularity[0] == "b": gr = 0
     if granularity[0] == "t": gr = 1
@@ -85,9 +89,7 @@ def train(env:gymnasium.Env,
     pbar = trange(episodes_num, unit="ep", bar_format=bar_format, ascii=True)
 
     # for loop for participant task data
-    for (participant, episode), episode_df in grouped:
-        total_participant_episodes = task_df['episode'].nunique()
-   
+    for (participant, episode), episode_df in grouped:   
         total_reward, last_state_action_value, state_action_value = 0, 0, 0
         combined_episodes += 1
         done = False
@@ -201,12 +203,13 @@ def train(env:gymnasium.Env,
 
 
         # save average reward, total reward and timesteps
-        all_average_rewards.append(round(total_reward/step, 2))
-        all_total_rewards.append(round(total_reward, 2))
-        all_episode_steps.append(step)
+        # all_average_rewards.append(round(total_reward/step, 2))
+        # all_total_rewards.append(round(total_reward, 2))
+        # all_episode_steps.append(step)
 
         # episodes needed to complete training
         new_episode_num = max(0, episodes_num // max(total_participant_episodes, 1))
+        print(f"New Episode Num: {new_episode_num}, Total Participant Episodes: {total_participant_episodes}")
 
         # observe new states outside of data
         for new_epsiode in range(0, new_episode_num):

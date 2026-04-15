@@ -1,4 +1,3 @@
-from pandas._libs.tslibs.offsets import MonthEnd
 from src.neural.loader import DataLoader
 from src.neural.preprocessing import DatasetProcessor
 from src.models.model_training import ModelTrainer
@@ -18,12 +17,7 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
 def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='.'):
 
     env = utils.load_domain(cfg["experiment"]["domain"], cfg["rl"]["steps"])
-
-    try:
-        agent = utils.load_agent(cfg["rl"]["algorithm"], cfg["rl"]["buffer_type"], space = (env.observation_space.shape[0], env.action_space.n))
-    except:
-        agent = utils.load_agent(cfg["rl"]["algorithm"], cfg["rl"]["buffer_type"], space = None)
-
+    agent = utils.load_agent(cfg["rl"]["algorithm"], cfg["rl"]["buffer_type"], space = (env.observation_space.shape[0], env.action_space.n))
     
     if verbose: print(f"Observation Space for {cfg["experiment"]["domain"]}: {env.observation_space.shape[0]}, Action Space: {env.action_space.n}")
     
@@ -42,7 +36,7 @@ def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
 
     # get conditions
     condition_list = utils.get_conditions(cfg["experiment"]["domain"], cfg["experiment"]["task"], verbose = verbose)
-
+    # print(cfg["experiment"]["participant_list"])
     # load neural and rl data
     loader = DataLoader(
         fnirs_data_source_path=filtered_data_source_folder,
@@ -105,8 +99,7 @@ def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
             verbose = False)
 
     trial_dict = {}
-    trial_dict["results"] = results_dictionary
-    trial_dict["parameters"] = cfg
+    trial_dict = {"parameters": cfg, "results": results_dictionary}
 
     def flatten_dict(d, parent_key='', sep='_'):
         items = []
@@ -133,23 +126,9 @@ def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
 
 def run_robot(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='.'):
 
-    """
-    Same pipeline as ``run`` (fNIRS → align → classifier → offline+online RL), but:
-    - Environment: **FetchPickAndPlace-v2** when registered (else v3/v4 via ``make_fetch_env``).
-    - Agent: **DDPG** + HER (continuous gripper / arm actions).
-    - Training: ``train_robot`` instead of DQN ``train``.
-    """
     steps = cfg["rl"].get("steps", 50)
     env = utils.make_fetch_env(max_episode_steps=steps, mujoco_version=4)
     agent = utils.load_ddpg_agent(env, cfg["rl"]["buffer_type"])
-
-    if verbose:
-        obs, _ = env.reset()
-        print(
-            f"Fetch obs dim: {obs['observation'].shape[0]}, "
-            f"goal dim: {obs['desired_goal'].shape[0]}, "
-            f"action dim: {env.action_space.shape[0]}"
-        )
 
     if not os.path.exists(os.path.join(DATA_PATH, 'fNIRS/LabeledData/')):
         try:
@@ -163,9 +142,7 @@ def run_robot(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
     rl_taskstats_source_folder = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/TaskData/"
     filtered_data_source_folder = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/FilteredData/"
 
-    condition_list = utils.get_conditions(
-        cfg["experiment"]["domain"], cfg["experiment"]["task"], verbose=verbose
-    )
+    condition_list = utils.get_conditions(cfg["experiment"]["domain"], cfg["experiment"]["task"], verbose=verbose)
 
     loader = DataLoader(
         fnirs_data_source_path=filtered_data_source_folder,
@@ -201,15 +178,9 @@ def run_robot(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
         random_state=cfg["experiment"]["random_state"],
     )
 
-    modelTrainer = ModelTrainer(
-        cfg=cfg["mlp"], seed=cfg["experiment"]["random_state"]
-    )
-    classifier, report = modelTrainer.train_classifier(
-        X,
-        y,
-        granularity=cfg["experiment"]["model_granularity"],
-        random_state=cfg["experiment"]["random_state"],
-    )
+    modelTrainer = ModelTrainer(cfg=cfg["mlp"], seed=cfg["experiment"]["random_state"])
+
+    classifier, report = modelTrainer.train_classifier(X, y, granularity=cfg["experiment"]["model_granularity"], random_state=cfg["experiment"]["random_state"])
 
     print("MLP Report: \n", report)
 
@@ -237,7 +208,7 @@ def run_robot(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
         verbose=verbose,
     )
 
-    trial_dict = {"results": results_dictionary, "parameters": cfg}
+    trial_dict = {"parameters": cfg, "results": results_dictionary}
 
     def flatten_dict(d, parent_key='', sep='_'):
         items = []

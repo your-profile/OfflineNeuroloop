@@ -96,6 +96,8 @@ class DataLoader:
                     'chosen_actions': [],
                     'optimal_actions': [],
                     'numDemonstrations': [],
+                    'desired_goal': [],
+                    'achieved_goal': [],
                     'steps': [],
                     'seed': [],
         }
@@ -111,10 +113,6 @@ class DataLoader:
             return participant_id, cond
         
         for p in sorted(demo_dict.keys()):
-            if p[3]=="R":
-                new_dict['desired_goal'] = []
-                new_dict['achieved_goal'] = []
-
             participant_id, cond = parse_participant_key(p)
             for i in range(len(demo_dict[p].keys())):
                 discounted_rewards = self.compute_discounted_rewards(demo_dict[p][i]["rewards"], 0.95)
@@ -138,10 +136,17 @@ class DataLoader:
                     new_dict['participant_id'].append(participant_id)
                     new_dict['condition'].append(cond)
                     new_dict['seed'].append(demo_dict[p][i]["seed"])
-                    # print(p)
-                    if p[3]=="R":
-                        new_dict["desired_goal"].append((demo_dict[p][i]["desired_goal"]))
-                        new_dict['achieved_goal'].append(demo_dict[p][i]["achieved_goal"][j])
+                    # Keep all columns aligned for DataFrame construction.
+                    if len(cond) > 0 and cond[0] == "R":
+                        new_dict["desired_goal"].append(demo_dict[p][i].get("desired_goal", np.nan))
+                        achieved = demo_dict[p][i].get("achieved_goal", None)
+                        if achieved is not None and j < len(achieved):
+                            new_dict["achieved_goal"].append(achieved[j])
+                        else:
+                            new_dict["achieved_goal"].append(np.nan)
+                    else:
+                        new_dict["desired_goal"].append(np.nan)
+                        new_dict["achieved_goal"].append(np.nan)
 
         # print(demo_dict)
         return pd.DataFrame(new_dict)

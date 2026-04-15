@@ -4,7 +4,7 @@ experiment:
   condition: "Baseline"                   # Baseline (0) | Reward Augmentation (1) | Prioritization (2) | Epsilon Modulation (3) | LR Modulation (4) | Q-Augmentation (5)      
   experiment_list: [0]                    # Baseline (0) | Reward Augmentation (1) | Prioritization (2) | Epsilon Modulation (3) | LR Modulation (4) | Q-Augmentation (5)       
   model_granularity: "binary"             # binary | ternary | continuous
-  participant_list: [2, 3, 4]
+  participant_list: [2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
   random_state: 42
 
 neural:

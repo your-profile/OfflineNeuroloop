@@ -1,6 +1,4 @@
-# from src.networks import utils_networks as utils
 import torch
-import random
 import torch.nn as nn
 import numpy as np
 from torch.optim import Adam
@@ -8,9 +6,10 @@ import torch.nn.functional as F
 from torch import from_numpy
 import matplotlib.pyplot as plt
 from collections import deque
+import threading
+
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 
 class Actor(nn.Module):
     def __init__(self, n_states, n_actions, n_goals, n_hidden1=64, n_hidden2=64, n_hidden3=64, initial_w=3e-3):
@@ -56,10 +55,6 @@ class Critic(nn.Module):
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
         return self.output(x)
-
-
-import threading
-
 
 class Normalizer:
     def __init__(self, size, eps=1e-2, default_clip_range=np.inf):
@@ -122,23 +117,19 @@ class MemoryBuffer:
 
     def _collect(self, ep_indices, time_indices):
         """Extract transition arrays for given (episode, timestep) index pairs."""
-        state      = np.float32([self.buffer[ep]["state"][t]              for ep, t in zip(ep_indices, time_indices)])
-        action     = np.float32([self.buffer[ep]["action"][t]             for ep, t in zip(ep_indices, time_indices)])
-        reward     = np.float32([self.buffer[ep]["reward"][t]             for ep, t in zip(ep_indices, time_indices)])
-        next_state = np.float32([self.buffer[ep]["next_state"][t]         for ep, t in zip(ep_indices, time_indices)])
-        desired_goal      = np.float32([self.buffer[ep]["desired_goal"][t]      for ep, t in zip(ep_indices, time_indices)])
-        done              = np.float32([self.buffer[ep]["done"][t]              for ep, t in zip(ep_indices, time_indices)])
+        state = np.float32([self.buffer[ep]["state"][t] for ep, t in zip(ep_indices, time_indices)])
+        action = np.float32([self.buffer[ep]["action"][t] for ep, t in zip(ep_indices, time_indices)])
+        reward = np.float32([self.buffer[ep]["reward"][t] for ep, t in zip(ep_indices, time_indices)])
+        next_state = np.float32([self.buffer[ep]["next_state"][t] for ep, t in zip(ep_indices, time_indices)])
+        desired_goal = np.float32([self.buffer[ep]["desired_goal"][t] for ep, t in zip(ep_indices, time_indices)])
+        done = np.float32([self.buffer[ep]["done"][t] for ep, t in zip(ep_indices, time_indices)])
         next_achieved_goal = np.float32([self.buffer[ep]["next_achieved_goal"][t] for ep, t in zip(ep_indices, time_indices)])
         return state, action, reward, next_state, desired_goal, done, next_achieved_goal
 
-    def _her_relabel(self, ep_indices, time_indices, desired_goal, next_achieved_goal):
-        """Apply HER future-goal relabeling in-place; recompute reward/done if env set."""
+    def future_relabel(self, ep_indices, time_indices, desired_goal, next_achieved_goal):
         batch_size = len(ep_indices)
         her_indices = np.where(np.random.uniform(size=batch_size) < self.future_p)[0]
-        future_offset = np.array([
-            int(np.random.uniform() * (len(self.buffer[ep]["next_state"]) - time_indices[i] - 1))
-            for i, ep in enumerate(ep_indices)
-        ], dtype=np.int64)
+        future_offset = np.array([int(np.random.uniform() * (len(self.buffer[ep]["next_state"]) - time_indices[i] - 1)) for i, ep in enumerate(ep_indices)], dtype=np.int64)
         future_timesteps = (time_indices + 1 + future_offset)[her_indices]
         desired_goal[her_indices] = np.float32([
             self.buffer[ep_indices[her_indices[i]]]["achieved_goal"][future_timesteps[i]]
@@ -150,8 +141,8 @@ class MemoryBuffer:
             done   = (reward == 0.0).astype(np.float32)
         return desired_goal, reward, done
 
-    def _random_indices(self, batch_size):
-        """Uniform random (episode, timestep) pairs — standard ER behaviour."""
+    def random_indices(self, batch_size):
+        """Get random indices for batch"""
         ep_indices = np.random.randint(0, len(self.buffer), batch_size)
         time_indices = np.array([
             np.random.randint(0, len(self.buffer[ep]["next_state"]) - 1)
@@ -160,14 +151,13 @@ class MemoryBuffer:
         return ep_indices, time_indices
 
     def sample(self, batch_size):
-        ep_indices, time_indices = self._random_indices(batch_size)
-        state, action, reward, next_state, desired_goal, done, next_achieved_goal = \
-            self._collect(ep_indices, time_indices)
-        desired_goal, her_reward, her_done = self._her_relabel(
-            ep_indices, time_indices, desired_goal, next_achieved_goal)
+        ep_indices, time_indices = self.random_indices(batch_size)
+        state, action, reward, next_state, desired_goal, done, next_achieved_goal = self._collect(ep_indices, time_indices)
+        desired_goal, her_reward, her_done = self.future_relabel(ep_indices, time_indices, desired_goal, next_achieved_goal)
+        
         if her_reward is not None:
             reward, done = her_reward, her_done
-        # Return flat transition indices so callers can update priorities if needed
+
         return state, action, reward, next_state, desired_goal, done, list(zip(ep_indices, time_indices))
 
     def add_episode(self, episode_batch):
@@ -178,60 +168,36 @@ class MemoryBuffer:
 
 class PrioritizedMemoryBuffer(MemoryBuffer):
     """
-    Episode-level HER buffer with transition-level priority sampling.
+    Episode-level HER buffer with transition-level priority sampling
 
-    Priority logic mirrors the DQN PrioritizedReplayBuffer:
-      - Priorities are stored per (episode, timestep) transition.
-      - If all priorities are identical (including all 0.0), sampling falls
-        back to uniform — identical behaviour to plain MemoryBuffer / vanilla ER.
-      - Call update_priorities(indices, td_errors) after each train step to
-        keep priorities current.
-
-    Parameters
-    ----------
-    alpha : float
-        Priority exponent. 0 = uniform, 1 = full prioritization.
-    eps : float
-        Small floor added to |TD error| to prevent zero priority after updates.
-    """
+    Priority logic is similar to the DQN PrioritizedReplayBuffer
+"""
     def __init__(self, size, k_future=4, env=None, alpha=0.6, eps=1e-6):
         super().__init__(size, k_future, env)
         self.alpha = alpha
         self.eps   = eps
-        # Flat dict: (ep_idx_in_deque, timestep) -> raw priority
-        # We track by deque position; positions shift when old episodes evict,
-        # so we key by the episode object id instead for correctness.
         self._priorities: dict = {}   # key: (id(episode), t) -> float
-        self._default_priority = 1.0  # assigned to brand-new unseen transitions
+        self._default_priority = 1.0  
 
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
-
-    def _priority_for(self, ep_idx, t):
+    def get_priority(self, ep_idx, t):
         ep_id = id(self.buffer[ep_idx])
         return self._priorities.get((ep_id, t), self._default_priority)
 
-    def _build_prob_table(self, ep_indices, time_indices):
+    def get_probabilities(self, ep_indices, time_indices):
         """
-        Compute sampling probabilities for a candidate set of (ep, t) pairs.
-        Returns probs array (or None if uniform fallback should be used).
+        Compute and returnsampling probabilities
         """
-        raw = np.array([self._priority_for(ep, t)
+        raw = np.array([self.get_priority(ep, t)
                         for ep, t in zip(ep_indices, time_indices)], dtype=np.float32)
         scaled = np.abs(raw) ** self.alpha
         total  = scaled.sum()
-        # Uniform fallback: all priorities identical (covers all-0.0 case too)
+        # uniform sampling if all priorities are identical
         if total == 0 or np.allclose(scaled, scaled[0]):
             return None
         return scaled / total
 
-    # ------------------------------------------------------------------
-    # Public interface
-    # ------------------------------------------------------------------
-
     def add_episode(self, episode_batch):
-        # If buffer is full the deque will evict the oldest episode; clean its keys
+        # If buffer is full the deque will evict the oldest episode
         if len(self.buffer) == self.maxSize:
             evicted = self.buffer[0]
             evicted_id = id(evicted)
@@ -242,16 +208,7 @@ class PrioritizedMemoryBuffer(MemoryBuffer):
 
     def sample(self, batch_size):
         """
-        Sample batch_size transitions.
-
-        Strategy:
-          1. Draw a large candidate pool (~10x) of random (ep, t) pairs.
-          2. Compute priorities over the pool.
-          3. Sample batch_size from the pool with those probabilities
-             (or uniformly if all priorities are equal).
-
-        Returns the same tuple as MemoryBuffer.sample() plus transition indices
-        for priority updates.
+        Sample batch_size transitions
         """
         n_eps = len(self.buffer)
         pool_size = min(batch_size * 10, self.len_transition)
@@ -264,7 +221,7 @@ class PrioritizedMemoryBuffer(MemoryBuffer):
             for ep in pool_ep
         ], dtype=np.int64)
 
-        probs = self._build_prob_table(pool_ep, pool_t)
+        probs = self.get_probabilities(pool_ep, pool_t)
 
         if probs is None:
             # Uniform fallback — identical to vanilla ER
@@ -277,7 +234,7 @@ class PrioritizedMemoryBuffer(MemoryBuffer):
 
         state, action, reward, next_state, desired_goal, done, next_achieved_goal = \
             self._collect(ep_indices, time_indices)
-        desired_goal, her_reward, her_done = self._her_relabel(
+        desired_goal, her_reward, her_done = self.future_relabel(
             ep_indices, time_indices, desired_goal, next_achieved_goal)
         if her_reward is not None:
             reward, done = her_reward, her_done

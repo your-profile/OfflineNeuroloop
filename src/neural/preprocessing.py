@@ -6,7 +6,7 @@ import statistics
 class DatasetProcessor:
     def __init__(self):
         self.neural_channels = None
-        self.verbose = True
+        self.verbose = False
         self.gap_threshold_s = 600
         self.fnirs_df = None
         self.label_df = None

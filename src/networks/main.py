@@ -7,15 +7,15 @@ import gymnasium_robotics
 from DDPG import MemoryBuffer, PrioritizedMemoryBuffer, DDPG
 
 # Fast baseline for FetchPickAndPlace-v4 using episode/step loops.
-NUM_EPISODES = 8000
+NUM_EPISODES = 500000
 NUM_STEPS = 50
-WARMUP_TRANSITIONS = 200
+WARMUP_TRANSITIONS = 10000
 UPDATES_PER_STEP = 1
 EVAL_EVERY = 20
 EVAL_EPISODES = 20
-USE_PER = True
+USE_PER = False
 
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 BUFFER_CAPACITY = 100000
 K_FUTURE = 4
 PER_ALPHA = 0.6
@@ -172,6 +172,21 @@ def main():
                         "best_eval_success": best_eval_success,
                     },
                     "best_fetch_ddpg_her.pth",
+                )
+            if eval_success == 0.7:
+                best_eval_success = eval_success
+                torch.save(
+                    {
+                        "episode": episode_idx,
+                        "actor_state_dict": agent.actor.state_dict(),
+                        "critic_state_dict": agent.critic.state_dict(),
+                        "actor_target_state_dict": agent.actor_target.state_dict(),
+                        "critic_target_state_dict": agent.critic_target.state_dict(),
+                        "actor_optimizer_state_dict": agent.actor_optim.state_dict(),
+                        "critic_optimizer_state_dict": agent.critic_optim.state_dict(),
+                        "best_eval_success": best_eval_success,
+                    },
+                    "fetch_ddpg_her_70.pth",
                 )
 
     env.close()
