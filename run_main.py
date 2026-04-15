@@ -42,9 +42,9 @@ GRANULARITIES = ["binary", "ternary", "continuous"]
 # GRANULARITIES = ["ternary"]
 
 DOMAINS_TASKS = {
-    "Lunar": ["Passive"],
+    # "Lunar": ["Passive"],
     # "Robot": ["Passive"],
-    # "Flappy": ["Passive"],
+    "Flappy": ["Passive"],
 }
 DATA_PATH = '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/'#'/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/'
 RESULTS_PATH = '/Users/juliasantaniello/Desktop/OfflineNeuroloop/' #'/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/'

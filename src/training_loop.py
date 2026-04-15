@@ -273,7 +273,7 @@ def train(env:gymnasium.Env,
 
     if save_results:
         results = utils_rl.Results.save_results(experiment_list = experiment_list, 
-                                   episodes = last_participant_episode, 
+                                   episodes = episodes_num, 
                                    avg_rewards = all_average_rewards, 
                                    total_rewards = all_total_rewards, 
                                    success_rate = all_episode_success,
@@ -593,8 +593,7 @@ def train_robot(
                 f"Score: {total_reward:7.2f} Neural: {neural_signal} "
                 f"Avg50: {score_avg:7.2f} Eval: {last_success}"
             )
-            pbar.update(1)
-
+    pbar.update(1)
     env.close()
 
     offline_model_report = ml.get_report(np.array(classes_truth), np.array(classes_pred), (granularity[0] != "c"))
@@ -604,7 +603,7 @@ def train_robot(
     if save_results:
         results = utils_rl.Results.save_results(
             experiment_list=experiment_list,
-            episodes=last_participant_episode,
+            episodes=episodes_num,
             avg_rewards=all_average_rewards,
             total_rewards=all_total_rewards,
             success_rate=all_episode_success,
