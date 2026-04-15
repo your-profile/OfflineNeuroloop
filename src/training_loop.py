@@ -4,6 +4,7 @@ from typing import List
 from src.models.model_training import ModelTrainer
 from src.networks.DQN import DQN
 from src.envs.lunar_lander import LunarLander
+from src.envs.flappy_bird import FlappyBirdEnv as FlappyBird
 import gymnasium
 from tqdm import trange
 import numpy as np
@@ -77,19 +78,21 @@ def train(env:gymnasium.Env,
     if granularity[0] == "t": gr = 1
     if granularity[0] == "c": gr = 2
 
+
     # rewards, timesteps, success rate
     all_average_rewards, all_total_rewards, all_episode_steps, all_episode_success = [],[],[],[]
     classes_truth, classes_pred = [],[]
     success, last_success, last_participant_episode, combined_episodes = (0.0, 0.0, 0, 0)
     epsilon = 1.0
     seed = np.random.randint(0, 5000)
+    domain_key = task_df["condition"].iloc[0][0]
 
     # training progress bar
     bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} < {remaining}, {rate_fmt}]'
     pbar = trange(episodes_num, unit="ep", bar_format=bar_format, ascii=True)
 
     # for loop for participant task data
-    for (participant, episode), episode_df in grouped:   
+    for (participant, episode), episode_df in grouped:  
         total_reward, last_state_action_value, state_action_value = 0, 0, 0
         combined_episodes += 1
         done = False
@@ -209,12 +212,16 @@ def train(env:gymnasium.Env,
 
         # episodes needed to complete training
         new_episode_num = max(0, episodes_num // max(total_participant_episodes, 1))
-        print(f"New Episode Num: {new_episode_num}, Total Participant Episodes: {total_participant_episodes}")
+        #print(f"New Episode Num: {new_episode_num}, Total Participant Episodes: {total_participant_episodes}")
 
         # observe new states outside of data
         for new_epsiode in range(0, new_episode_num):
             # set seed
-            state  = env.reset(seed=seed)
+            if domain_key == "F":
+                state, _ = env.reset(seed=seed)
+            else:
+                state = env.reset(seed=seed)
+
             seed += 1
             total_reward, state_action_value, last_state_action_value = 0, 0, 0
 
@@ -223,7 +230,11 @@ def train(env:gymnasium.Env,
                 action, state_action_value = agent.chooseAction(state, epsilon)
                 
                 # take action in env
-                next_state, reward, done, _ = env.step(action)
+                if domain_key == "F":
+                    next_state, reward, done, _, _ = env.step(action)
+                else:
+                    next_state, reward, done, _ = env.step(action)
+
                 
                 # td_error for PER
                 td_error = reward + state_action_value - last_state_action_value
@@ -249,7 +260,10 @@ def train(env:gymnasium.Env,
             epsilon = max(0.01, epsilon*decay)
 
             if combined_episodes % target_update == 0:
-                success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=30, steps=600)
+                if domain_key == "F":
+                    success = utils_rl.evaluate(env=FlappyBird(score_limit=100), agent=agent, episodes=30, steps=600)
+                else:
+                    success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=30, steps=600)
                 all_episode_success.append(success)
                 last_success = success
             else:

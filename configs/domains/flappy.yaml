@@ -12,3 +12,5 @@ rl:
   n_episodes: 3000
   algorithm: "DQN"
   steps: 500
+  action_space: 2
+  observation_space: 12

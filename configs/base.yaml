@@ -28,3 +28,5 @@ rl:
   algorithm: "DQN"
   buffer_type: "ER"
   learning_rate_init: 0.001
+  observation_space: 11
+  action_space: 4

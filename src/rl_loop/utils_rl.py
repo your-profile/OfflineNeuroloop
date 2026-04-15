@@ -174,10 +174,19 @@ def evaluate(env, agent, steps=600, episodes=20):
     """
     successes = 0
     for i in range(episodes):
-        state  = env.reset()
+        try:
+            state, _  = env.reset()
+        except:
+            state = env.reset()
+
         for idx_step in range(steps):
             action, _ = agent.chooseAction(state, epsilon=0)
-            state, reward, done, win = env.step(action)
+
+            try:
+                state, reward, done, win = env.step(action)
+            except:
+                state, reward, done, win, _ = env.step(action)
+
             if done:
                 if win:
                     successes += 1

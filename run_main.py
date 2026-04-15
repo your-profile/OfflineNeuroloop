@@ -29,7 +29,7 @@ with open("configs/base.yaml") as f:
 #     {"key": ["neural", "model_noise"], "vals": [0.1, 0.2, 0.3]},
 #     {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]},
 #     {"key": ["neural", "smoothing_window_size"], "vals": [1, 3, 5, 7]},
-# ]
+# ]a
 
 # testing: single condition, binary granularity, no ablation sweeps
 NEURAL_CONDITIONS = [
@@ -38,16 +38,17 @@ NEURAL_CONDITIONS = [
 
 ABLATIONS = []
 
-GRANULARITIES = ["binary", "ternary", "continuous"]
-# GRANULARITIES = ["binary"]
+#GRANULARITIES = ["binary", "ternary", "continuous"]
+GRANULARITIES = ["binary"]
 
 DOMAINS_TASKS = {
+    "Flappy": ["Passive"],
+
     "Lunar": ["Passive"],
     # "Robot": ["Passive"],
-    "Flappy": ["Passive"],
 }
-DATA_PATH = '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/'#'/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/'
-RESULTS_PATH = '/Users/juliasantaniello/Desktop/OfflineNeuroloop/' #'/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/'
+DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/' #'/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/
+RESULTS_PATH = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/' #'/Users/juliasantaniello/Desktop/OfflineNeuroloop/'
 
 def set_nested(cfg, keys, val):
     cfg[keys[0]][keys[1]] = val
@@ -105,6 +106,9 @@ for (domain, tasks), condition, granularity in itertools.product(
             "n_episodes": domain_cfg["rl"]["n_episodes"],
             "algorithm": domain_cfg["rl"]["algorithm"],
             "steps": domain_cfg["rl"]["steps"],
+            "action_space": domain_cfg["rl"]["action_space"],
+            "observation_space": domain_cfg["rl"]["observation_space"],
+
 
         })
 
