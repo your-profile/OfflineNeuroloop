@@ -7,19 +7,15 @@ import src.utils as utils
 import os
 import csv
 
-<<<<<<< Updated upstream
 def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='.'):
-=======
-def run(cfg, run_name = "test", verbose = False):
     if cfg["experiment"]["domain"][0].lower() == "l" or cfg["experiment"]["domain"][0].lower() == "f":
-        run_lunar(cfg, run_name, verbose)
+        run_lunar(cfg, run_name, verbose, DATA_PATH, RESULTS_PATH)
     elif cfg["experiment"]["domain"][0].lower() == "r":
-        run_robot(cfg, run_name, verbose)
+        run_robot(cfg, run_name, verbose, DATA_PATH, RESULTS_PATH)
     else:
         raise ValueError(f"Invalid domain: {cfg['experiment']['domain']}")
 
-def run_lunar(cfg, run_name = "test", verbose = False):
->>>>>>> Stashed changes
+def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='.'):
 
     env = utils.load_domain(cfg["experiment"]["domain"], cfg["rl"]["steps"])
 
@@ -35,7 +31,7 @@ def run_lunar(cfg, run_name = "test", verbose = False):
     if not os.path.exists(os.path.join(DATA_PATH, 'fNIRS/LabeledData/')):
         try:
             DATA_PATH = os.path.join(os.environ.get("HOME", ""),
-                        '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/')
+                        '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/')
             assert os.path.exists(os.path.join(DATA_PATH, 'fNIRS/LabeledData/'))
         except AssertionError:
             print("Please store path to participant date in DATA_PATH")
@@ -112,7 +108,6 @@ def run_lunar(cfg, run_name = "test", verbose = False):
     trial_dict["results"] = results_dictionary
     trial_dict["parameters"] = cfg
 
-<<<<<<< Updated upstream
     def flatten_dict(d, parent_key='', sep='_'):
         items = []
         for k, v in d.items():
@@ -132,11 +127,12 @@ def run_lunar(cfg, run_name = "test", verbose = False):
         if write_header:
             writer.writeheader()
         writer.writerow(flat_trial)
-=======
+
     print("TODO: Save Trial Dict")
 
 
-def run_robot(cfg, run_name="test", verbose=False):
+def run_robot(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='.'):
+
     """
     Same pipeline as ``run`` (fNIRS → align → classifier → offline+online RL), but:
     - Environment: **FetchPickAndPlace-v2** when registered (else v3/v4 via ``make_fetch_env``).
@@ -154,6 +150,14 @@ def run_robot(cfg, run_name="test", verbose=False):
             f"goal dim: {obs['desired_goal'].shape[0]}, "
             f"action dim: {env.action_space.shape[0]}"
         )
+
+    if not os.path.exists(os.path.join(DATA_PATH, 'fNIRS/LabeledData/')):
+        try:
+            DATA_PATH = os.path.join(os.environ.get("HOME", ""),
+                        '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/')
+            assert os.path.exists(os.path.join(DATA_PATH, 'fNIRS/LabeledData/'))
+        except AssertionError:
+                    print("Please store path to participant date in DATA_PATH")
 
     labeled_data_source_folder = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/LabeledData/"
     rl_taskstats_source_folder = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/TaskData/"
@@ -234,5 +238,25 @@ def run_robot(cfg, run_name="test", verbose=False):
     )
 
     trial_dict = {"results": results_dictionary, "parameters": cfg}
+
+    def flatten_dict(d, parent_key='', sep='_'):
+        items = []
+        for k, v in d.items():
+            new_key = f"{parent_key}{sep}{k}" if parent_key else k
+            if isinstance(v, dict):
+                items.extend(flatten_dict(v, new_key, sep=sep).items())
+            else:
+                items.append((new_key, v))
+        return dict(items)
+
+    flat_trial = flatten_dict(trial_dict)
+
+    csv_path = os.path.join(RESULTS_PATH,'src/results/trial_results.csv')
+    write_header = not os.path.exists(os.path.join(RESULTS_PATH,'src/results/trial_results.csv'))
+    with open(csv_path, 'a', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=flat_trial.keys())
+        if write_header:
+            writer.writeheader()
+        writer.writerow(flat_trial)
+
     print("TODO: Save Trial Dict")
->>>>>>> Stashed changes

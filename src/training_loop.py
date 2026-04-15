@@ -209,8 +209,6 @@ def train(env:gymnasium.Env,
         new_episode_num = max(0, episodes_num // max(total_participant_episodes, 1))
 
         # observe new states outside of data
-        print(new_episode_num)
-
         for new_epsiode in range(0, new_episode_num):
             # set seed
             state  = env.reset(seed=seed)
@@ -430,16 +428,10 @@ def train_robot(
             new_neural_signal = buffer.get_neural_credit(granularity=granularity, X=smoothing_window_size)
 
             if noise > 0.0:
-                new_neural_signal = ml.noisy_output(
-                    clf, new_neural_signal, granularity, flip_rate=noise
-                )
+                new_neural_signal = ml.noisy_output(clf, new_neural_signal, granularity, flip_rate=noise)
 
-            adjusted_neural = utils_rl.adjust_neural_classification(
-                neural_signal, beta=beta
-            )
-            class_truth = processor.get_label_sample(
-                timestamp=rl_timestamp, temporal_shift=-shift
-            )
+            adjusted_neural = utils_rl.adjust_neural_classification(neural_signal, beta=beta)
+            class_truth = processor.get_label_sample(timestamp=rl_timestamp, temporal_shift=-shift)
 
             nopt = nrow["optimal_actions"] if t + 1 < len(rows) else action_dist
             priority = ddpg_priority(reward, a, action_dist, nopt)
@@ -463,9 +455,7 @@ def train_robot(
                 if verbose:
                     print(f"Exploration modulation — randomprob {agent.randomprob:.3f}")
 
-                agent.randomprob = float(
-                    np.clip(agent.randomprob - 0.02 * float(adjusted_neural), 0.05, 0.5)
-                )
+                agent.randomprob = float(np.clip(agent.randomprob - 0.02 * float(adjusted_neural), 0.05, 0.5))
 
             if 4 in flags:
                 if verbose:
@@ -516,7 +506,6 @@ def train_robot(
         all_episode_steps.append(len(ep["state"]) - 1)
 
         new_episode_num = max(0, episodes_num // max(total_participant_episodes, 1))
-        print(new_episode_num)
         
         for _ in range(new_episode_num):
             obs, _ = env.reset(seed=seed)
