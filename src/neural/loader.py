@@ -28,7 +28,7 @@ class DataLoader:
                 [df, fnirs_dict[key]],
                 ignore_index=True
             )
-        print(df.head(2))
+        # print(df.head(2))
         df['time'] = pd.to_datetime(df['time'], utc=True)
         df = df.sort_values(by=['pid', 'time'])
 
@@ -86,6 +86,8 @@ class DataLoader:
         new_dict = {'floatTimestamps':[],
                     'dateTimestamps': [],
                     'participantKey': [],
+                    'participant_id': [],
+                    'condition': [],
                     'episode': [],
                     'states': [],
                     'actions': [],
@@ -97,8 +99,23 @@ class DataLoader:
                     'steps': [],
                     'seed': [],
         }
+
+        def parse_participant_key(key: str):
+            key = str(key)
+            participant_str = key[:3]
+            cond = key[3:]
+            try:
+                participant_id = int(participant_str)
+            except ValueError:
+                participant_id = np.nan
+            return participant_id, cond
         
         for p in sorted(demo_dict.keys()):
+            if p[3]=="R":
+                new_dict['desired_goal'] = []
+                new_dict['achieved_goal'] = []
+
+            participant_id, cond = parse_participant_key(p)
             for i in range(len(demo_dict[p].keys())):
                 discounted_rewards = self.compute_discounted_rewards(demo_dict[p][i]["rewards"], 0.95)
 
@@ -118,12 +135,15 @@ class DataLoader:
 
                     new_dict['numDemonstrations'].append(len(demo_dict[p].keys()))
                     new_dict['participantKey'].append(p)
+                    new_dict['participant_id'].append(participant_id)
+                    new_dict['condition'].append(cond)
                     new_dict['seed'].append(demo_dict[p][i]["seed"])
-
-                    if p[2]=="R":
+                    # print(p)
+                    if p[3]=="R":
                         new_dict["desired_goal"].append((demo_dict[p][i]["desired_goal"]))
                         new_dict['achieved_goal'].append(demo_dict[p][i]["achieved_goal"][j])
 
+        # print(demo_dict)
         return pd.DataFrame(new_dict)
 
     def compute_discounted_rewards(self, rewards, gamma):

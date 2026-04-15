@@ -9,6 +9,6 @@ mlp:
   reg_activation: "tanh"
   
 rl:
-  n_episodes: 30
+  n_episodes: 1
   algorithm: "DQN"
   steps: 500

@@ -6,9 +6,9 @@ import numpy as np
 
 class ModelTrainer:
     def __init__(self, cfg, seed):
-        self.binary_hidden_layer_sizes = cfg["binary_hidden_layer_sizes"]
-        self.regressor_hidden_layer_sizes = cfg["regressor_hidden_layer_sizes"]
-        self.ternary_hidden_layer_sizes = cfg["ternary_hidden_layer_sizes"]
+        self.binary_hidden_layer_sizes = (cfg["binary_hidden_layer_sizes"][0],cfg["binary_hidden_layer_sizes"][1],cfg["binary_hidden_layer_sizes"][2])
+        self.regressor_hidden_layer_sizes = (cfg["regressor_hidden_layer_sizes"][0],cfg["regressor_hidden_layer_sizes"][1],cfg["regressor_hidden_layer_sizes"][2])
+        self.ternary_hidden_layer_sizes = (cfg["ternary_hidden_layer_sizes"][0],cfg["ternary_hidden_layer_sizes"][1],cfg["ternary_hidden_layer_sizes"][2])
         self.clf_activation = cfg["clf_activation"]
         self.reg_activation = cfg["reg_activation"]
         self.model_noise = cfg["model_noise"]
@@ -17,6 +17,8 @@ class ModelTrainer:
     def get_report(self, y_test, y_pred, classifier = False):
 
         if classifier:
+            y_test = [int(x) for x in y_test]
+            y_pred = [int(x) for x in y_pred]
             report = classification_report(y_test, y_pred, output_dict=False)
         else:
             mse = mean_squared_error(y_test, y_pred)
@@ -89,8 +91,10 @@ class ModelTrainer:
                          y: np.ndarray, 
                          test_size: float = 0.1, 
                          granularity = "binary", 
+                         
                          random_state: int = 42, 
                          shuffle_data: bool = True):
+        print(self.binary_hidden_layer_sizes, self.ternary_hidden_layer_sizes, self.ternary_hidden_layer_sizes)
         if granularity == "continuous":
             return self.train_regressor(X, y, test_size, random_state, shuffle_data)
         
@@ -101,16 +105,20 @@ class ModelTrainer:
         
         if granularity == "binary":
             clf = MLPClassifier(
-                        hidden_layer_sizes=(10, 5, 2),      
+                        hidden_layer_sizes=self.binary_hidden_layer_sizes,      #10 5 2
                         activation='relu',
-                        solver='adam',              
+                        solver='adam', 
+                        early_stopping=False,  
+                        max_iter = 300,           
                         random_state=random_state)
 
         if granularity == "discrete" or granularity == "ternary":
             clf = MLPClassifier(
-                        hidden_layer_sizes=(18, 6, 3),      
+                        hidden_layer_sizes=self.ternary_hidden_layer_sizes,      
                         activation='relu',
                         solver='adam', 
+                        early_stopping=False,  
+                        max_iter = 300, 
                         random_state=random_state)
 
         clf.fit(X, y)
@@ -133,9 +141,11 @@ class ModelTrainer:
                                                 shuffle=shuffle_data)
 
         clf = MLPRegressor(
-                        hidden_layer_sizes=(20, 5, 3),      
+                        hidden_layer_sizes=self.regressor_hidden_layer_sizes,      
                         activation='tanh',
                         solver='adam', 
+                        early_stopping=False,  
+                        max_iter = 300, 
                         random_state=random_state)
                         
         clf.fit(X, y)

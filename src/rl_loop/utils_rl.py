@@ -184,4 +184,21 @@ def evaluate(env, agent, steps=600, episodes=20):
                 break
 
     return successes/episodes
-    
+
+
+def evaluate_fetch(env, agent, steps=50, episodes=20):
+    """Evaluate DDPG on a goal-conditioned Fetch env (dict observations)."""
+    successes = 0
+    for _ in range(episodes):
+        obs, _ = env.reset()
+        for _ in range(steps):
+            action = agent.choose_action(
+                obs["observation"],
+                obs["desired_goal"],
+                train_mode=False,
+            )
+            obs, _, terminated, truncated, info = env.step(action)
+            if terminated or truncated:
+                break
+        successes += int(float(info.get("is_success", 0.0)))
+    return successes / max(episodes, 1)

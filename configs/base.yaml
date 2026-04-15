@@ -1,19 +1,18 @@
-experiment:
-  domain: "Lunar Lander"                  # Robot | Lunar Lander | Flappy Bird
+experiment: 
+  domain: "Lunar"                         # robot | lunar | flappy 
   task: "Passive"                         # Passive | Active | Pooled    
-  condition: "Baseline"                   # Baseline (0) | Reward Augmentation (1) | Prioritization (2) | Q-Augmentation (3) | Epsilon Modulation (4) | LR Modulation (5)         
-  experiment_list: [0]                    # Baseline (0) | Reward Augmentation (1) | Prioritization (2) | Q-Augmentation (3) | Epsilon Modulation (4) | LR Modulation (5)         
+  condition: "Baseline"                   # Baseline (0) | Reward Augmentation (1) | Prioritization (2) | Epsilon Modulation (3) | LR Modulation (4) | Q-Augmentation (5)      
+  experiment_list: [0]                    # Baseline (0) | Reward Augmentation (1) | Prioritization (2) | Epsilon Modulation (3) | LR Modulation (4) | Q-Augmentation (5)       
   model_granularity: "binary"             # binary | ternary | continuous
   participant_list: [2, 3, 4]
   random_state: 42
 
 neural:
-  smoothing_method: "none"            # none | majority_vote
-  credit_assignment: "window_based"   # window_based | temporal_shift 
+  model_noise: 0.0
   smoothing_window_size: 1
   temporal_shift: 0.0
   window_size_s: 4.0
-  step_size_s: 1.0 
+  # step_size_s: 0.5 
   fnirs_rate_hz: 5.2
   beta: 1.0
 
@@ -25,7 +24,7 @@ mlp:
   clf_activation: "relu"
   reg_activation: "tanh"
 rl:
-  n_episodes: 30
+  n_episodes: 1
   algorithm: "DQN"
   buffer_type: "ER"
   learning_rate_init: 0.001

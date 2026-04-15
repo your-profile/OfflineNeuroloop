@@ -17,7 +17,6 @@ with open("configs/test.yaml") as f:
 #     "Baseline",
 #     "Reward Augmentation",
 #     "Prioritization",
-#     "Q-Augmentation",
 #     "Epsilon Modulation",
 #     "LR Modulation",
 # ]
@@ -27,9 +26,7 @@ with open("configs/test.yaml") as f:
 # Ablation Studies
 
 # ABLATIONS = [
-#     {"key": ["neural", "model_noise"], "vals": [0.05, 0.1, 0.2, 0.3]},
-#     {"key": ["neural", "smoothing_method"], "vals": ["none", "majority_vote"]},
-#     {"key": ["neural", "credit_assignment"], "vals": ["window_based", "temporal_shift"]},
+#     {"key": ["neural", "model_noise"], "vals": [0.1, 0.2, 0.3]},
 #     {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]},
 #     {"key": ["neural", "smoothing_window_size"], "vals": [1, 3, 5, 7]},
 # ]
@@ -38,12 +35,16 @@ with open("configs/test.yaml") as f:
 NEURAL_CONDITIONS = [
     "Baseline",
 ]
+
 ABLATIONS = []
-GRANULARITIES = ["binary"]
+
+GRANULARITIES = ["binary", "ternary", "continuous"]
+# GRANULARITIES = ["ternary"]
+
 DOMAINS_TASKS = {
-    # "robot":        ["Passive", "Active", "Pooled"],
-    "lunar": ["Passive"],
-    # "flappy":  ["Passive", "Active", "Pooled"],
+    # "Lunar": ["Passive"],
+    "Robot": ["Passive"],
+    # "Flappy": ["Passive"],
 }
 DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/'
 RESULTS_PATH = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/'
@@ -57,8 +58,8 @@ def make_run_name(cfg):
     print("RUN NAME:", (
         f"{e['domain']}__{e['task']}__{e['condition']}"
         f"__{e['model_granularity']}"
-        f"__noise{n['model_noise']}__{n['smoothing_method']}"
-        f"__{n['credit_assignment']}"
+        f"__noise{n['model_noise']}__{n['smoothing_window_size']}"
+        f"__{n['temporal_shift']}"
         f"__{n['temporal_shift']}"
         f"__{n['smoothing_window_size']}"
 
@@ -66,8 +67,8 @@ def make_run_name(cfg):
     return (
         f"{e['domain']}__{e['task']}__{e['condition']}"
         f"__{e['model_granularity']}"
-        f"__noise{n['model_noise']}__{n['smoothing_method']}"
-        f"__{n['credit_assignment']}"
+        f"__noise{n['model_noise']}__{n['smoothing_window_size']}"
+        f"__{n['temporal_shift']}"
         f"__{n['temporal_shift']}"
         f"__{n['smoothing_window_size']}"
     )

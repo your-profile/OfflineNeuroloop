@@ -2,13 +2,13 @@ experiment:
   domain: "Lunar Lander"                  # Robot | Lunar Lander | Flappy Bird
 
 mlp:
-  binary_hidden_layer_sizes: [10, 4, 2]
-  ternary_hidden_layer_sizes: [18, 5, 3]
-  regressor_hidden_layer_sizes: [20, 6, 2]
+  binary_hidden_layer_sizes: [10, 5, 2]
+  ternary_hidden_layer_sizes: [10, 10, 3]
+  regressor_hidden_layer_sizes: [20, 10, 3]
   clf_activation: "relu"
   reg_activation: "tanh"
   
 rl:
-  n_episodes: 30
+  n_episodes: 1
   algorithm: "DQN"
   steps: 500

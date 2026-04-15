@@ -44,42 +44,90 @@ class DatasetProcessor:
         fnirs_channels = [c for c in fnirs_df.columns if c in neural_channels]
         fnirs_numeric = fnirs_df[fnirs_channels]
 
-        # split fnirs based on large time gaps
-        gap = fnirs_numeric.index.to_series().diff().dt.total_seconds()
-        segment_id = (gap > gap_threshold_s).cumsum()
-
         aligned_segments = []
+        # Align per participant first to avoid cross-participant time bleed.
+        participant_col = None
+        # Prefer numeric participant matching when available.
+        if "pid" in fnirs_df.columns and "participant_id" in task_df.columns:
+            participant_col = ("pid", "participant_id")
+        elif "participant_id" in fnirs_df.columns and "participant_id" in task_df.columns:
+            participant_col = ("participant_id", "participant_id")
+        elif "pid" in fnirs_df.columns and "participantKey" in task_df.columns:
+            participant_col = ("pid", "participantKey")
 
-        for seg in segment_id.unique():
+        if participant_col is None:
+            fnirs_groups = [("__all__", fnirs_numeric)]
+        else:
+            fnirs_id_col, task_id_col = participant_col
+            fnirs_groups = list(fnirs_numeric.groupby(fnirs_df[fnirs_id_col]))
 
-            fnirs_seg = fnirs_numeric[segment_id == seg]
+        for participant_key, fnirs_part in fnirs_groups:
+            if participant_col is None:
+                task_part = task_df
+                labels_part = labels_df
+            else:
+                _, task_id_col = participant_col
+                task_part = task_df[task_df[task_id_col] == participant_key]
+                # labels use 'pid' in this project
+                if "pid" in labels_df.columns:
+                    labels_part = labels_df[labels_df["pid"] == participant_key]
+                elif "participant_id" in labels_df.columns:
+                    labels_part = labels_df[labels_df["participant_id"] == participant_key]
+                else:
+                    labels_part = labels_df
 
-            start = fnirs_seg.index.min()
-            end = fnirs_seg.index.max()
+            if fnirs_part.empty:
+                continue
 
-            # restrict task and labels to this time window only
-            task_seg = task_df.loc[start:end]
-            labels_seg = labels_df.loc[start:end]
+            gap = fnirs_part.index.to_series().diff().dt.total_seconds()
+            segment_id = (gap > gap_threshold_s).cumsum()
 
-            # resample fnirs
-            fnirs_resampled = (fnirs_seg.resample(rule).mean().interpolate())
+            for seg in segment_id.unique():
+                fnirs_seg = fnirs_part[segment_id == seg]
+                if fnirs_seg.empty:
+                    continue
 
-            task_resampled = task_seg.resample(rule).ffill()
+                start = fnirs_seg.index.min()
+                end = fnirs_seg.index.max()
 
-            labels_resampled = labels_seg.reindex(fnirs_resampled.index, method='nearest', tolerance=pd.Timedelta(seconds=label_tolerance_s))
-            labels_resampled = labels_resampled.ffill()
+                task_seg = task_part.loc[start:end]
+                labels_seg = labels_part.loc[start:end]
 
-            aligned = fnirs_resampled.join(task_resampled, how='left')
-            aligned = aligned.join(labels_resampled, how='left', rsuffix='_label')
-            aligned_segments.append(aligned)
+                # Duplicate timestamps break pandas resample (ValueError: cannot reindex...).
+                if task_seg.index.has_duplicates:
+                    task_seg = task_seg.groupby(level=0).last()
+                if labels_seg.index.has_duplicates:
+                    labels_seg = labels_seg.groupby(level=0).last()
 
-            if self.verbose or verbose:
-                print(len(fnirs_resampled), len(task_resampled), len(labels_resampled))
-                # print("Task Segment End: Reward", task_seg["rewards"].iloc[-1])
+                # No RL events in this time window; skip to avoid empty/meaningless joins.
+                if task_seg.empty:
+                    if self.verbose or verbose:
+                        print(f"Skipping empty task segment for participant {participant_key}, seg {seg}")
+                    continue
+
+                fnirs_resampled = fnirs_seg.resample(rule).mean().interpolate()
+                task_resampled = task_seg.resample(rule).ffill()
+
+                labels_resampled = labels_seg.reindex(
+                    fnirs_resampled.index,
+                    method='nearest',
+                    tolerance=pd.Timedelta(seconds=label_tolerance_s)
+                )
+                labels_resampled = labels_resampled.ffill().infer_objects(copy=False)
+
+                aligned = fnirs_resampled.join(task_resampled, how='left')
+                aligned = aligned.join(labels_resampled, how='left', rsuffix='_label')
+                aligned_segments.append(aligned)
+
+                if self.verbose or verbose:
+                    print(len(fnirs_resampled), len(task_resampled), len(labels_resampled))
           
 
         # concat
-        aligned = pd.concat(aligned_segments).sort_index()
+        if len(aligned_segments) == 0:
+            aligned = pd.DataFrame(index=fnirs_numeric.index.copy())
+        else:
+            aligned = pd.concat([seg for seg in aligned_segments if not seg.empty]).sort_index()
         aligned.index.name = 'time'
 
         return aligned, fnirs_channels
@@ -124,7 +172,7 @@ class DatasetProcessor:
             sel = balanced([idx0, idx1], n_per)
             return X[sel], y[sel]
 
-        if mode == "d":
+        if mode == "t":
             y = y_ternary
             classes, counts = np.unique(y, return_counts=True)
             if len(classes) != 3:

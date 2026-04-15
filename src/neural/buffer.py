@@ -30,7 +30,7 @@ class fNIRSBuffer:
             if self.curr_length < self.max_len -1 :
                 self.curr_length += 1   
 
-    def get_neural_credit(self, X: int = 5):
+    def get_neural_credit(self, granularity, X: int = 5):
         """
         Looks at the last X classifications and uses majority voting to determine the classification.
         Returns the majority class (float or int).
@@ -44,14 +44,12 @@ class fNIRSBuffer:
         if len(relevant_classes) == 0:
             return 0.0
 
-        classes, counts = np.unique(np.array(relevant_classes), return_counts=True)
-        max_count = classes[np.argmax(counts)]
-
-        # print(f"Classifications: {counts}, Final Class: {max_count}")
-
-        return int(max_count)
-
-         
+        if granularity[0] != "c":
+            classes, counts = np.unique(np.array(relevant_classes), return_counts=True)
+            max_count = classes[np.argmax(counts)]
+            return int(max_count)
+        else:
+            return np.mean(np.array(relevant_classes))
 
     def get_window(self):
         # TODO: Adding window length
