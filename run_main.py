@@ -42,10 +42,10 @@ ABLATIONS = []
 GRANULARITIES = ["binary"]
 
 DOMAINS_TASKS = {
-    # "Flappy": ["Passive"],
+    "Flappy": ["Passive"],
 
     # "Lunar": ["Passive"],
-    "Robot": ["Passive"],
+    # "Robot": ["Passive"],
 }
 DATA_PATH = '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/' #'/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/' 
 RESULTS_PATH = '/Users/juliasantaniello/Desktop/OfflineNeuroloop/' #'/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/' 
@@ -149,7 +149,7 @@ for ablation, (domain, tasks), condition, granularity in itertools.product(
             })
 
             if condition == "Prioritization":
-                cfg['buffer_type'] = "PER"
+                cfg['rl']['buffer_type'] = "PER"
 
             set_nested(cfg, ablation["key"], val)
             run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH, RESULTS_PATH=RESULTS_PATH)

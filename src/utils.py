@@ -32,7 +32,7 @@ def load_domain(env: str, steps: int = None):
         env = LunarLander()
     elif env[0].lower() == "f":
         from src.envs.flappy_bird import FlappyBirdEnv
-        env = FlappyBirdEnv()
+        env = FlappyBirdEnv(score_limit=30)
     elif env[0].lower() == "r":
         env = make_fetch_env(max_episode_steps=steps, mujoco_version=2)
     else:

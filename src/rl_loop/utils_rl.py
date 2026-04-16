@@ -168,24 +168,28 @@ def get_neural_signal(clf, features):
 
         return classification
 
-def evaluate(env, agent, steps=600, episodes=20):
+def evaluate(env, agent, steps=600, episodes=20, domain_key=None):
     """
     Agent evaluation function
     """
     successes = 0
     for i in range(episodes):
-        try:
+        if domain_key == "F":
             state, _  = env.reset()
-        except:
+        else:
             state = env.reset()
 
         for idx_step in range(steps):
             action, _ = agent.chooseAction(state, epsilon=0)
 
-            try:
+            if domain_key == "F":
+                state, reward, done, win, info = env.step(action)
+                if info['score'] > 10:
+                    win = True
+                    done = True
+            else:
                 state, reward, done, win = env.step(action)
-            except:
-                state, reward, done, win, _ = env.step(action)
+
 
             if done:
                 if win:

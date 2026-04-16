@@ -64,6 +64,7 @@ def train(env:gymnasium.Env,
 
     decay = (0.01 / 1.0) ** (1 / episodes_num)
     learning_rate = agent.lr
+    print(episodes_num)
 
     # calculate window size + initialize buffer
     sample_period_s = 1.0 / fnirs_rate_hz
@@ -88,7 +89,7 @@ def train(env:gymnasium.Env,
     domain_key = task_df["condition"].iloc[0][0]
 
     # training progress bar
-    bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} < {remaining}, {rate_fmt}]'
+    bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} < {remaining}, {rate_fmt} | {postfix}]'
     pbar = trange(episodes_num, unit="ep", bar_format=bar_format, ascii=True)
 
     # for loop for participant task data
@@ -261,9 +262,9 @@ def train(env:gymnasium.Env,
 
             if combined_episodes % target_update == 0:
                 if domain_key == "F":
-                    success = utils_rl.evaluate(env=FlappyBird(score_limit=100), agent=agent, episodes=30, steps=600)
+                    success = utils_rl.evaluate(env=FlappyBird(score_limit=20), agent=agent, episodes=30, steps=2000, domain_key=domain_key)
                 else:
-                    success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=30, steps=600)
+                    success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=30, steps=600, domain_key=domain_key)
                 all_episode_success.append(success)
                 last_success = success
             else:
@@ -279,11 +280,13 @@ def train(env:gymnasium.Env,
                 )))
 
             # bar update
-            pbar.set_postfix_str(
-                f"Score: {total_reward:7.2f} Neural: {neural_signal} "
-                f"Avg50: {score_avg:7.2f} Eval: {last_success}"
-                f"Success: {success}"
-            )            
+            pbar.set_postfix(
+                {"Score": f"{total_reward:7.2f}",
+                    "Avg50": f"{score_avg:7.2f}",
+                    "Eval": f"{last_success:.3f}",
+                    "Success": f"{success:.3f}"
+                }, refresh=True
+            )          
             pbar.update(1)
             combined_episodes += 1
 
@@ -377,7 +380,7 @@ def train_robot(
     learning_rate = float(agent.actor_lr)
     seed = np.random.randint(0, 5000)
 
-    bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} < {remaining}, {rate_fmt}]'
+    bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} < {remaining}, {rate_fmt} | {postfix}]'
     pbar = trange(episodes_num, unit="ep", bar_format=bar_format, ascii=True)
 
     def maybe_train(n_updates: int = 8):
@@ -526,13 +529,13 @@ def train_robot(
 
         step_count = len(ep["state"]) - 1
         step_count = max(step_count, 1)
-        all_average_rewards.append(round(total_reward / step_count, 2))
-        all_total_rewards.append(round(total_reward, 2))
-        all_episode_steps.append(len(ep["state"]) - 1)
+        # all_average_rewards.append(round(total_reward / step_count, 2))
+        # all_total_rewards.append(round(total_reward, 2))
+        # all_episode_steps.append(len(ep["state"]) - 1)
 
         new_episode_num = max(0, episodes_num // max(total_participant_episodes, 1))
             
-        for _ in range(episodes_num):
+        for _ in range(new_episode_num):
             obs, _ = env.reset(seed=seed)
             seed += 1
             total_reward = 0.0
@@ -614,16 +617,14 @@ def train_robot(
                     "FetchPolicy" + str(int(success * 100)) + ".pth",
                 )
 
-            # Manually write progress info since set_postfix not showing in CLI/bar
-            msg = (
-                f"Score: {total_reward:7.2f} "
-                f"Avg50: {score_avg:7.2f} "
-                f"Eval: {last_success:.3f} "
-                f"Success: {success:.3f}"
+            pbar.set_postfix(
+                {"Score": f"{total_reward:7.2f}",
+                    "Avg50": f"{score_avg:7.2f}",
+                    "Eval": f"{last_success:.3f}",
+                    "Success": f"{success:.3f}"
+                }, refresh=True
             )
-            print(msg)
             pbar.update(1)
- 
  
     env.close()
 

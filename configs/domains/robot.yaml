@@ -9,8 +9,8 @@ mlp:
   reg_activation: "tanh"
 
 rl:
-  n_episodes: 500000
+  n_episodes: 100000 #500000
   algorithm: "DDPG"
-  steps: 50
+  steps: 75
   action_space: None
   observation_space: None
