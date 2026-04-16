@@ -279,7 +279,11 @@ def train(env:gymnasium.Env,
                 )))
 
             # bar update
-            pbar.set_postfix_str(f"Score: {total_reward: 7.2f}, Neural Signal: {neural_signal}, 50 Score Avg: {score_avg: 7.2f}, Eval: {last_success}")
+            pbar.set_postfix_str(
+                f"Score: {total_reward:7.2f} Neural: {neural_signal} "
+                f"Avg50: {score_avg:7.2f} Eval: {last_success}"
+                f"Success: {success}"
+            )            
             pbar.update(1)
             combined_episodes += 1
 
@@ -373,7 +377,7 @@ def train_robot(
     learning_rate = float(agent.actor_lr)
     seed = np.random.randint(0, 5000)
 
-    bar_format = ("{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} < {remaining}, {rate_fmt}]")
+    bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} < {remaining}, {rate_fmt}]'
     pbar = trange(episodes_num, unit="ep", bar_format=bar_format, ascii=True)
 
     def maybe_train(n_updates: int = 8):
@@ -452,6 +456,7 @@ def train_robot(
 
             nopt = nrow["optimal_actions"] if t + 1 < len(rows) else action_dist
             priority = ddpg_priority(reward, a, action_dist, nopt)
+            
 
             if buffer_type == "ER":
                 priority = 0.0
@@ -514,7 +519,10 @@ def train_robot(
         else:
             classes_pred.append(neural_signal)
 
-        classes_truth.append(class_truth.to_list()[gr])
+        if class_truth.to_list()[gr] is None or class_truth.to_list()[gr] != class_truth.to_list()[gr]:
+            classes_truth.append(0.0)
+        else:
+            classes_truth.append(class_truth.to_list()[gr])
 
         step_count = len(ep["state"]) - 1
         step_count = max(step_count, 1)
@@ -523,8 +531,8 @@ def train_robot(
         all_episode_steps.append(len(ep["state"]) - 1)
 
         new_episode_num = max(0, episodes_num // max(total_participant_episodes, 1))
-        
-        for _ in range(new_episode_num):
+            
+        for _ in range(episodes_num):
             obs, _ = env.reset(seed=seed)
             seed += 1
             total_reward = 0.0
@@ -606,11 +614,17 @@ def train_robot(
                     "FetchPolicy" + str(int(success * 100)) + ".pth",
                 )
 
-            pbar.set_postfix_str(
-                f"Score: {total_reward:7.2f} Neural: {neural_signal} "
-                f"Avg50: {score_avg:7.2f} Eval: {last_success}"
+            # Manually write progress info since set_postfix not showing in CLI/bar
+            msg = (
+                f"Score: {total_reward:7.2f} "
+                f"Avg50: {score_avg:7.2f} "
+                f"Eval: {last_success:.3f} "
+                f"Success: {success:.3f}"
             )
-    pbar.update(1)
+            print(msg)
+            pbar.update(1)
+ 
+ 
     env.close()
 
     offline_model_report = ml.get_report(np.array(classes_truth), np.array(classes_pred), (granularity[0] != "c"))

@@ -42,13 +42,13 @@ ABLATIONS = []
 GRANULARITIES = ["binary"]
 
 DOMAINS_TASKS = {
-    "Flappy": ["Passive"],
+    # "Flappy": ["Passive"],
 
-    "Lunar": ["Passive"],
-    # "Robot": ["Passive"],
+    # "Lunar": ["Passive"],
+    "Robot": ["Passive"],
 }
-DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/' #'/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/
-RESULTS_PATH = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/' #'/Users/juliasantaniello/Desktop/OfflineNeuroloop/'
+DATA_PATH = '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/' #'/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/' 
+RESULTS_PATH = '/Users/juliasantaniello/Desktop/OfflineNeuroloop/' #'/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/' 
 
 def set_nested(cfg, keys, val):
     cfg[keys[0]][keys[1]] = val
