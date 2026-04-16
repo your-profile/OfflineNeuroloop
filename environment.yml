@@ -1,0 +1,12 @@
+name: offline_neuro_loop
+
+channels:
+  - defaults
+dependencies:
+  - ipykernel
+  - matplotlib
+  - seaborn
+  - swig
+  - gymnasium
+  - box2d-py
+  - gym[box2d]
