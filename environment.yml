@@ -6,15 +6,16 @@ channels:
 dependencies:
   - pip
   - pyyaml
-  - torch
-  - pygame
   - tqdm
   - scikit-learn
-  - gymnasium_robotics
   - ipykernel
   - matplotlib
   - seaborn
   - swig
   - gymnasium
   - box2d-py
-  - gym[box2d]
+  - pip:
+    - pygame==2.6.1
+    - torch
+    - gymnasium-robotics
+    - gym[box2d]
