@@ -40,12 +40,12 @@ ABLATIONS = []
 
 #GRANULARITIES = ["binary", "ternary", "continuous"]
 GRANULARITIES = ["binary"]
+SEEDS = [42, 43, 44, 45, 46]
 
 DOMAINS_TASKS = {
-    "Flappy": ["Passive"],
-
+    # "Flappy": ["Passive"],
     # "Lunar": ["Passive"],
-    # "Robot": ["Passive"],
+    "Robot": ["Passive"],
 }
 DATA_PATH = '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/' #'/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/' 
 RESULTS_PATH = '/Users/juliasantaniello/Desktop/OfflineNeuroloop/' #'/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/' 
@@ -76,7 +76,7 @@ def make_run_name(cfg):
 
 # Full condition grid (baseline settings)
 for (domain, tasks), condition, granularity in itertools.product(
-    DOMAINS_TASKS.items(), NEURAL_CONDITIONS, GRANULARITIES
+    DOMAINS_TASKS.items(), NEURAL_CONDITIONS, GRANULARITIES, SEEDS
 ):
     with open(f"configs/domains/{domain}.yaml") as f:
         domain_base = yaml.safe_load(f)
@@ -121,7 +121,7 @@ for (domain, tasks), condition, granularity in itertools.product(
 
 # Ablation sweeps across the full condition grid
 for ablation, (domain, tasks), condition, granularity in itertools.product(
-    ABLATIONS, DOMAINS_TASKS.items(), NEURAL_CONDITIONS, GRANULARITIES
+    ABLATIONS, DOMAINS_TASKS.items(), NEURAL_CONDITIONS, GRANULARITIES, SEEDS
 ):
     for task in tasks:
         for val in ablation["vals"]:
