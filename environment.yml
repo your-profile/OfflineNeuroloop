@@ -1,8 +1,16 @@
 name: offline_neuro_loop
 
 channels:
+  - conda-forge
   - defaults
 dependencies:
+  - pip
+  - pyyaml
+  - torch
+  - pygame
+  - tqdm
+  - scikit-learn
+  - gymnasium_robotics
   - ipykernel
   - matplotlib
   - seaborn

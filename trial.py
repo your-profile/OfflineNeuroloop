@@ -19,7 +19,7 @@ def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
     env = utils.load_domain(cfg["experiment"]["domain"], cfg["rl"]["steps"])
     agent = utils.load_agent(cfg["rl"]["algorithm"], cfg["rl"]["buffer_type"], space = (cfg["rl"]["observation_space"], cfg["rl"]["action_space"]))
     
-    if verbose: print(f"Observation Space for {cfg["experiment"]["domain"]}: {env.observation_space.shape[0]}, Action Space: {env.action_space.n}")
+    if verbose: print(f"Observation Space for {cfg['experiment']['domain']}: {env.observation_space.shape[0]}, Action Space: {env.action_space.n}")
     
     #TODO: Make anonymous/internal
     if not os.path.exists(os.path.join(DATA_PATH, 'fNIRS/LabeledData/')):
@@ -136,9 +136,9 @@ def run_robot(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
         except AssertionError:
                     print("Please store path to participant date in DATA_PATH")
 
-    labeled_data_source_folder = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/LabeledData/"
-    rl_taskstats_source_folder = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/TaskData/"
-    filtered_data_source_folder = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/FilteredData/"
+    labeled_data_source_folder = os.path.join(DATA_PATH, 'fNIRS/LabeledData/')
+    rl_taskstats_source_folder = os.path.join(DATA_PATH, 'TaskData/')
+    filtered_data_source_folder = os.path.join(DATA_PATH, 'fNIRS/FilteredData/')
 
     condition_list = utils.get_conditions(cfg["experiment"]["domain"], cfg["experiment"]["task"], verbose=verbose)
 
