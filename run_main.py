@@ -47,8 +47,12 @@ DOMAINS_TASKS = {
     # "Lunar": ["Passive"],
     "Robot": ["Passive"],
 }
-DATA_PATH = '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/' #'/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/' 
-RESULTS_PATH = '/Users/juliasantaniello/Desktop/OfflineNeuroloop/' #'/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/' 
+
+# DATA_PATH = '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/' 
+# RESULTS_PATH = '/Users/juliasantaniello/Desktop/OfflineNeuroloop/' 
+
+DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/' 
+RESULTS_PATH = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/' 
 
 def set_nested(cfg, keys, val):
     cfg[keys[0]][keys[1]] = val
@@ -75,7 +79,7 @@ def make_run_name(cfg):
     )
 
 # Full condition grid (baseline settings)
-for (domain, tasks), condition, granularity in itertools.product(
+for (domain, tasks), condition, granularity, seed in itertools.product(
     DOMAINS_TASKS.items(), NEURAL_CONDITIONS, GRANULARITIES, SEEDS
 ):
     with open(f"configs/domains/{domain}.yaml") as f:
@@ -91,7 +95,7 @@ for (domain, tasks), condition, granularity in itertools.product(
             "condition": condition,
             "experiment_list": [NEURAL_CONDITIONS.index(condition)],
             "model_granularity": granularity,
-       
+            "random_state": seed,
         })
 
         cfg["mlp"].update({
@@ -120,7 +124,7 @@ for (domain, tasks), condition, granularity in itertools.product(
         run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH, RESULTS_PATH=RESULTS_PATH)
 
 # Ablation sweeps across the full condition grid
-for ablation, (domain, tasks), condition, granularity in itertools.product(
+for ablation, (domain, tasks), condition, granularity, seeds in itertools.product(
     ABLATIONS, DOMAINS_TASKS.items(), NEURAL_CONDITIONS, GRANULARITIES, SEEDS
 ):
     for task in tasks:
@@ -132,6 +136,7 @@ for ablation, (domain, tasks), condition, granularity in itertools.product(
                 "condition": condition,
                 "experiment_list": [NEURAL_CONDITIONS.index(condition)],
                 "model_granularity": granularity,
+                "random_state": seed,
             })
 
             cfg["mlp"].update({
