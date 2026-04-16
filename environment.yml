@@ -4,6 +4,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
+  - python=3.11
   - pip
   - pyyaml
   - tqdm
@@ -17,5 +18,5 @@ dependencies:
   - pip:
     - pygame==2.6.1
     - torch
-    - gymnasium-robotics
+    - gymnasium_robotics
     - gym[box2d]
