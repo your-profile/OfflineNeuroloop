@@ -7,6 +7,7 @@ from src.envs.lunar_lander import LunarLander
 from src.envs.flappy_bird import FlappyBirdEnv as FlappyBird
 import gymnasium
 from tqdm import trange
+from copy import deepcopy as dc
 import numpy as np
 import src.utils as utils
 import torch
@@ -349,7 +350,6 @@ def train_robot(
         raise TypeError("train_robot requires a DDPG agent from load_ddpg_agent / load_agent(DDPG).")
 
     flags = list(experiment_list)
-    batch_size = agent.batch_size
     warmup = 200
 
     sample_period_s = 1.0 / fnirs_rate_hz
@@ -382,22 +382,16 @@ def train_robot(
 
     bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} < {remaining}, {rate_fmt} | {postfix}]'
     pbar = trange(episodes_num, unit="ep", bar_format=bar_format, ascii=True)
-
-    def maybe_train(n_updates: int = 8):
-        if agent.ram.len_transition < warmup:
-            return
-        for _ in range(n_updates):
-            agent.train()
-            agent.update_target_networks()
-
     total_participant_episodes = int(task_df["episode"].nunique())
 
     for (participant, episode), episode_df in grouped:
+        minibatch = []
+
         last_participant_episode = int(episode)
         combined_episodes += 1
-
         rows = episode_df.reset_index(drop=True)
-        ep = {
+
+        episode_dict = {
             "state": [],
             "action": [],
             "reward": [],
@@ -410,9 +404,7 @@ def train_robot(
 
         transition_priority = [] if buffer_type == "PER" else None
 
-        total_reward = 0.0
-        neural_signal = 0.0
-        new_neural_signal = 0.0
+        total_reward, neural_signal, new_neural_signal, cycle_actor_loss, cycle_critic_loss = 0.0, 0.0, 0.0, 0.0, 0.0
         class_truth = None
 
         for t in range(len(rows)):
@@ -421,8 +413,12 @@ def train_robot(
             action_dist = row["optimal_actions"]
             reward = float(row["rewards"])
             state = row["states"]
+            achieved_goal = row["achieved_goal"]
+            desired_goal = row["desired_goal"]
+            rl_timestamp = row["time"]
 
             a = vectorize_action(action)
+
             if a.size == 0 or not np.isfinite(a).all():
                 continue
 
@@ -437,13 +433,11 @@ def train_robot(
                 next_ag = row["achieved_goal"]
                 done = 1.0
 
-            s = vectorize_action(state)
-            sn = vectorize_action(next_state)
-            ag = vectorize_action(row["achieved_goal"])
-            nag = vectorize_action(next_ag)
-            dg = vectorize_action(row["desired_goal"])
-
-            rl_timestamp = row["time"]
+            state = vectorize_action(state)
+            next_state = vectorize_action(next_state)
+            achieved_goal = vectorize_action(row["achieved_goal"])
+            next_acheived_goal = vectorize_action(next_ag)
+            desired_goal = vectorize_action(row["desired_goal"])
 
             neural_features = buffer.get_features()
             neural_signal = utils_rl.get_neural_signal(clf, neural_features)
@@ -460,7 +454,6 @@ def train_robot(
             nopt = nrow["optimal_actions"] if t + 1 < len(rows) else action_dist
             priority = ddpg_priority(reward, a, action_dist, nopt)
             
-
             if buffer_type == "ER":
                 priority = 0.0
 
@@ -494,28 +487,43 @@ def train_robot(
                     print(f"Q-aug analogue — ep {episode} participant {participant}")
                 r_store = r_store + float(adjusted_neural)
 
-            ep["state"].append(s)
-            ep["action"].append(a.astype(np.float32))
-            ep["reward"].append(r_store)
-            ep["next_state"].append(sn.astype(np.float32))
-            ep["achieved_goal"].append(ag.astype(np.float32))
-            ep["next_achieved_goal"].append(nag.astype(np.float32))
-            ep["desired_goal"].append(dg.astype(np.float32))
-            ep["done"].append(float(done))
+            episode_dict["state"].append(state)
+            episode_dict["action"].append(action.astype(np.float32))
+            episode_dict["reward"].append(r_store)
+            episode_dict["next_state"].append(next_state.astype(np.float32))
+            episode_dict["achieved_goal"].append(achieved_goal.astype(np.float32))
+            episode_dict["next_achieved_goal"].append(next_acheived_goal.astype(np.float32))
+            episode_dict["desired_goal"].append(desired_goal.astype(np.float32))
+            episode_dict["done"].append(float(done))
+            
+            total_reward += r_store
 
             if transition_priority is not None:
                 transition_priority.append(priority)
 
-            total_reward += r_store
+        minibatch.append(dc(episode_dict))
 
-        if len(ep["state"]) == 0:
+        if len(minibatch) == 50:
+            agent.store(minibatch)
+
+            for _ in range(40):
+                actor_loss, critic_loss = agent.train()
+                cycle_actor_loss += actor_loss
+                cycle_critic_loss += critic_loss
+
+            epoch_actor_loss += cycle_actor_loss/40
+            epoch_critic_loss += cycle_critic_loss/40
+            agent.update_networks()
+            minibatch = []
+            cycle_actor_loss, cycle_critic_loss = 0,0
+
+        agent.save_weights()
+
+        if len(episode_dict["state"]) == 0:
             continue
 
         if transition_priority is not None:
-            ep["transition_priority"] = transition_priority
-
-        agent.ram.add_episode(ep)
-        maybe_train(16)
+            episode_dict["transition_priority"] = transition_priority
 
         if smoothing_window_size > 1:
             classes_pred.append(new_neural_signal)
@@ -527,7 +535,7 @@ def train_robot(
         else:
             classes_truth.append(class_truth.to_list()[gr])
 
-        step_count = len(ep["state"]) - 1
+        step_count = len(episode_dict["state"]) - 1
         step_count = max(step_count, 1)
         # all_average_rewards.append(round(total_reward / step_count, 2))
         # all_total_rewards.append(round(total_reward, 2))
@@ -538,7 +546,7 @@ def train_robot(
         for _ in range(new_episode_num):
             obs, _ = env.reset(seed=seed)
             seed += 1
-            total_reward = 0.0
+            total_reward, cycle_actor_loss, cycle_critic_loss = 0.0, 0.0, 0.0
             online_ep = {
                 "state": [],
                 "action": [],
@@ -552,42 +560,59 @@ def train_robot(
             prios = [] if buffer_type == "PER" else None
 
             for _step in range(steps):
-                s = obs["observation"].astype(np.float32).ravel()
-                g = obs["desired_goal"].astype(np.float32).ravel()
-                ag = obs["achieved_goal"].astype(np.float32).ravel()
+                state = obs["observation"].astype(np.float32).ravel()
+                desired_goal = obs["desired_goal"].astype(np.float32).ravel()
+                achieved_goal = obs["achieved_goal"].astype(np.float32).ravel()
 
-                act = agent.choose_action(s, g, train_mode=True)
-                next_obs, rew, terminated, truncated, info = env.step(act)
-                d = float(terminated or truncated)
-                sn = next_obs["observation"].astype(np.float32).ravel()
-                nag = next_obs["achieved_goal"].astype(np.float32).ravel()
+                action = agent.choose_action(state, desired_goal, train_mode=True)
+                next_obs, reward, terminated, truncated, info = env.step(action)
+                
+                done = float(terminated or truncated)
+                next_state = next_obs["observation"].astype(np.float32).ravel()
+                next_achieved_goal = next_obs["achieved_goal"].astype(np.float32).ravel()
 
                 td_proxy = 0.0
                 if buffer_type == "PER":
-                    td_proxy = abs(float(rew)) + 1e-6
+                    td_proxy = abs(float(reward)) + 1e-6
 
-                online_ep["state"].append(s)
-                online_ep["action"].append(act.astype(np.float32))
-                online_ep["reward"].append(float(rew))
-                online_ep["next_state"].append(sn)
-                online_ep["achieved_goal"].append(ag)
-                online_ep["next_achieved_goal"].append(nag)
-                online_ep["desired_goal"].append(g)
-                online_ep["done"].append(d)
+                online_ep["state"].append(state)
+                online_ep["action"].append(action.astype(np.float32))
+                online_ep["reward"].append(float(reward))
+                online_ep["next_state"].append(next_state)
+                online_ep["achieved_goal"].append(achieved_goal)
+                online_ep["next_achieved_goal"].append(next_achieved_goal)
+                online_ep["desired_goal"].append(desired_goal)
+                online_ep["done"].append(done)
+
                 if prios is not None:
                     prios.append(td_proxy)
 
                 obs = next_obs
-                total_reward += float(rew)
+                total_reward += float(reward)
+
                 if terminated or truncated:
                     break
+
+            minibatch.append(dc(episode_dict))
+
+            if len(minibatch) == 50:
+                agent.store(minibatch)
+
+                for _ in range(40):
+                    actor_loss, critic_loss = agent.train()
+                    cycle_actor_loss += actor_loss
+                    cycle_critic_loss += critic_loss
+
+                epoch_actor_loss += cycle_actor_loss/40
+                epoch_critic_loss += cycle_critic_loss/40
+                agent.update_networks()
+                minibatch = []
+                cycle_actor_loss, cycle_critic_loss = 0,0
 
             if len(online_ep["state"]) > 0:
                 if prios is not None:
                     online_ep["transition_priority"] = prios
-                agent.ram.add_episode(online_ep)
-            maybe_train(16)
-
+        
             combined_episodes += 1
             st = max(len(online_ep["state"]) - 1, 1)
             all_average_rewards.append(round(total_reward / st, 2))
@@ -595,6 +620,8 @@ def train_robot(
             all_episode_steps.append(len(online_ep["state"]) - 1)
 
             score_avg = np.mean(all_total_rewards[-50:])
+            agent.save_weights()
+
 
             if combined_episodes % target_update == 0:
                 success = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=15)

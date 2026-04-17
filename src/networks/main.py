@@ -1,198 +1,179 @@
-import numpy as np
-import torch
 import gymnasium as gym
-import gymnasium_robotics
-# from torch.utils.tensorboard import SummaryWriter
+from DDPG import DDPG as Agent
+import matplotlib.pyplot as plt
+import numpy as np
+import random
+import time
+from copy import deepcopy as dc
+import os
+import torch
 
-from DDPG import MemoryBuffer, PrioritizedMemoryBuffer, DDPG
+np.random.seed(np.random.randint(0, 20000))
 
-# Fast baseline for FetchPickAndPlace-v4 using episode/step loops.
-NUM_EPISODES = 500000
-NUM_STEPS = 50
-WARMUP_TRANSITIONS = 10000
-UPDATES_PER_STEP = 1
-EVAL_EVERY = 20
-EVAL_EPISODES = 20
-USE_PER = False
+ENV_NAME = "FetchPickAndPlace-v2"
+Train = True
+Play_FLAG = False
+seed = 42
+MAX_EPOCHS = 200
+MAX_CYCLES = 50
+num_updates = 40
+MAX_EPISODES = 16
+memory_size = 7e+5
+batch_size = 256
+actor_lr = 1e-3
+critic_lr = 1e-3
+gamma = 0.98
+tau = 0.05
+k_future = 4
 
-BATCH_SIZE = 256
-BUFFER_CAPACITY = 100000
-K_FUTURE = 4
-PER_ALPHA = 0.6
+test_env = gym.make("FetchPickAndPlace-v2")
+state_shape = test_env.observation_space.spaces["observation"].shape
+n_actions = test_env.action_space.shape[0]
+n_goals = test_env.observation_space.spaces["desired_goal"].shape[0]
+action_bounds = [test_env.action_space.low[0], test_env.action_space.high[0]]
 
-TAU = 0.005
-ACTOR_LR = 1e-3
-CRITIC_LR = 1e-3
-GAMMA = 0.98
-DECAY_RATE = 0.995
+def eval_agent(env_, agent_):
+    total_success_rate = []
+    running_r = []
+    for ep in range(10):
+        per_success_rate = []
+        env_dictionary, _ = env_.reset()
+        s = env_dictionary["observation"]
+        ag = env_dictionary["achieved_goal"]
+        g = env_dictionary["desired_goal"]
+        while np.linalg.norm(ag - g) <= 0.05:
+            env_dictionary, _ = env_.reset()
+            s = env_dictionary["observation"]
+            ag = env_dictionary["achieved_goal"]
+            g = env_dictionary["desired_goal"]
+        ep_r = 0
+        for t in range(50):
+            with torch.no_grad():
+                a = agent_.choose_action(s, g, train_mode=False)
+            observation_new, r, done, info_, info = env_.step(a)
+            s = observation_new['observation']
+            g = observation_new['desired_goal']
+            succ = 0
+            if info["is_success"] > 0.0:
+                succ = 1
+                print("win")
+            per_success_rate.append(succ)
+            ep_r += r
+        total_success_rate.append(per_success_rate)
+        if ep == 0:
+            running_r.append(ep_r)
+        else:
+            running_r.append(running_r[-1] * 0.99 + 0.01 * ep_r)
+    total_success_rate = np.array(total_success_rate)
+    local_success_rate = np.mean(total_success_rate)
+    return local_success_rate, running_r, ep_r
 
+env = gym.make(ENV_NAME)
+random.seed(seed)
+np.random.seed(seed)
+torch.manual_seed(seed)
+agent = Agent(n_states=state_shape,
+              n_actions=n_actions,
+              n_goals=n_goals,
+              action_bounds=action_bounds,
+              capacity=memory_size,
+              action_size=n_actions,
+              batch_size=batch_size,
+              actor_lr=actor_lr,
+              critic_lr=critic_lr,
+              gamma=gamma,
+              tau=tau,
+              k_future=k_future,
+              env=dc(env))
 
-def build_episode():
-    return {
-        "state": [],
-        "action": [],
-        "reward": [],
-        "next_state": [],
-        "achieved_goal": [],
-        "next_achieved_goal": [],
-        "desired_goal": [],
-        "done": [],
-    }
+def run():
 
+    total_success_rate = []
+    total_ac_loss = []
+    total_cr_loss = []
+    rewards = []
 
-def evaluate_policy(env, agent, episodes, max_steps):
-    successes = []
-    for _ in range(episodes):
-        obs, _ = env.reset()
-        done = False
-        info = {}
-        for _ in range(max_steps):
-            action = agent.choose_action(
-                obs["observation"],
-                obs["desired_goal"],
-                train_mode=False,
-            )
-            obs, _, terminated, truncated, info = env.step(action)
-            done = terminated or truncated
-            if done:
-                break
-        successes.append(float(info.get("is_success", 0.0)))
-    return float(np.mean(successes))
+    for epoch in range(MAX_EPOCHS):
+        print("Epoch: ", epoch)
+        start_time = time.time()
+        epoch_actor_loss = 0
+        epoch_critic_loss = 0
 
+        for cycle in range(0, MAX_CYCLES):
+            print("Cycle: ", cycle)
+            minibatch = []
+            cycle_actor_loss = 0
+            cycle_critic_loss = 0
+            for episode_num in range(MAX_EPISODES):
+                episode_dict = {
+                    "state": [],
+                    "action": [],
+                    "reward": [],
+                    "info": [],
+                    "achieved_goal": [],
+                    "desired_goal": [],
+                    "next_state": [],
+                    "next_achieved_goal": []}
+                env_dict, _ = env.reset()
+                state = env_dict["observation"]
+                achieved_goal = env_dict["achieved_goal"]
+                desired_goal = env_dict["desired_goal"]
+                while np.linalg.norm(achieved_goal - desired_goal) <= 0.05:
+                    env_dict, _ = env.reset()
+                    state = env_dict["observation"]
+                    achieved_goal = env_dict["achieved_goal"]
+                    desired_goal = env_dict["desired_goal"]
+                for t in range(50):
+                    action = agent.choose_action(state, desired_goal)
+                    next_env_dict, reward, done, info, _ = env.step(action)
 
-def main():
-    gym.register_envs(gymnasium_robotics)
-    env = gym.make("FetchPickAndPlace-v4", max_episode_steps=NUM_STEPS)
-    # writer = SummaryWriter("logs/fetch_ddpg_her")
+                    next_state = next_env_dict["observation"]
+                    next_achieved_goal = next_env_dict["achieved_goal"]
+                    next_desired_goal = next_env_dict["desired_goal"]
 
-    obs, _ = env.reset()
-    n_states = (obs["observation"].shape[0],)
-    n_goals = obs["desired_goal"].shape[0]
-    n_actions = env.action_space.shape[0]
-    action_bounds = (env.action_space.low, env.action_space.high)
+                    episode_dict["state"].append(state.copy())
+                    episode_dict["action"].append(action.copy())
+                    episode_dict["reward"].append(reward)
+                    episode_dict["achieved_goal"].append(achieved_goal.copy())
+                    episode_dict["desired_goal"].append(desired_goal.copy())
 
-    print(n_states, n_goals, n_actions, action_bounds)
+                    state = next_state.copy()
+                    achieved_goal = next_achieved_goal.copy()
+                    desired_goal = next_desired_goal.copy()
 
-    if USE_PER:
-        ram = PrioritizedMemoryBuffer(
-            size=BUFFER_CAPACITY,
-            k_future=K_FUTURE,
-            env=env.unwrapped,
-            alpha=PER_ALPHA,
-        )
-    else:
-        ram = MemoryBuffer(
-            size=BUFFER_CAPACITY,
-            k_future=K_FUTURE,
-            env=env.unwrapped,
-        )
+                episode_dict["state"].append(state.copy())
+                episode_dict["reward"].append(reward)
+                episode_dict["achieved_goal"].append(achieved_goal.copy())
+                episode_dict["desired_goal"].append(desired_goal.copy())
+                episode_dict["next_state"] = episode_dict["state"][1:]
+                episode_dict["next_achieved_goal"] = episode_dict["achieved_goal"][1:]
+                minibatch.append(dc(episode_dict))
 
-    agent = DDPG(
-        n_states=n_states,
-        n_actions=n_actions,
-        n_goals=n_goals,
-        action_bounds=action_bounds,
-        capacity=BUFFER_CAPACITY,
-        env=env.unwrapped,
-        k_future=K_FUTURE,
-        batch_size=BATCH_SIZE,
-        ram=ram,
-        action_size=n_actions,
-        tau=TAU,
-        actor_lr=ACTOR_LR,
-        critic_lr=CRITIC_LR,
-        gamma=GAMMA,
-        decay_rate=DECAY_RATE,
-    )
+            agent.store(minibatch)
+            for _ in range(num_updates):
+                actor_loss, critic_loss = agent.train()
+                cycle_actor_loss += actor_loss
+                cycle_critic_loss += critic_loss
 
-    best_eval_success = 0.0
-    global_transitions = 0
+            epoch_actor_loss += cycle_actor_loss / num_updates
+            epoch_critic_loss += cycle_critic_loss /num_updates
+            agent.update_networks()
 
-    print("Starting FetchPickAndPlace-v4 DDPG+HER training...")
+        success_rate, running_reward, episode_reward = eval_agent(env, agent)
+        total_ac_loss.append(epoch_actor_loss)
+        total_cr_loss.append(epoch_critic_loss)
+        total_success_rate.append(success_rate)
 
-    for episode_idx in range(1, NUM_EPISODES + 1):
-        obs, _ = env.reset()
-        ep = build_episode()
-        episode_success = 0.0
+        print(f"Epoch:{epoch}| "
+                f"Running_reward:{running_reward[-1]:.3f}| "
+                f"EP_reward:{episode_reward:.3f}| "
+                f"Memory_length:{len(agent.memory)}| "
+                f"Duration:{time.time() - start_time:.3f}| "
+                f"Actor_Loss:{actor_loss:.3f}| "
+                f"Critic_Loss:{critic_loss:.3f}| "
+                f"Success rate:{success_rate:.3f}| ")
+        agent.save_weights()
+            
+    plt.plot(total_success_rate)
 
-        for _ in range(NUM_STEPS):
-            state = obs["observation"]
-            achieved_goal = obs["achieved_goal"]
-            desired_goal = obs["desired_goal"]
-
-            action = agent.choose_action(state, desired_goal, train_mode=True)
-            next_obs, reward, terminated, truncated, info = env.step(action)
-            done = terminated or truncated
-
-            ep["state"].append(state)
-            ep["action"].append(action)
-            ep["reward"].append(reward)
-            ep["next_state"].append(next_obs["observation"])
-            ep["achieved_goal"].append(achieved_goal)
-            ep["next_achieved_goal"].append(next_obs["achieved_goal"])
-            ep["desired_goal"].append(desired_goal)
-            ep["done"].append(float(done))
-
-            obs = next_obs
-            global_transitions += 1
-            episode_success = float(info.get("is_success", 0.0))
-
-            if ram.len_transition >= WARMUP_TRANSITIONS:
-                for _ in range(UPDATES_PER_STEP):
-                    agent.train()
-                    agent.update_target_networks()
-
-            if done:
-                break
-
-        ram.add_episode(ep)
-
-        # writer.add_scalar("train/episode_success", episode_success, episode_idx)
-        # writer.add_scalar("train/random_action_prob", agent.randomprob, episode_idx)
-
-        if episode_idx % EVAL_EVERY == 0:
-            eval_success = evaluate_policy(env, agent, EVAL_EPISODES, NUM_STEPS)
-            # writer.add_scalar("eval/success_rate", eval_success, episode_idx)
-            print(
-                f"Episode {episode_idx:4d} | Eval success: {eval_success:.3f} "
-                f"| Replay transitions: {ram.len_transition}"
-            )
-
-            if eval_success >= best_eval_success:
-                best_eval_success = eval_success
-                torch.save(
-                    {
-                        "episode": episode_idx,
-                        "actor_state_dict": agent.actor.state_dict(),
-                        "critic_state_dict": agent.critic.state_dict(),
-                        "actor_target_state_dict": agent.actor_target.state_dict(),
-                        "critic_target_state_dict": agent.critic_target.state_dict(),
-                        "actor_optimizer_state_dict": agent.actor_optim.state_dict(),
-                        "critic_optimizer_state_dict": agent.critic_optim.state_dict(),
-                        "best_eval_success": best_eval_success,
-                    },
-                    "best_fetch_ddpg_her.pth",
-                )
-            if eval_success == 0.7:
-                best_eval_success = eval_success
-                torch.save(
-                    {
-                        "episode": episode_idx,
-                        "actor_state_dict": agent.actor.state_dict(),
-                        "critic_state_dict": agent.critic.state_dict(),
-                        "actor_target_state_dict": agent.actor_target.state_dict(),
-                        "critic_target_state_dict": agent.critic_target.state_dict(),
-                        "actor_optimizer_state_dict": agent.actor_optim.state_dict(),
-                        "critic_optimizer_state_dict": agent.critic_optim.state_dict(),
-                        "best_eval_success": best_eval_success,
-                    },
-                    "fetch_ddpg_her_70.pth",
-                )
-
-    env.close()
-    # writer.close()
-    print(f"Training complete. Best eval success: {best_eval_success:.3f}")
-
-
-if __name__ == "__main__":
-    main()
+run()
