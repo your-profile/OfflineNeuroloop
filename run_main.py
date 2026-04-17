@@ -21,31 +21,28 @@ with open("configs/base.yaml") as f:
 #     "LR Modulation",
 # ]
 # 
-# GRANULARITIES = ["binary", "ternary", "continuous"]
 
 # Ablation Studies
 
-# ABLATIONS = [
-#     {"key": ["neural", "model_noise"], "vals": [0.1, 0.2, 0.3]},
-#     {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]},
+ABLATIONS = [
+    # {"key": ["neural", "model_noise"], "vals": [0.1, 0.2, 0.3]},
+    # {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]},
 #     {"key": ["neural", "smoothing_window_size"], "vals": [1, 3, 5, 7]},
-# ]a
+]
 
 # testing: single condition, binary granularity, no ablation sweeps
 NEURAL_CONDITIONS = [
     "Baseline",
 ]
 
-ABLATIONS = []
-
 #GRANULARITIES = ["binary", "ternary", "continuous"]
 GRANULARITIES = ["binary"]
-SEEDS = [42, 43, 44, 45, 46]
+SEEDS = [42] #, 43, 44, 45, 46]
 
 DOMAINS_TASKS = {
-    # "Flappy": ["Passive"],
+    "Flappy": ["Passive"],
     # "Lunar": ["Passive"],
-    "Robot": ["Passive"],
+    # "Robot": ["Passive"],
 }
 
 # DATA_PATH = '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/' 
@@ -60,15 +57,7 @@ def set_nested(cfg, keys, val):
 def make_run_name(cfg):
     e = cfg["experiment"]
     n = cfg["neural"]
-    # print("RUN NAME:", (
-    #     f"{e['domain']}__{e['task']}__{e['condition']}"
-    #     f"__{e['model_granularity']}"
-    #     f"__noise{n['model_noise']}__{n['smoothing_window_size']}"
-    #     f"__{n['temporal_shift']}"
-    #     f"__{n['temporal_shift']}"
-    #     f"__{n['smoothing_window_size']}"
 
-    # ))
     return (
         f"{e['domain']}__{e['task']}__{e['condition']}"
         f"__{e['model_granularity']}"
@@ -111,27 +100,30 @@ for (domain, tasks), condition, granularity, seed in itertools.product(
             "algorithm": domain_cfg["rl"]["algorithm"],
             "steps": domain_cfg["rl"]["steps"],
             "action_space": domain_cfg["rl"]["action_space"],
-            "observation_space": domain_cfg["rl"]["observation_space"],
-
+            "observation_space": domain_cfg["rl"]["observation_space"]
 
         })
 
         if condition == "Prioritization":
             cfg['buffer_type'] = "PER"
-        
-        # print(cfg)
 
         run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH, RESULTS_PATH=RESULTS_PATH)
 
 # Ablation sweeps across the full condition grid
-for ablation, (domain, tasks), condition, granularity, seeds in itertools.product(
+for ablation, (domain, tasks), condition, granularity, seed in itertools.product(
     ABLATIONS, DOMAINS_TASKS.items(), NEURAL_CONDITIONS, GRANULARITIES, SEEDS
 ):
+    with open(f"configs/domains/{domain}.yaml") as f:
+        domain_base = yaml.safe_load(f)
+        domain_cfg = copy.deepcopy(domain_base)
+
     for task in tasks:
         for val in ablation["vals"]:
+            
             cfg = copy.deepcopy(base)
+
             cfg["experiment"].update({
-                "domain": domain,
+               "domain": domain_cfg["experiment"]["domain"],
                 "task": task,
                 "condition": condition,
                 "experiment_list": [NEURAL_CONDITIONS.index(condition)],
@@ -151,6 +143,8 @@ for ablation, (domain, tasks), condition, granularity, seeds in itertools.produc
                 "n_episodes": domain_cfg["rl"]["n_episodes"],
                 "algorithm": domain_cfg["rl"]["algorithm"],
                 "steps": domain_cfg["rl"]["steps"],
+                "action_space": domain_cfg["rl"]["action_space"],
+                "observation_space": domain_cfg["rl"]["observation_space"]
             })
 
             if condition == "Prioritization":
