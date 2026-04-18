@@ -36,7 +36,7 @@ def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
 
     # get conditions
     condition_list = utils.get_conditions(cfg["experiment"]["domain"], cfg["experiment"]["task"], verbose = verbose)
-    # print(cfg["experiment"]["participant_list"])
+    
     # load neural and rl data
     loader = DataLoader(
         fnirs_data_source_path=filtered_data_source_folder,
@@ -71,6 +71,7 @@ def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
         random_state = cfg["experiment"]["random_state"],
     )
 
+    cfg["mlp"]["model_noise"] = cfg["neural"]["model_noise"]
     modelTrainer = ModelTrainer(cfg = cfg["mlp"], seed = cfg["experiment"]["random_state"])
     classifier, report = modelTrainer.train_classifier(X, y, granularity = cfg["experiment"]["model_granularity"], random_state =  cfg["experiment"]["random_state"])
     
@@ -92,6 +93,7 @@ def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
             fnirs_rate_hz = cfg["neural"]["fnirs_rate_hz"],
             beta = cfg["neural"]["beta"],
             noise = cfg["mlp"]["model_noise"],
+            seed = cfg["experiment"]["random_state"],
             buffer_type = cfg["rl"]["buffer_type"],
             steps = cfg["rl"]["steps"], 
             save_results = True,
@@ -228,4 +230,3 @@ def run_robot(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
             writer.writeheader()
         writer.writerow(flat_trial)
 
-    print("TODO: Save Trial Dict")

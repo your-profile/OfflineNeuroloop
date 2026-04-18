@@ -17,7 +17,6 @@ neural:
   beta: 1.0
 
 mlp:
-  model_noise: 0.0
   binary_hidden_layer_sizes: [10, 4, 2]
   ternary_hidden_layer_sizes: [18, 5, 3]
   regressor_hidden_layer_sizes: [20, 6, 2]

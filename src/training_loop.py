@@ -54,6 +54,7 @@ def train(env:gymnasium.Env,
           smoothing_window_size: int = 0,
           target_update: int = 20, 
           buffer_type: str = 'ER', 
+          seed: int = 42,
           beta: float = 1.0,
           experiment_conditions: List[str] = [], 
           save_results: bool = False, 
@@ -65,7 +66,6 @@ def train(env:gymnasium.Env,
 
     decay = (0.01 / 1.0) ** (1 / episodes_num)
     learning_rate = agent.lr
-    print(episodes_num)
 
     # calculate window size + initialize buffer
     sample_period_s = 1.0 / fnirs_rate_hz
@@ -74,7 +74,6 @@ def train(env:gymnasium.Env,
     
     # # Calculate total number of participant episodes by counting unique (participantKey, episode) pairs
     total_participant_episodes = task_df.drop_duplicates(subset=["participantKey", "episode"]).shape[0]
-    # print(f"Total participant episodes: {total_participant_episodes}")
 
     if granularity[0] == "b": gr = 0
     if granularity[0] == "t": gr = 1
@@ -86,7 +85,6 @@ def train(env:gymnasium.Env,
     classes_truth, classes_pred = [],[]
     success, last_success, last_participant_episode, combined_episodes = (0.0, 0.0, 0, 0)
     epsilon = 1.0
-    seed = np.random.randint(0, 5000)
     domain_key = task_df["condition"].iloc[0][0]
 
     # training progress bar
@@ -140,7 +138,6 @@ def train(env:gymnasium.Env,
 
             adjusted_neural_signal = utils_rl.adjust_neural_classification(neural_signal, beta=beta)
             class_truth = processor.get_label_sample(timestamp = rl_timestamp, temporal_shift = -shift)
-            # print(class_truth.tolist())
             
             next_action_dist = (
                 episode_df["optimal_actions"][idx + 1] if idx < final_step - 1 else action_dist
@@ -192,8 +189,6 @@ def train(env:gymnasium.Env,
             if buffer_type == "PER":
                 agent.remember(state, action, reward, next_state, done, priority = priority)
 
-            # print(f"Step: {step} | Action: {action} | Reward: {reward} | State: {state} | idx: {idx}")
-
             total_reward += reward
             last_state_action_value = state_action_value
         
@@ -203,7 +198,6 @@ def train(env:gymnasium.Env,
         else:
             classes_pred.append(neural_signal) #raw predictions
         
-        # print(class_truth.to_list()[gr], neural_signal)
         classes_truth.append(class_truth.to_list()[gr])
 
 
@@ -214,7 +208,6 @@ def train(env:gymnasium.Env,
 
         # episodes needed to complete training
         new_episode_num = max(0, episodes_num // max(total_participant_episodes, 1))
-        #print(f"New Episode Num: {new_episode_num}, Total Participant Episodes: {total_participant_episodes}")
 
         # observe new states outside of data
         for new_epsiode in range(0, new_episode_num):
