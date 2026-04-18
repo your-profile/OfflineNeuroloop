@@ -116,7 +116,7 @@ def train(env:gymnasium.Env,
             if noise > 0.0:
                 new_neural_signal  = ml.noisy_output(clf,  new_neural_signal, granularity, flip_rate = noise)
 
-            adjusted_neural_signal = utils_rl.adjust_neural_classification(neural_signal, beta=beta)
+            adjusted_neural_signal = utils_rl.adjust_neural_classification(new_neural_signal, beta=beta)
             class_truth = processor.get_label_sample(timestamp = rl_timestamp, temporal_shift = -shift)
             
             next_action_dist = (
@@ -173,7 +173,7 @@ def train(env:gymnasium.Env,
             last_state_action_value = state_action_value
         
         # model optimality predictions
-        if smoothing_window_size > 1:
+        if smoothing_window_size > 1 or noise > 0.0:
             classes_pred.append(new_neural_signal) #predictions with smoothing
         else:
             classes_pred.append(neural_signal) #raw predictions
@@ -398,7 +398,7 @@ def train_robot(env: gymnasium.Env,
 
             if noise > 0.0: new_neural_signal = ml.noisy_output(clf, new_neural_signal, granularity, flip_rate=noise)
 
-            adjusted_neural = utils_rl.adjust_neural_classification(neural_signal, beta=beta)
+            adjusted_neural = utils_rl.adjust_neural_classification(new_neural_signal, beta=beta)
             class_truth = processor.get_label_sample(timestamp=rl_timestamp, temporal_shift=-shift)
 
             nopt = nrow["optimal_actions"] if t + 1 < len(rows) else action_dist
@@ -451,14 +451,6 @@ def train_robot(env: gymnasium.Env,
             if transition_priority is not None:
                 transition_priority.append(priority)
         
-        # episode_dict["state"].append(state.copy())
-        # episode_dict["action"].append(action.copy())
-        # episode_dict["done"].append(float(done))
-        # episode_dict["reward"].append(reward)
-        # episode_dict["achieved_goal"].append(achieved_goal.copy())
-        # episode_dict["desired_goal"].append(desired_goal.copy())
-        # episode_dict["next_state"].append(next_state.astype(np.float32))
-        # episode_dict["next_achieved_goal"].append(next_achieved_goal.astype(np.float32))
         minibatch.append(dc(episode_dict))
 
         if len(minibatch) == 20:
@@ -476,7 +468,7 @@ def train_robot(env: gymnasium.Env,
         if transition_priority is not None:
             episode_dict["transition_priority"] = transition_priority
 
-        if smoothing_window_size > 1:
+        if smoothing_window_size > 1 or noise > 0.0:
             classes_pred.append(new_neural_signal)
         else:
             classes_pred.append(neural_signal)

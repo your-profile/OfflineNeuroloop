@@ -38,6 +38,11 @@ NEURAL_CONDITIONS = [
     "Baseline",
 ]
 
+ABLATIONS = [
+        {"key": ["mlp", "model_noise"], "vals": [0.0, 0.1, 0.2, 0.3]},
+
+]
+
 GRANULARITIES = ["binary", "ternary", "continuous"]
 GRANULARITIES = ["binary"]
 SEEDS = [42] #, 43, 44, 45, 46]
@@ -51,7 +56,7 @@ DOMAINS_TASKS = {
 DATA_PATH = '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/' 
 RESULTS_PATH = '/Users/juliasantaniello/Desktop/OfflineNeuroloop/' 
 
-# DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/' 
+# DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/' 78->71, 78-> 71, 78-> 64 78->57
 # RESULTS_PATH = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/' 
 
 def set_nested(cfg, keys, val):
@@ -71,51 +76,51 @@ def make_run_name(cfg):
         f"__{n['smoothing_window_size']}"
     )
 
-# Full condition grid (baseline settings)
-for (domain, tasks), condition, granularity, seed in itertools.product(
-    DOMAINS_TASKS.items(), NEURAL_CONDITIONS, GRANULARITIES, SEEDS
-):
-    if condition == "Baseline" and granularity != "binary":
-        continue
+# # Full condition grid (baseline settings)
+# for (domain, tasks), condition, granularity, seed in itertools.product(
+#     DOMAINS_TASKS.items(), NEURAL_CONDITIONS, GRANULARITIES, SEEDS
+# ):
+#     if condition == "Baseline" and granularity != "binary":
+#         continue
 
-    with open(f"configs/domains/{domain}.yaml") as f:
-        domain_base = yaml.safe_load(f)
-        domain_cfg = copy.deepcopy(domain_base)
+#     with open(f"configs/domains/{domain}.yaml") as f:
+#         domain_base = yaml.safe_load(f)
+#         domain_cfg = copy.deepcopy(domain_base)
 
 
-    for task in tasks:
-        cfg = copy.deepcopy(base)
-        cfg["experiment"].update({
-            "domain": domain_cfg["experiment"]["domain"],
-            "pretrained_success_rate": domain_cfg["experiment"]["pretrained_success_rate"],
-            "task": task,
-            "condition": condition,
-            "experiment_list": [NEURAL_CONDITIONS.index(condition)],
-            "model_granularity": granularity,
-            "random_state": seed,
-        })
+#     for task in tasks:
+#         cfg = copy.deepcopy(base)
+#         cfg["experiment"].update({
+#             "domain": domain_cfg["experiment"]["domain"],
+#             "pretrained_success_rate": domain_cfg["experiment"]["pretrained_success_rate"],
+#             "task": task,
+#             "condition": condition,
+#             "experiment_list": [NEURAL_CONDITIONS.index(condition)],
+#             "model_granularity": granularity,
+#             "random_state": seed,
+#         })
 
-        cfg["mlp"].update({
-            "binary_hidden_layer_sizes": domain_cfg["mlp"]["binary_hidden_layer_sizes"],
-            "ternary_hidden_layer_sizes": domain_cfg["mlp"]["ternary_hidden_layer_sizes"],
-            "regressor_hidden_layer_sizes": domain_cfg["mlp"]["regressor_hidden_layer_sizes"],
-            "clf_activation": domain_cfg["mlp"]["clf_activation"],
-            "reg_activation": domain_cfg["mlp"]["reg_activation"],
-        })
+#         cfg["mlp"].update({
+#             "binary_hidden_layer_sizes": domain_cfg["mlp"]["binary_hidden_layer_sizes"],
+#             "ternary_hidden_layer_sizes": domain_cfg["mlp"]["ternary_hidden_layer_sizes"],
+#             "regressor_hidden_layer_sizes": domain_cfg["mlp"]["regressor_hidden_layer_sizes"],
+#             "clf_activation": domain_cfg["mlp"]["clf_activation"],
+#             "reg_activation": domain_cfg["mlp"]["reg_activation"],
+#         })
 
-        cfg["rl"].update({
-            "n_episodes": domain_cfg["rl"]["n_episodes"],
-            "algorithm": domain_cfg["rl"]["algorithm"],
-            "steps": domain_cfg["rl"]["steps"],
-            "action_space": domain_cfg["rl"]["action_space"],
-            "observation_space": domain_cfg["rl"]["observation_space"]
+#         cfg["rl"].update({
+#             "n_episodes": domain_cfg["rl"]["n_episodes"],
+#             "algorithm": domain_cfg["rl"]["algorithm"],
+#             "steps": domain_cfg["rl"]["steps"],
+#             "action_space": domain_cfg["rl"]["action_space"],
+#             "observation_space": domain_cfg["rl"]["observation_space"]
 
-        })
+#         })
 
-        if condition == "Prioritization":
-            cfg['rl']['buffer_type'] = "PER"
+#         if condition == "Prioritization":
+#             cfg['rl']['buffer_type'] = "PER"
 
-        run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH, RESULTS_PATH=RESULTS_PATH)
+#         run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH, RESULTS_PATH=RESULTS_PATH)
 
 # Ablation sweeps across the full condition grid
 for ablation, (domain, tasks), condition, granularity, seed in itertools.product(
