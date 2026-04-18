@@ -2,6 +2,7 @@ import numpy as np
 import csv
 import os
 import json 
+import torch
 
 class Results():
     '''
@@ -198,6 +199,41 @@ def evaluate(env, agent, steps=600, episodes=20, domain_key=None):
 
     return successes/episodes
 
+# def evaluate_fetch(env_, agent_, steps=50, episodes = 20):
+#     total_success_rate = []
+#     running_r = []
+#     for ep in range(10):
+#         per_success_rate = []
+#         env_dictionary, _ = env_.reset()
+#         s = env_dictionary["observation"]
+#         ag = env_dictionary["achieved_goal"]
+#         g = env_dictionary["desired_goal"]
+#         while np.linalg.norm(ag - g) <= 0.05:
+#             env_dictionary, _ = env_.reset()
+#             s = env_dictionary["observation"]
+#             ag = env_dictionary["achieved_goal"]
+#             g = env_dictionary["desired_goal"]
+#         ep_r = 0
+#         for t in range(steps):
+#             with torch.no_grad():
+#                 a = agent_.choose_action(s, g, train_mode=False)
+#             observation_new, r, done, info_, info = env_.step(a)
+#             s = observation_new['observation']
+#             g = observation_new['desired_goal']
+#             succ = 0
+#             if info["is_success"] > 0.0:
+#                 succ = 1
+#                 print("win")
+#             per_success_rate.append(succ)
+#             ep_r += r
+#         total_success_rate.append(per_success_rate)
+#         if ep == 0:
+#             running_r.append(ep_r)
+#         else:
+#             running_r.append(running_r[-1] * 0.99 + 0.01 * ep_r)
+#     total_success_rate = np.array(total_success_rate)
+#     local_success_rate = np.mean(total_success_rate)
+#     return local_success_rate, running_r, ep_r
 
 def evaluate_fetch(env, agent, steps=50, episodes=20):
     """Evaluate DDPG on a goal-conditioned Fetch env (dict observations)."""

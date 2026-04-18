@@ -272,7 +272,7 @@ class Memory:
         self.memory = []
         self.memory_counter = 0
         self.memory_length = 0
-        self.env = env
+        self.env = env.unwrapped
 
         self.future_p = 1 - (1. / (1 + k_future))
 
@@ -280,6 +280,7 @@ class Memory:
 
         ep_indices = np.random.randint(0, len(self.memory), batch_size)
         time_indices = np.random.randint(0, len(self.memory[0]["next_state"]), batch_size)
+        
         states = []
         actions = []
         desired_goals = []
@@ -287,11 +288,21 @@ class Memory:
         next_achieved_goals = []
 
         for episode, timestep in zip(ep_indices, time_indices):
-            states.append(dc(self.memory[episode]["state"][timestep]))
-            actions.append(dc(self.memory[episode]["action"][timestep]))
-            desired_goals.append(dc(self.memory[episode]["desired_goal"][timestep]))
-            next_achieved_goals.append(dc(self.memory[episode]["next_achieved_goal"][timestep]))
-            next_states.append(dc(self.memory[episode]["next_state"][timestep]))
+            try:
+                # print(episode, timestep, len(self.memory[episode]["state"]))
+                timestep = min(timestep, len(self.memory[episode]["state"]) - 1)
+                states.append(dc(self.memory[episode]["state"][timestep]))
+                actions.append(dc(self.memory[episode]["action"][timestep]))
+                desired_goals.append(dc(self.memory[episode]["desired_goal"][timestep]))
+                next_achieved_goals.append(dc(self.memory[episode]["next_achieved_goal"][timestep]))
+                next_states.append(dc(self.memory[episode]["next_state"][timestep]))
+            except:
+                timestep = min(timestep, random.randint(0, len(self.memory[episode]["state"])-1))
+                states.append(dc(self.memory[episode]["state"][timestep]))
+                actions.append(dc(self.memory[episode]["action"][timestep]))
+                desired_goals.append(dc(self.memory[episode]["desired_goal"][timestep]))
+                next_achieved_goals.append(dc(self.memory[episode]["next_achieved_goal"][timestep]))
+                next_states.append(dc(self.memory[episode]["next_state"][timestep]))
 
         states = np.vstack(states)
         actions = np.vstack(actions)
@@ -306,7 +317,12 @@ class Memory:
 
         future_ag = []
         for episode, f_offset in zip(ep_indices[her_indices], future_t):
-            future_ag.append(dc(self.memory[episode]["achieved_goal"][f_offset]))
+            try:
+                future_ag.append(dc(self.memory[episode]["achieved_goal"][f_offset]))
+            except:
+                f_offset = min(f_offset, random.randint(0, len(self.memory[episode]["next_achieved_goal"])-1))
+                future_ag.append(dc(self.memory[episode]["next_achieved_goal"][f_offset]))
+
         future_ag = np.vstack(future_ag)
 
         desired_goals[her_indices] = future_ag
@@ -335,8 +351,13 @@ class Memory:
         desired_goals = []
 
         for episode, timestep in zip(ep_indices, time_indices):
-            states.append(dc(batch[episode]["state"][timestep]))
-            desired_goals.append(dc(batch[episode]["desired_goal"][timestep]))
+            try:
+                states.append(dc(batch[episode]["state"][timestep]))
+                desired_goals.append(dc(batch[episode]["desired_goal"][timestep]))
+            except:
+                timestep = min(timestep, random.randint(0, len(batch[episode]["state"])-1))
+                states.append(dc(batch[episode]["state"][timestep]))
+                desired_goals.append(dc(batch[episode]["desired_goal"][timestep]))
 
         states = np.vstack(states)
         desired_goals = np.vstack(desired_goals)
@@ -348,7 +369,12 @@ class Memory:
 
         future_ag = []
         for episode, f_offset in zip(ep_indices[her_indices], future_t):
-            future_ag.append(dc(batch[episode]["achieved_goal"][f_offset]))
+            try:
+                future_ag.append(dc(batch[episode]["achieved_goal"][f_offset]))
+            except:
+                f_offset = min(f_offset, random.randint(0, len(batch[episode]["next_achieved_goal"])-1))
+                future_ag.append(dc(batch[episode]["next_achieved_goal"][f_offset]))
+
         future_ag = np.vstack(future_ag)
 
         desired_goals[her_indices] = future_ag

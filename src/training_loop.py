@@ -316,33 +316,31 @@ def vectorize_action(x, dtype=np.float32):
     return np.asarray(x, dtype=dtype).ravel()
 
 
-def train_robot(
-                    env: gymnasium.Env,
-                    task_df: pd.DataFrame,
-                    agent,
-                    clf,
-                    processor: DatasetProcessor,
-                    ml: ModelTrainer,
-                    experiment_list: list,
-                    fnirs_channel_names: List[str],
-                    episodes_num: int,
-                    steps: int,
-                    window_duration_s: float,
-                    granularity: str,
-                    fnirs_rate_hz: float = 5.2,
-                    shift: float = 0.0,
-                    noise: float = 0.0,
-                    smoothing_window_size: int = 0,
-                    target_update: int = 20,
-                    buffer_type: str = "ER",
-                    beta: float = 1.0,
-                    save_results: bool = False,
-                    save_to_csv: bool = False,
-                    verbose: bool = False):
+def train_robot(env: gymnasium.Env,
+                task_df: pd.DataFrame,
+                agent,
+                clf,
+                processor: DatasetProcessor,
+                ml: ModelTrainer,
+                experiment_list: list,
+                fnirs_channel_names: List[str],
+                episodes_num: int,
+                steps: int,
+                window_duration_s: float,
+                granularity: str,
+                fnirs_rate_hz: float = 5.2,
+                shift: float = 0.0,
+                noise: float = 0.0,
+                smoothing_window_size: int = 0,
+                target_update: int = 20,
+                buffer_type: str = "ER",
+                beta: float = 1.0,
+                seed = 42,
+                save_results: bool = False,
+                save_to_csv: bool = False,
+                verbose: bool = False):
     """
-    Offline neuro + online Fetch (DDPG + HER) with the same experiment_list flags as ``train``:
-    0 baseline, 1 reward aug, 2 prioritization (PER seed + TD updates), 3 exploration (randomprob),
-    4 LR modulation, 5 extra reward shaping (Q-aug analogue).
+    Offline neuro + online Fetch (DDPG + HER) with the same experiment_list flags as ``train``
     """
     from src.networks.DDPG import DDPG
 
@@ -350,12 +348,11 @@ def train_robot(
         raise TypeError("train_robot requires a DDPG agent from load_ddpg_agent / load_agent(DDPG).")
 
     flags = list(experiment_list)
-    warmup = 200
-
     sample_period_s = 1.0 / fnirs_rate_hz
+    total_participant_episodes = int(task_df["episode"].nunique())
     buffer = fNIRSBuffer(window_duration_s=window_duration_s, sample_period_s=sample_period_s)
-
     rw_df = task_df[task_df["desired_goal"].notna()].copy()
+    print(rw_df.columns)
 
     if rw_df.empty:
         rw_df = task_df[task_df["participantKey"].astype(str).str.contains("RW", na=False)].copy()
@@ -364,31 +361,20 @@ def train_robot(
 
     grouped = rw_df.groupby(["participantKey", "episode"])
 
-    if granularity[0] == "b":
-        gr = 0
-    elif granularity[0] == "t":
-        gr = 1
-    else:
-        gr = 2
+    if granularity[0] == "b": gr = 0
+    elif granularity[0] == "t": gr = 1
+    else: gr = 2
 
-    all_average_rewards, all_total_rewards, all_episode_steps, all_episode_success = ([],[],[],[])
-    classes_truth, classes_pred = [], []
-    success, last_success = 0.0, 0.0
-    last_participant_episode = 0
-    combined_episodes = 0
-
+    all_average_rewards, all_total_rewards, all_episode_steps, all_episode_success, classes_truth, classes_pred = ([],[],[],[],[],[])
+    success, last_success, last_participant_episode, combined_episodes = 0.0, 0.0, 0, 0
     learning_rate = float(agent.actor_lr)
-    seed = np.random.randint(0, 5000)
 
     bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} < {remaining}, {rate_fmt} | {postfix}]'
     pbar = trange(episodes_num, unit="ep", bar_format=bar_format, ascii=True)
-    total_participant_episodes = int(task_df["episode"].nunique())
 
     for (participant, episode), episode_df in grouped:
         minibatch = []
-
         last_participant_episode = int(episode)
-        combined_episodes += 1
         rows = episode_df.reset_index(drop=True)
 
         episode_dict = {
@@ -404,40 +390,32 @@ def train_robot(
 
         transition_priority = [] if buffer_type == "PER" else None
 
-        total_reward, neural_signal, new_neural_signal, cycle_actor_loss, cycle_critic_loss = 0.0, 0.0, 0.0, 0.0, 0.0
+        total_reward, neural_signal, new_neural_signal = 0.0, 0.0, 0.0
         class_truth = None
 
         for t in range(len(rows)):
             row = rows.iloc[t]
-            action = row["actions"]
+            action = vectorize_action(row["actions"])
             action_dist = row["optimal_actions"]
             reward = float(row["rewards"])
-            state = row["states"]
-            achieved_goal = row["achieved_goal"]
-            desired_goal = row["desired_goal"]
+            state = vectorize_action(row["states"])
+            achieved_goal = vectorize_action(row["achieved_goal"])
+            desired_goal = vectorize_action(row["desired_goal"])
             rl_timestamp = row["time"]
 
-            a = vectorize_action(action)
-
-            if a.size == 0 or not np.isfinite(a).all():
+            if action.size == 0 or not np.isfinite(action).all():
                 continue
 
             if t + 1 < len(rows):
                 nrow = rows.iloc[t + 1]
-                next_state = nrow["states"]
-                next_ag = nrow["achieved_goal"]
+                next_state = vectorize_action(nrow["states"])
+                next_achieved_goal = vectorize_action(nrow["achieved_goal"])
                 done = 0.0
             else:
                 nrow = row
                 next_state = state
-                next_ag = row["achieved_goal"]
+                next_achieved_goal = vectorize_action(row["achieved_goal"])
                 done = 1.0
-
-            state = vectorize_action(state)
-            next_state = vectorize_action(next_state)
-            achieved_goal = vectorize_action(row["achieved_goal"])
-            next_acheived_goal = vectorize_action(next_ag)
-            desired_goal = vectorize_action(row["desired_goal"])
 
             neural_features = buffer.get_features()
             neural_signal = utils_rl.get_neural_signal(clf, neural_features)
@@ -445,20 +423,18 @@ def train_robot(
             buffer.add_sample(timestamp=rl_timestamp, x=fnirs_sample, classification=neural_signal)
             new_neural_signal = buffer.get_neural_credit(granularity=granularity, X=smoothing_window_size)
 
-            if noise > 0.0:
-                new_neural_signal = ml.noisy_output(clf, new_neural_signal, granularity, flip_rate=noise)
+            if noise > 0.0: new_neural_signal = ml.noisy_output(clf, new_neural_signal, granularity, flip_rate=noise)
 
             adjusted_neural = utils_rl.adjust_neural_classification(neural_signal, beta=beta)
             class_truth = processor.get_label_sample(timestamp=rl_timestamp, temporal_shift=-shift)
 
             nopt = nrow["optimal_actions"] if t + 1 < len(rows) else action_dist
-            priority = ddpg_priority(reward, a, action_dist, nopt)
+            priority = ddpg_priority(reward, action, action_dist, nopt)
             
-            if buffer_type == "ER":
-                priority = 0.0
+            if buffer_type == "ER": priority = 0.0
 
             if 1 in flags:
-                if verbose:
+                if verbose: 
                     print(f"Reward Augmentation — ep {episode} participant {participant}")
                 reward = reward + adjusted_neural
 
@@ -482,6 +458,7 @@ def train_robot(
                 agent.set_lr(learning_rate)
 
             r_store = float(reward)
+
             if 5 in flags:
                 if verbose:
                     print(f"Q-aug analogue — ep {episode} participant {participant}")
@@ -492,7 +469,7 @@ def train_robot(
             episode_dict["reward"].append(r_store)
             episode_dict["next_state"].append(next_state.astype(np.float32))
             episode_dict["achieved_goal"].append(achieved_goal.astype(np.float32))
-            episode_dict["next_achieved_goal"].append(next_acheived_goal.astype(np.float32))
+            episode_dict["next_achieved_goal"].append(next_achieved_goal.astype(np.float32))
             episode_dict["desired_goal"].append(desired_goal.astype(np.float32))
             episode_dict["done"].append(float(done))
             
@@ -500,24 +477,25 @@ def train_robot(
 
             if transition_priority is not None:
                 transition_priority.append(priority)
-
+        
+        # episode_dict["state"].append(state.copy())
+        # episode_dict["action"].append(action.copy())
+        # episode_dict["done"].append(float(done))
+        # episode_dict["reward"].append(reward)
+        # episode_dict["achieved_goal"].append(achieved_goal.copy())
+        # episode_dict["desired_goal"].append(desired_goal.copy())
+        # episode_dict["next_state"].append(next_state.astype(np.float32))
+        # episode_dict["next_achieved_goal"].append(next_achieved_goal.astype(np.float32))
         minibatch.append(dc(episode_dict))
 
-        if len(minibatch) == 50:
+        if len(minibatch) == 20:
             agent.store(minibatch)
-
             for _ in range(40):
                 actor_loss, critic_loss = agent.train()
-                cycle_actor_loss += actor_loss
-                cycle_critic_loss += critic_loss
-
-            epoch_actor_loss += cycle_actor_loss/40
-            epoch_critic_loss += cycle_critic_loss/40
+            
             agent.update_networks()
             minibatch = []
-            cycle_actor_loss, cycle_critic_loss = 0,0
 
-        agent.save_weights()
 
         if len(episode_dict["state"]) == 0:
             continue
@@ -535,18 +513,18 @@ def train_robot(
         else:
             classes_truth.append(class_truth.to_list()[gr])
 
+        if combined_episodes%800 == 0:
+            agent.save_weights()
+
         step_count = len(episode_dict["state"]) - 1
         step_count = max(step_count, 1)
-        # all_average_rewards.append(round(total_reward / step_count, 2))
-        # all_total_rewards.append(round(total_reward, 2))
-        # all_episode_steps.append(len(ep["state"]) - 1)
-
+        combined_episodes += 1
         new_episode_num = max(0, episodes_num // max(total_participant_episodes, 1))
             
-        for _ in range(new_episode_num):
+        for online_episode in range(new_episode_num):
             obs, _ = env.reset(seed=seed)
             seed += 1
-            total_reward, cycle_actor_loss, cycle_critic_loss = 0.0, 0.0, 0.0
+            total_reward = 0.0
             online_ep = {
                 "state": [],
                 "action": [],
@@ -593,56 +571,57 @@ def train_robot(
                 if terminated or truncated:
                     break
 
-            minibatch.append(dc(episode_dict))
+            # online_ep["state"].append(state.copy())
+            # online_ep["next_state"].append(next_state.astype(np.float32))
+            # online_ep["action"].append(action.copy())
+            # online_ep["done"].append(done)
+            # online_ep["reward"].append(reward)
+            # online_ep["achieved_goal"].append(achieved_goal.copy())
+            # online_ep["desired_goal"].append(desired_goal.copy())
+            # online_ep["next_achieved_goal"].append(next_achieved_goal.astype(np.float32))
+            minibatch.append(dc(online_ep))
 
-            if len(minibatch) == 50:
+            if len(minibatch) == 20:
                 agent.store(minibatch)
 
                 for _ in range(40):
                     actor_loss, critic_loss = agent.train()
-                    cycle_actor_loss += actor_loss
-                    cycle_critic_loss += critic_loss
 
-                epoch_actor_loss += cycle_actor_loss/40
-                epoch_critic_loss += cycle_critic_loss/40
                 agent.update_networks()
                 minibatch = []
-                cycle_actor_loss, cycle_critic_loss = 0,0
 
             if len(online_ep["state"]) > 0:
                 if prios is not None:
                     online_ep["transition_priority"] = prios
         
-            combined_episodes += 1
             st = max(len(online_ep["state"]) - 1, 1)
             all_average_rewards.append(round(total_reward / st, 2))
             all_total_rewards.append(round(total_reward, 2))
             all_episode_steps.append(len(online_ep["state"]) - 1)
-
             score_avg = np.mean(all_total_rewards[-50:])
-            agent.save_weights()
 
-
-            if combined_episodes % target_update == 0:
-                success = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=15)
+            if combined_episodes%800 == 0:
+                print('eval')
+                agent.save_weights()
+                success = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=20)
                 all_episode_success.append(success)
                 last_success = success
+
+                if success > 0.60:
+                    torch.save(
+                        {
+                            "episode": episode,
+                            "actor": agent.actor.state_dict(),
+                            "critic": agent.critic.state_dict(),
+                            "actor_target": agent.actor_target.state_dict(),
+                            "critic_target": agent.critic_target.state_dict(),
+                            "actor_optim": agent.actor_optim.state_dict(),
+                            "critic_optim": agent.critic_optim.state_dict(),
+                        },
+                        "FetchPolicy" + str(int(success * 100)) + ".pth",
+                    )
             else:
                 all_episode_success.append(success)
-
-            if success > 0.60:
-                torch.save(
-                    {
-                        "episode": episode,
-                        "actor": agent.actor.state_dict(),
-                        "critic": agent.critic.state_dict(),
-                        "actor_target": agent.actor_target.state_dict(),
-                        "critic_target": agent.critic_target.state_dict(),
-                        "actor_optim": agent.actor_optim.state_dict(),
-                        "critic_optim": agent.critic_optim.state_dict(),
-                    },
-                    "FetchPolicy" + str(int(success * 100)) + ".pth",
-                )
 
             pbar.set_postfix(
                 {"Score": f"{total_reward:7.2f}",
@@ -652,6 +631,7 @@ def train_robot(
                 }, refresh=True
             )
             pbar.update(1)
+            combined_episodes += 1
  
     env.close()
 

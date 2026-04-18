@@ -1,4 +1,11 @@
-import gymnasium as gym
+import sys
+from pathlib import Path
+
+_repo_root = Path(__file__).resolve().parents[2]
+if str(_repo_root) not in sys.path:
+    sys.path.insert(0, str(_repo_root))
+
+from src.utils import make_fetch_env
 from DDPG import DDPG as Agent
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,7 +17,6 @@ import torch
 
 np.random.seed(np.random.randint(0, 20000))
 
-ENV_NAME = "FetchPickAndPlace-v2"
 Train = True
 Play_FLAG = False
 seed = 42
@@ -26,13 +32,13 @@ gamma = 0.98
 tau = 0.05
 k_future = 4
 
-test_env = gym.make("FetchPickAndPlace-v2")
+test_env = make_fetch_env(max_episode_steps=50, mujoco_version=4)
 state_shape = test_env.observation_space.spaces["observation"].shape
 n_actions = test_env.action_space.shape[0]
 n_goals = test_env.observation_space.spaces["desired_goal"].shape[0]
 action_bounds = [test_env.action_space.low[0], test_env.action_space.high[0]]
 
-def eval_agent(env_, agent_):
+def eval_agent(env_, agent_, steps=50, episodes = 20):
     total_success_rate = []
     running_r = []
     for ep in range(10):
@@ -47,7 +53,7 @@ def eval_agent(env_, agent_):
             ag = env_dictionary["achieved_goal"]
             g = env_dictionary["desired_goal"]
         ep_r = 0
-        for t in range(50):
+        for t in range(steps):
             with torch.no_grad():
                 a = agent_.choose_action(s, g, train_mode=False)
             observation_new, r, done, info_, info = env_.step(a)
@@ -68,7 +74,7 @@ def eval_agent(env_, agent_):
     local_success_rate = np.mean(total_success_rate)
     return local_success_rate, running_r, ep_r
 
-env = gym.make(ENV_NAME)
+env = make_fetch_env(max_episode_steps=50, mujoco_version=4)
 random.seed(seed)
 np.random.seed(seed)
 torch.manual_seed(seed)
@@ -173,6 +179,92 @@ def run():
                 f"Critic_Loss:{critic_loss:.3f}| "
                 f"Success rate:{success_rate:.3f}| ")
         agent.save_weights()
+            
+    plt.plot(total_success_rate)
+
+
+def run2():
+
+    total_success_rate = []
+    total_ac_loss = []
+    total_cr_loss = []
+    rewards = []
+
+    start_time = time.time()
+    epoch_actor_loss, epoch_critic_loss = 0, 0
+    minibatch = []
+    cycle_actor_loss = 0
+    cycle_critic_loss = 0
+    for episode_num in range(MAX_EPISODES):
+        episode_dict = {
+            "state": [],
+            "action": [],
+            "reward": [],
+            "info": [],
+            "achieved_goal": [],
+            "desired_goal": [],
+            "next_state": [],
+            "next_achieved_goal": []}
+        env_dict, _ = env.reset()
+        state = env_dict["observation"]
+        achieved_goal = env_dict["achieved_goal"]
+        desired_goal = env_dict["desired_goal"]
+        while np.linalg.norm(achieved_goal - desired_goal) <= 0.05:
+            env_dict, _ = env.reset()
+            state = env_dict["observation"]
+            achieved_goal = env_dict["achieved_goal"]
+            desired_goal = env_dict["desired_goal"]
+        for t in range(50):
+            action = agent.choose_action(state, desired_goal)
+            next_env_dict, reward, done, info, _ = env.step(action)
+
+            next_state = next_env_dict["observation"]
+            next_achieved_goal = next_env_dict["achieved_goal"]
+            next_desired_goal = next_env_dict["desired_goal"]
+
+            episode_dict["state"].append(state.copy())
+            episode_dict["action"].append(action.copy())
+            episode_dict["reward"].append(reward)
+            episode_dict["achieved_goal"].append(achieved_goal.copy())
+            episode_dict["desired_goal"].append(desired_goal.copy())
+
+            state = next_state.copy()
+            achieved_goal = next_achieved_goal.copy()
+            desired_goal = next_desired_goal.copy()
+
+        episode_dict["state"].append(state.copy())
+        episode_dict["reward"].append(reward)
+        episode_dict["achieved_goal"].append(achieved_goal.copy())
+        episode_dict["desired_goal"].append(desired_goal.copy())
+        episode_dict["next_state"] = episode_dict["state"][1:]
+        episode_dict["next_achieved_goal"] = episode_dict["achieved_goal"][1:]
+        minibatch.append(dc(episode_dict))
+
+        if episode_num % MAX_CYCLES == 0:
+            agent.store(minibatch)
+            for _ in range(num_updates):
+                actor_loss, critic_loss = agent.train()
+                cycle_actor_loss += actor_loss
+                cycle_critic_loss += critic_loss
+
+            epoch_actor_loss += cycle_actor_loss / num_updates
+            epoch_critic_loss += cycle_critic_loss /num_updates
+            agent.update_networks()
+        if episode_num % MAX_EPOCHS == 0:
+            success_rate, running_reward, episode_reward = eval_agent(env, agent)
+            total_ac_loss.append(epoch_actor_loss)
+            total_cr_loss.append(epoch_critic_loss)
+            total_success_rate.append(success_rate)
+
+            print(f"Epoch:{episode_num}| "
+                    f"Running_reward:{running_reward[-1]:.3f}| "
+                    f"EP_reward:{episode_reward:.3f}| "
+                    f"Memory_length:{len(agent.memory)}| "
+                    f"Duration:{time.time() - start_time:.3f}| "
+                    f"Actor_Loss:{actor_loss:.3f}| "
+                    f"Critic_Loss:{critic_loss:.3f}| "
+                    f"Success rate:{success_rate:.3f}| ")
+            agent.save_weights()
             
     plt.plot(total_success_rate)
 
