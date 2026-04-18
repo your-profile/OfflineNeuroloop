@@ -43,17 +43,18 @@ class ModelTrainer:
             return self.noisy_ternary(model, X, flip_rate)
 
 
-    def flip_labels(self, labels, flip_rate, classes):
+    def flip_labels(self, prediction, flip_rate, classes):
         """Reassign a fraction of predictions to a wrong class with noise."""
 
         if self.seed is not None:
             np.random.seed(self.seed)
             
         if random.random() < flip_rate:
-            wrong_classes = [c for c in classes if c != labels]
+            wrong_classes = [c for c in classes if c != prediction]
             noisy = np.random.choice(wrong_classes)
         else:
-            noisy = labels
+            noisy = prediction
+
         return noisy
 
 
@@ -66,7 +67,7 @@ class ModelTrainer:
         return self.flip_labels(preds, flip_rate, classes=[0, 1])
 
 
-    def noisy_ternary(self, model, preds, flip_rate=0.1):
+    def noisy_ternary(self, preds, flip_rate=0.1):
         """
         flip_rate=0.1 → ~10% of predictions flipped to one of the other two classes.
         """
@@ -74,7 +75,7 @@ class ModelTrainer:
         return self.flip_labels(preds, flip_rate, classes=[0, 1, 2])
 
 
-    def noisy_regressor(self, model, preds, noise_level=0.1):
+    def noisy_regressor(self, preds, noise_level=0.1):
         """
         noise_level=0.1 → noise std = 10% of the prediction's own std.
         Degrades R² roughly proportionally.
@@ -93,6 +94,7 @@ class ModelTrainer:
                          
                          random_state: int = 42, 
                          shuffle_data: bool = True):
+                         
         if granularity == "continuous":
             return self.train_regressor(X, y, test_size, random_state, shuffle_data)
         

@@ -15,27 +15,6 @@ from src.neural.buffer import fNIRSBuffer
 from src.rl_loop import utils_rl
 from src.neural.preprocessing import DatasetProcessor
 
-
-def dqn_priority(reward, action: int, action_dist, next_action_dist) -> float:
-    """Discrete actions: same as reward + P(a|s_t) - P(a|s_{t+1}) over stored optimal distributions."""
-    prev_action_value = next_action_dist[action] if action < len(next_action_dist) else 0.0
-    curr_action_value = action_dist[action] if action < len(action_dist) else 0.0
-    return float(reward + curr_action_value - prev_action_value)
-
-
-def ddpg_priority(reward, action, action_dist, next_action_dist) -> float:
-    """Continuous actions (e.g. Fetch): reward + score(a, opt_t) - score(a, opt_{t+1}) with score = -||a - opt||^2."""
-    a = np.asarray(action, dtype=np.float64).ravel()
-    opt_curr = np.asarray(action_dist, dtype=np.float64).ravel()
-    opt_next = np.asarray(next_action_dist, dtype=np.float64).ravel()
-    m = int(min(a.size, opt_curr.size, opt_next.size))
-    if m == 0:
-        return float(reward)
-    curr_action_value = -np.sum((a[:m] - opt_curr[:m]) ** 2)
-    prev_action_value = -np.sum((a[:m] - opt_next[:m]) ** 2)
-    return float(reward + curr_action_value - prev_action_value)
-
-
 def train(env:gymnasium.Env, 
           task_df:pd.DataFrame, 
           agent: DQN, 
@@ -74,6 +53,7 @@ def train(env:gymnasium.Env,
     
     # # Calculate total number of participant episodes by counting unique (participantKey, episode) pairs
     total_participant_episodes = task_df.drop_duplicates(subset=["participantKey", "episode"]).shape[0]
+    print(total_participant_episodes)
 
     if granularity[0] == "b": gr = 0
     if granularity[0] == "t": gr = 1
@@ -256,21 +236,21 @@ def train(env:gymnasium.Env,
 
             if combined_episodes % target_update == 0:
                 if domain_key == "F":
-                    success = utils_rl.evaluate(env=FlappyBird(score_limit=20), agent=agent, episodes=30, steps=2000, domain_key=domain_key)
+                    success = utils_rl.evaluate(env=FlappyBird(score_limit=20), agent=agent, episodes=20, steps=1000, domain_key=domain_key)
                 else:
-                    success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=30, steps=600, domain_key=domain_key)
+                    success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=20, steps=600, domain_key=domain_key)
                 all_episode_success.append(success)
                 last_success = success
             else:
                 all_episode_success.append(success)
 
-            if success > 0.60:
+            if success >= 0.40:
                 # save agent if above 60% success rate
                 torch.save({
                     'episode': episode,
                     'model_state_dict': agent.policy_net.state_dict(),
                     'optimizer_state_dict': agent.optimizer.state_dict()}, 
-                    "LLPolicy" + str(int(success*100
+                    f"{str(domain_key).upper()}Policy" + str(int(success*100
                 )))
 
             # bar update
@@ -564,14 +544,6 @@ def train_robot(env: gymnasium.Env,
                 if terminated or truncated:
                     break
 
-            # online_ep["state"].append(state.copy())
-            # online_ep["next_state"].append(next_state.astype(np.float32))
-            # online_ep["action"].append(action.copy())
-            # online_ep["done"].append(done)
-            # online_ep["reward"].append(reward)
-            # online_ep["achieved_goal"].append(achieved_goal.copy())
-            # online_ep["desired_goal"].append(desired_goal.copy())
-            # online_ep["next_achieved_goal"].append(next_achieved_goal.astype(np.float32))
             minibatch.append(dc(online_ep))
 
             if len(minibatch) == 20:
@@ -600,7 +572,7 @@ def train_robot(env: gymnasium.Env,
                 all_episode_success.append(success)
                 last_success = success
 
-                if success > 0.60:
+                if success >= 0.40:
                     torch.save(
                         {
                             "episode": episode,
@@ -647,3 +619,23 @@ def train_robot(env: gymnasium.Env,
     print("Summation of participant episodes seen: ", total_participant_episodes)
 
     return results
+
+
+def dqn_priority(reward, action: int, action_dist, next_action_dist) -> float:
+    """Discrete actions: same as reward + P(a|s_t) - P(a|s_{t+1}) over stored optimal distributions."""
+    prev_action_value = next_action_dist[action] if action < len(next_action_dist) else 0.0
+    curr_action_value = action_dist[action] if action < len(action_dist) else 0.0
+    return float(reward + curr_action_value - prev_action_value)
+
+
+def ddpg_priority(reward, action, action_dist, next_action_dist) -> float:
+    """Continuous actions (e.g. Fetch): reward + score(a, opt_t) - score(a, opt_{t+1}) with score = -||a - opt||^2."""
+    a = np.asarray(action, dtype=np.float64).ravel()
+    opt_curr = np.asarray(action_dist, dtype=np.float64).ravel()
+    opt_next = np.asarray(next_action_dist, dtype=np.float64).ravel()
+    m = int(min(a.size, opt_curr.size, opt_next.size))
+    if m == 0:
+        return float(reward)
+    curr_action_value = -np.sum((a[:m] - opt_curr[:m]) ** 2)
+    prev_action_value = -np.sum((a[:m] - opt_next[:m]) ** 2)
+    return float(reward + curr_action_value - prev_action_value)

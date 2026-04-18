@@ -177,6 +177,15 @@ class DDPG:
         global_grads = np.zeros_like(flat_grads)
         comm.Allreduce(flat_grads, global_grads, op=MPI.SUM)
         _set_flat_params_or_grads(network, global_grads, mode='grads')
+    
+    def load_model(self, filename):
+        checkpoint = torch.load(filename)
+        self.actor.load_state_dict(checkpoint["actor"])
+        self.critic.load_state_dict(checkpoint["critic"])
+        self.actor_target.load_state_dict(checkpoint["actor_target"])
+        self.critic_target.load_state_dict(checkpoint["critic_target"])
+        self.actor_optim.load_state_dict(checkpoint["actor_optim"])
+        self.critic_optim.load_state_dict(checkpoint["critic_optim"])
 
 
 def _get_flat_params_or_grads(network, mode='params'):

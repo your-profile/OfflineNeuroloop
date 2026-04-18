@@ -1,5 +1,6 @@
 experiment:
-  domain: "Lunar Lander"                  # Robot | Lunar Lander | Flappy Bird
+  domain: "Lunar Lander"
+  pretrained_success_rate: 0.0
 
 mlp:
   binary_hidden_layer_sizes: [10, 5, 2]
@@ -9,8 +10,8 @@ mlp:
   reg_activation: "tanh"
   
 rl:
-  n_episodes: 5000
+  n_episodes: 1
   algorithm: "DQN"
-  steps: 500
+  steps: 600
   action_space: 4
   observation_space: 11

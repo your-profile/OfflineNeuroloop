@@ -71,7 +71,6 @@ def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
         random_state = cfg["experiment"]["random_state"],
     )
 
-    cfg["mlp"]["model_noise"] = cfg["neural"]["model_noise"]
     modelTrainer = ModelTrainer(cfg = cfg["mlp"], seed = cfg["experiment"]["random_state"])
     classifier, report = modelTrainer.train_classifier(X, y, granularity = cfg["experiment"]["model_granularity"], random_state =  cfg["experiment"]["random_state"])
     

@@ -14,15 +14,15 @@ device =  "cpu" #torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 #Q NETWORK ARCHITECTURE
 class DeepQNetwork(nn.Module):
-    def __init__(self, n_observations, n_actions):
+    def __init__(self, n_observations, n_actions, hidden_layer_size=128):
         super(DeepQNetwork, self).__init__()
 
         self.fc = nn.Sequential(
-            nn.Linear(n_observations, 128),
+            nn.Linear(n_observations, hidden_layer_size),
             nn.ReLU(),
-            nn.Linear(128, 128),
+            nn.Linear(hidden_layer_size, hidden_layer_size),
             nn.ReLU(),
-            nn.Linear(128, n_actions)
+            nn.Linear(hidden_layer_size, n_actions)
             )
 
     def forward(self, x):
@@ -30,7 +30,7 @@ class DeepQNetwork(nn.Module):
 
 #DQN ALGORITHM
 class DQN():
-    def __init__(self, n_observations, n_actions, batch_size=64, lr=1e-4, gamma=0.99, mem_size=int(1e5), learn_step=5, tau=1e-3, buffer_type = "ER"):
+    def __init__(self, n_observations, n_actions, batch_size=64, lr=1e-4, gamma=0.99, mem_size=int(1e5), learn_step=5, tau=1e-3, hidden_layer_size=128, buffer_type = "ER"):
         self.n_observations = n_observations
         self.n_actions = n_actions
         self.batch_size = batch_size
@@ -38,9 +38,10 @@ class DQN():
         self.learn_step = learn_step
         self.tau = tau
         self.lr = lr
+        self.hidden_layer_size = hidden_layer_size
 
-        self.policy_net = DeepQNetwork(n_observations, n_actions).to(device)
-        self.target_net = DeepQNetwork(n_observations, n_actions).to(device)
+        self.policy_net = DeepQNetwork(n_observations, n_actions, hidden_layer_size).to(device)
+        self.target_net = DeepQNetwork(n_observations, n_actions, hidden_layer_size).to(device)
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=lr)
         self.criterion = nn.MSELoss()
 
@@ -80,9 +81,6 @@ class DQN():
                 experiences = self.memory.sample()
                 self.learn(experiences, q_augmentation=q_augmentation)
 
-        if priority is None:
-            priority=0
-
         self.memory.add(state, action, reward, next_state, done, priority)
 
     def learn(self, experiences, q_augmentation: float = 0.0):
@@ -111,6 +109,10 @@ class DQN():
     def softUpdate(self):
         for eval_param, target_param in zip(self.policy_net.parameters(), self.target_net.parameters()):
             target_param.data.copy_(self.tau*eval_param.data + (1.0-self.tau)*target_param.data)
+        
+    def load_model(self, filename):
+        self.policy_net.load_state_dict(torch.load(filename))
+        self.target_net.load_state_dict(torch.load(filename))
 
 
 class PrioritizedReplayBuffer():
@@ -137,22 +139,30 @@ class PrioritizedReplayBuffer():
         else:
             self.memory[self.pos] = e
 
-        self.priorities[self.pos] = abs(priority) if priority is not None else 1.0
+        raw = abs(float(priority)) if priority is not None else 1.0
+        self.priorities[self.pos] = max(raw, self.eps)
         self.pos = (self.pos + 1) % self.capacity
 
     def sample(self):
         current_size = len(self.memory)
+        k = min(self.batch_size, current_size)
         priorities = self.priorities[:current_size]
 
-        scaled = priorities ** self.alpha
+        scaled = np.maximum(priorities, self.eps) ** self.alpha
+        total = float(scaled.sum())
 
-        total = scaled.sum()
-
-        if total == 0 or np.allclose(scaled, scaled[0]):
-            indices = np.random.choice(current_size, self.batch_size, replace=False)
+        if total <= 0 or current_size == 0:
+            indices = np.random.choice(current_size, k, replace=False)
+        elif np.allclose(scaled, scaled[0]):
+            indices = np.random.choice(current_size, k, replace=False)
         else:
             probs = scaled / total
-            indices = np.random.choice(current_size, self.batch_size, replace=False, p=probs)
+            nonzero = int(np.count_nonzero(probs))
+            use_replace = k > nonzero or k > current_size
+            if use_replace:
+                indices = np.random.choice(current_size, k, replace=True, p=probs)
+            else:
+                indices = np.random.choice(current_size, k, replace=False, p=probs)
 
         experiences = [self.memory[i] for i in indices]
 

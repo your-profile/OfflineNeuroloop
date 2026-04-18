@@ -1,5 +1,11 @@
 import gymnasium
 from copy import deepcopy as dc
+from src.networks.DQN import DQN
+from src.networks.DDPG import DDPG
+from src.networks.DDPG_PER import DDPG as DDPG_HER
+from src.envs.lunar_lander import LunarLander
+from src.envs.flappy_bird import FlappyBirdEnv
+
 
 
 def make_fetch_env(max_episode_steps=50, mujoco_version: int = 4):
@@ -30,10 +36,8 @@ def make_fetch_env(max_episode_steps=50, mujoco_version: int = 4):
 
 def load_domain(env: str, steps: int = None):
     if env[0].lower() == "l":
-        from src.envs.lunar_lander import LunarLander
         env = LunarLander()
     elif env[0].lower() == "f":
-        from src.envs.flappy_bird import FlappyBirdEnv
         env = FlappyBirdEnv(score_limit=30)
     elif env[0].lower() == "r":
         env = make_fetch_env(max_episode_steps=steps, mujoco_version=2)
@@ -42,10 +46,30 @@ def load_domain(env: str, steps: int = None):
 
     return env
 
-def load_agent(algorithm: str, buffer_type: str, space=(11, 4)):
-    agent = None
+def load_pretrained_agent(pretrained_success_rate: float, algorithm: str, space=(11, 4)):
     if algorithm == "DQN":
-        from src.networks.DQN import DQN
+        if space[0] == 11:
+            agent = DQN.load_model("LLPolicy" + str(int(pretrained_success_rate)) + ".pth")
+        if space[0] == 12:
+            agent = DQN.load_model("FlappyPolicy" + str(int(pretrained_success_rate)) + ".pth")
+        
+    if algorithm == "DDPG":
+        agent = DDPG.load_model("FetchPolicy" + str(int(pretrained_success_rate)) + ".pth")
+    
+    return agent
+
+def load_agent(algorithm: str, buffer_type: str, space=(11, 4), pretrained_success_rate: float = 0.0):
+    agent = None
+
+    if pretrained_success_rate > 0.0:
+        return load_pretrained_agent(pretrained_success_rate, algorithm, space)
+
+    if algorithm == "DQN":
+
+        if space[0] == 11:
+            hidden_layer_size = 256
+        else:
+            hidden_layer_size = 192
 
         agent = DQN(
             n_observations=space[0],
@@ -57,6 +81,7 @@ def load_agent(algorithm: str, buffer_type: str, space=(11, 4)):
             learn_step=5,
             tau=0.005,
             buffer_type=buffer_type,
+            hidden_layer_size=hidden_layer_size,
         )
 
     elif algorithm == "DDPG":
@@ -68,7 +93,6 @@ def load_agent(algorithm: str, buffer_type: str, space=(11, 4)):
 
 def load_ddpg_agent(env, buffer_type: str):
     """Build DDPG + HER replay for an existing Fetch env (same obs/action space as training)."""
-    from src.networks.DDPG import DDPG, Memory
 
     memory_size = 7e+5
     batch_size = 256
@@ -85,28 +109,35 @@ def load_ddpg_agent(env, buffer_type: str):
     action_bounds = [test_env.action_space.low[0], test_env.action_space.high[0]]
 
 
-    # if buffer_type == "PER":
-    #     ram = PrioritizedMemoryBuffer(
-    #         size=100000,
-    #         k_future=4,
-    #         env=env.unwrapped,
-    #         alpha=0.6,
-    #     )
-    # else:
+    if buffer_type == "PER":
+        return DDPG_HER(n_states=state_shape,
+                n_actions=n_actions,
+                n_goals=n_goals,
+                action_bounds=action_bounds,
+                capacity=memory_size,
+                action_size=n_actions,
+                batch_size=batch_size,
+                actor_lr=actor_lr,
+                critic_lr=critic_lr,
+                gamma=gamma,
+                tau=tau,
+                k_future=k_future,
+                env=dc(env))
+    else:
 
-    return DDPG(n_states=state_shape,
-              n_actions=n_actions,
-              n_goals=n_goals,
-              action_bounds=action_bounds,
-              capacity=memory_size,
-              action_size=n_actions,
-              batch_size=batch_size,
-              actor_lr=actor_lr,
-              critic_lr=critic_lr,
-              gamma=gamma,
-              tau=tau,
-              k_future=k_future,
-              env=dc(env))
+        return DDPG(n_states=state_shape,
+                n_actions=n_actions,
+                n_goals=n_goals,
+                action_bounds=action_bounds,
+                capacity=memory_size,
+                action_size=n_actions,
+                batch_size=batch_size,
+                actor_lr=actor_lr,
+                critic_lr=critic_lr,
+                gamma=gamma,
+                tau=tau,
+                k_future=k_future,
+                env=dc(env))
 
 def get_conditions(domain, task: str, verbose = False):
 

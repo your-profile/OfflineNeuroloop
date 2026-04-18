@@ -25,9 +25,12 @@ with open("configs/base.yaml") as f:
 # Ablation Studies
 
 ABLATIONS = [
-    # {"key": ["neural", "model_noise"], "vals": [0.1, 0.2, 0.3]},
-    # {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0, 4.0, 5.0]},
-#     {"key": ["neural", "smoothing_window_size"], "vals": [1, 3, 5, 7]},
+    {"key": ["mlp", "model_noise"], "vals": [0.0, 0.1, 0.2, 0.3]},
+    {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0]},
+    {"key": ["neural", "window_size_s"], "vals": [0.0, 1.0, 2.0, 3.0]},
+    {"key": ["neural", "smoothing_window_size"], "vals": [1, 3, 5]},
+    {"key": ["neural", "beta"], "vals": [1.0, 5.0, 10.0]},
+    {"key": ["rl", "pretrained_success_rate"], "vals": [0.0, 0.4, 0.6, 0.8]},
 ]
 
 # testing: single condition, binary granularity, no ablation sweeps
@@ -36,7 +39,7 @@ NEURAL_CONDITIONS = [
 ]
 
 GRANULARITIES = ["binary", "ternary", "continuous"]
-# GRANULARITIES = ["binary"]
+GRANULARITIES = ["binary"]
 SEEDS = [42] #, 43, 44, 45, 46]
 
 DOMAINS_TASKS = {
@@ -57,11 +60,12 @@ def set_nested(cfg, keys, val):
 def make_run_name(cfg):
     e = cfg["experiment"]
     n = cfg["neural"]
-
+    m = cfg["mlp"]
     return (
         f"{e['domain']}__{e['task']}__{e['condition']}"
         f"__{e['model_granularity']}"
-        f"__noise{n['model_noise']}__{n['smoothing_window_size']}"
+        f"__{e['pretrained_success_rate']}"
+        f"__noise{m['model_noise']}__{n['smoothing_window_size']}"
         f"__{n['temporal_shift']}"
         f"__{n['temporal_shift']}"
         f"__{n['smoothing_window_size']}"
@@ -83,6 +87,7 @@ for (domain, tasks), condition, granularity, seed in itertools.product(
         cfg = copy.deepcopy(base)
         cfg["experiment"].update({
             "domain": domain_cfg["experiment"]["domain"],
+            "pretrained_success_rate": domain_cfg["experiment"]["pretrained_success_rate"],
             "task": task,
             "condition": condition,
             "experiment_list": [NEURAL_CONDITIONS.index(condition)],
@@ -108,7 +113,7 @@ for (domain, tasks), condition, granularity, seed in itertools.product(
         })
 
         if condition == "Prioritization":
-            cfg['buffer_type'] = "PER"
+            cfg['rl']['buffer_type'] = "PER"
 
         run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH, RESULTS_PATH=RESULTS_PATH)
 

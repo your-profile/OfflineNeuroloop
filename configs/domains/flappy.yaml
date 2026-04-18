@@ -1,5 +1,6 @@
 experiment:
-  domain: "Flappy Bird"              
+  domain: "Flappy Bird"    
+  pretrained_success_rate: 0.0
 
 mlp:
   binary_hidden_layer_sizes: [10, 4, 2]
@@ -9,8 +10,8 @@ mlp:
   reg_activation: "tanh"
   
 rl:
-  n_episodes: 5000
+  n_episodes: 1
   algorithm: "DQN"
-  steps: 500
+  steps: 1000
   action_space: 2
   observation_space: 12
