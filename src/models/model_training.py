@@ -3,6 +3,7 @@ from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error, r2_score, classification_report
 import numpy as np
+import random
 
 class ModelTrainer:
     def __init__(self, cfg, seed):
@@ -38,7 +39,7 @@ class ModelTrainer:
             return self.noisy_regressor(model, X, flip_rate)
         if granularity[0] == "b":
             return self.noisy_binary(model, X, flip_rate)
-        if granularity[0] == "c":
+        if granularity[0] == "t":
             return self.noisy_ternary(model, X, flip_rate)
 
 
@@ -47,16 +48,12 @@ class ModelTrainer:
 
         if self.seed is not None:
             np.random.seed(self.seed)
-        
-        noisy = labels.copy()
-        n = len(labels)
-        n_flip = int(n * flip_rate)
-        flip_idx = np.random.choice(n, size=n_flip, replace=False)
-        
-        for i in flip_idx:
-            wrong_classes = [c for c in classes if c != labels[i]]
-            noisy[i] = np.random.choice(wrong_classes)
-        
+            
+        if random.random() < flip_rate:
+            wrong_classes = [c for c in classes if c != labels]
+            noisy = np.random.choice(wrong_classes)
+        else:
+            noisy = labels
         return noisy
 
 
@@ -65,6 +62,7 @@ class ModelTrainer:
         flip_rate=0.1 → ~0.1% of predictions are flipped to the other class.
         Roughly degrades F1 by the flip_rate amount.
         """
+
         return self.flip_labels(preds, flip_rate, classes=[0, 1])
 
 
@@ -72,6 +70,7 @@ class ModelTrainer:
         """
         flip_rate=0.1 → ~10% of predictions flipped to one of the other two classes.
         """
+
         return self.flip_labels(preds, flip_rate, classes=[0, 1, 2])
 
 
@@ -94,7 +93,6 @@ class ModelTrainer:
                          
                          random_state: int = 42, 
                          shuffle_data: bool = True):
-        print(self.binary_hidden_layer_sizes, self.ternary_hidden_layer_sizes, self.ternary_hidden_layer_sizes)
         if granularity == "continuous":
             return self.train_regressor(X, y, test_size, random_state, shuffle_data)
         
