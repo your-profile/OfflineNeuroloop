@@ -35,8 +35,8 @@ NEURAL_CONDITIONS = [
     "Baseline",
 ]
 
-#GRANULARITIES = ["binary", "ternary", "continuous"]
-GRANULARITIES = ["binary"]
+GRANULARITIES = ["binary", "ternary", "continuous"]
+# GRANULARITIES = ["binary"]
 SEEDS = [42] #, 43, 44, 45, 46]
 
 DOMAINS_TASKS = {
@@ -71,6 +71,9 @@ def make_run_name(cfg):
 for (domain, tasks), condition, granularity, seed in itertools.product(
     DOMAINS_TASKS.items(), NEURAL_CONDITIONS, GRANULARITIES, SEEDS
 ):
+    if condition == "Baseline" and granularity != "binary":
+        continue
+
     with open(f"configs/domains/{domain}.yaml") as f:
         domain_base = yaml.safe_load(f)
         domain_cfg = copy.deepcopy(domain_base)
@@ -113,9 +116,13 @@ for (domain, tasks), condition, granularity, seed in itertools.product(
 for ablation, (domain, tasks), condition, granularity, seed in itertools.product(
     ABLATIONS, DOMAINS_TASKS.items(), NEURAL_CONDITIONS, GRANULARITIES, SEEDS
 ):
+    if condition == "Baseline" and granularity != "binary":
+        continue
+
     with open(f"configs/domains/{domain}.yaml") as f:
         domain_base = yaml.safe_load(f)
         domain_cfg = copy.deepcopy(domain_base)
+
 
     for task in tasks:
         for val in ablation["vals"]:
