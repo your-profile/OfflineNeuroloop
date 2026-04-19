@@ -15,7 +15,7 @@ mlp:
   early_stopping: True
   
 rl:
-  n_episodes: 1
+  n_episodes: 3000
   algorithm: "DQN"
   steps: 1000
   action_space: 2
