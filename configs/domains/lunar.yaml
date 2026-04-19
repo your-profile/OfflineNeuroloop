@@ -3,11 +3,16 @@ experiment:
   pretrained_success_rate: 0.0
 
 mlp:
-  binary_hidden_layer_sizes: [20, 10, 2]
-  ternary_hidden_layer_sizes: [25, 15, 3]
-  regressor_hidden_layer_sizes: [25, 15, 3]
-  clf_activation: "relu"
+  binary_hidden_layer_sizes: [75, 50, 5]
+  ternary_hidden_layer_sizes: [75, 50, 5]
+  regressor_hidden_layer_sizes: [100, 40, 2]
+  binary_activation: "relu"
+  ternary_activation: "relu"
   reg_activation: "tanh"
+  binary_alpha: 0.0005
+  ternary_alpha: 0.0001
+  reg_alpha: 0.00001
+  early_stopping: True
   
 rl:
   n_episodes: 1

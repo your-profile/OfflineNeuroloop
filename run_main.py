@@ -56,7 +56,7 @@ DOMAINS_TASKS = {
 DATA_PATH = '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/' 
 RESULTS_PATH = '/Users/juliasantaniello/Desktop/OfflineNeuroloop/' 
 
-# DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/' 78->71, 78-> 71, 78-> 64 78->57
+# DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/' 
 # RESULTS_PATH = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/' 
 
 def set_nested(cfg, keys, val):
@@ -152,7 +152,13 @@ for ablation, (domain, tasks), condition, granularity, seed in itertools.product
                 "binary_hidden_layer_sizes": domain_cfg["mlp"]["binary_hidden_layer_sizes"],
                 "ternary_hidden_layer_sizes": domain_cfg["mlp"]["ternary_hidden_layer_sizes"],
                 "regressor_hidden_layer_sizes": domain_cfg["mlp"]["regressor_hidden_layer_sizes"],
-                "clf_activation": domain_cfg["mlp"]["clf_activation"],
+                "reg_activation": domain_cfg["mlp"]["reg_activation"],
+                "early_stopping": domain_cfg["mlp"]["early_stopping"],
+                "binary_alpha": domain_cfg["mlp"]["binary_alpha"],
+                "ternary_alpha": domain_cfg["mlp"]["ternary_alpha"],
+                "reg_alpha": domain_cfg["mlp"]["reg_alpha"],
+                "binary_activation": domain_cfg["mlp"]["binary_activation"],
+                "ternary_activation": domain_cfg["mlp"]["ternary_activation"],
                 "reg_activation": domain_cfg["mlp"]["reg_activation"],
             })
 

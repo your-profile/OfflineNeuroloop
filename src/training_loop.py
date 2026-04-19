@@ -77,12 +77,14 @@ def train(env:gymnasium.Env,
         combined_episodes += 1
         done = False
 
-        for step, (idx, row) in enumerate(episode_df.iterrows()):
-            action = row["actions"] # action the participant observed
-            action_dist = row["optimal_actions"] # action distribution
-            reward = row["rewards"] # reward
-            state = row["states"] # state the participant observed
-            final_step = row['steps'] # length of episode the participant observed
+        rows = episode_df.reset_index(drop=True)
+        n = len(rows)
+        for t in range(n):
+            action = rows["actions"].iloc[t]
+            action_dist = rows["optimal_actions"].iloc[t]
+            reward = rows["rewards"].iloc[t]
+            state = rows["states"].iloc[t]
+            final_step = rows["steps"].iloc[t]
 
             # if action is Nan, skip
             if isinstance(action, (float, int)):
@@ -93,14 +95,15 @@ def train(env:gymnasium.Env,
                 print(action)
 
             # get next state unless episode ends
-            try:
-                next_state = episode_df["states"][idx+1]
-            except:
+            if t + 1 < n:
+                done = False
+                next_state = rows["states"].iloc[t + 1]
+            else:
                 done = True
                 next_state = state
 
             # get rl task statistic tuple (state, action, reward) timestamp
-            rl_timestamp = row["time"]
+            rl_timestamp = rows["time"].iloc[t]
 
             # get associated fNIRS sample given timestep
             neural_features = buffer.get_features()
@@ -114,14 +117,17 @@ def train(env:gymnasium.Env,
             new_neural_signal = buffer.get_neural_credit(granularity = granularity, X = smoothing_window_size)
 
             if noise > 0.0:
-                new_neural_signal  = ml.noisy_output(clf,  new_neural_signal, granularity, flip_rate = noise)
+                
+                new_neural_signal = ml.noisy_output(clf,  new_neural_signal, granularity, flip_rate = noise)
 
             adjusted_neural_signal = utils_rl.adjust_neural_classification(new_neural_signal, beta=beta)
             class_truth = processor.get_label_sample(timestamp = rl_timestamp, temporal_shift = -shift)
             
-            next_action_dist = (
-                episode_df["optimal_actions"][idx + 1] if idx < final_step - 1 else action_dist
-            )
+            fs = int(final_step) if pd.notna(final_step) else n
+            if t < fs - 1 and t + 1 < n:
+                next_action_dist = rows["optimal_actions"].iloc[t + 1]
+            else:
+                next_action_dist = action_dist
             if "desired_goal" in episode_df.columns:
                 priority = ddpg_priority(reward, action, action_dist, next_action_dist)
             else:
@@ -179,12 +185,6 @@ def train(env:gymnasium.Env,
             classes_pred.append(neural_signal) #raw predictions
         
         classes_truth.append(class_truth.to_list()[gr])
-
-
-        # save average reward, total reward and timesteps
-        # all_average_rewards.append(round(total_reward/step, 2))
-        # all_total_rewards.append(round(total_reward, 2))
-        # all_episode_steps.append(step)
 
         # episodes needed to complete training
         new_episode_num = max(0, episodes_num // max(total_participant_episodes, 1))
@@ -325,7 +325,6 @@ def train_robot(env: gymnasium.Env,
     total_participant_episodes = int(task_df["episode"].nunique())
     buffer = fNIRSBuffer(window_duration_s=window_duration_s, sample_period_s=sample_period_s)
     rw_df = task_df[task_df["desired_goal"].notna()].copy()
-    print(rw_df.columns)
 
     if rw_df.empty:
         rw_df = task_df[task_df["participantKey"].astype(str).str.contains("RW", na=False)].copy()
@@ -333,6 +332,9 @@ def train_robot(env: gymnasium.Env,
         raise ValueError("No robot rows in task_df (need desired_goal or RW in participantKey).")
 
     grouped = rw_df.groupby(["participantKey", "episode"])
+
+    total_participant_episodes = task_df.drop_duplicates(subset=["participantKey", "episode"]).shape[0]
+    print(total_participant_episodes)
 
     if granularity[0] == "b": gr = 0
     elif granularity[0] == "t": gr = 1
@@ -366,29 +368,29 @@ def train_robot(env: gymnasium.Env,
         total_reward, neural_signal, new_neural_signal = 0.0, 0.0, 0.0
         class_truth = None
 
-        for t in range(len(rows)):
-            row = rows.iloc[t]
-            action = vectorize_action(row["actions"])
-            action_dist = row["optimal_actions"]
-            reward = float(row["rewards"])
-            state = vectorize_action(row["states"])
-            achieved_goal = vectorize_action(row["achieved_goal"])
-            desired_goal = vectorize_action(row["desired_goal"])
-            rl_timestamp = row["time"]
+        n = len(rows)
+        for t in range(n):
+            action = vectorize_action(rows["actions"].iloc[t])
+            action_dist = rows["optimal_actions"].iloc[t]
+            reward = float(rows["rewards"].iloc[t])
+            state = vectorize_action(rows["states"].iloc[t])
+            achieved_goal = vectorize_action(rows["achieved_goal"].iloc[t])
+            desired_goal = vectorize_action(rows["desired_goal"].iloc[t])
+            rl_timestamp = rows["time"].iloc[t]
 
             if action.size == 0 or not np.isfinite(action).all():
                 continue
 
-            if t + 1 < len(rows):
-                nrow = rows.iloc[t + 1]
-                next_state = vectorize_action(nrow["states"])
-                next_achieved_goal = vectorize_action(nrow["achieved_goal"])
+            if t + 1 < n:
+                next_state = vectorize_action(rows["states"].iloc[t + 1])
+                next_achieved_goal = vectorize_action(rows["achieved_goal"].iloc[t + 1])
                 done = 0.0
+                nopt = rows["optimal_actions"].iloc[t + 1]
             else:
-                nrow = row
                 next_state = state
-                next_achieved_goal = vectorize_action(row["achieved_goal"])
+                next_achieved_goal = vectorize_action(rows["achieved_goal"].iloc[t])
                 done = 1.0
+                nopt = action_dist
 
             neural_features = buffer.get_features()
             neural_signal = utils_rl.get_neural_signal(clf, neural_features)
@@ -401,7 +403,6 @@ def train_robot(env: gymnasium.Env,
             adjusted_neural = utils_rl.adjust_neural_classification(new_neural_signal, beta=beta)
             class_truth = processor.get_label_sample(timestamp=rl_timestamp, temporal_shift=-shift)
 
-            nopt = nrow["optimal_actions"] if t + 1 < len(rows) else action_dist
             priority = ddpg_priority(reward, action, action_dist, nopt)
             
             if buffer_type == "ER": priority = 0.0
@@ -558,7 +559,6 @@ def train_robot(env: gymnasium.Env,
             score_avg = np.mean(all_total_rewards[-50:])
 
             if combined_episodes%800 == 0:
-                print('eval')
                 agent.save_weights()
                 success = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=20)
                 all_episode_success.append(success)

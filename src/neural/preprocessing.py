@@ -241,6 +241,33 @@ class DatasetProcessor:
 
         return df
 
+    @staticmethod
+    def _iloc_nearest_sorted_ns(times_ns: np.ndarray, t_ns: np.int64) -> int:
+        """Return iloc index of row whose index time is closest to t_ns (nanoseconds since epoch)."""
+        n = int(times_ns.shape[0])
+        if n == 0:
+            raise ValueError("empty dataframe for nearest time lookup")
+        i = int(np.searchsorted(times_ns, t_ns, side="left"))
+        if i <= 0:
+            return 0
+        if i >= n:
+            return n - 1
+        left = i - 1
+        if (times_ns[i] - t_ns) < (t_ns - times_ns[left]):
+            return i
+        return left
+
+    def _nearest_iloc_from_datetime_index(self, df: pd.DataFrame, cache_tag: str, target_time) -> int:
+        df_id_attr = f"_tslookup_dfid_{cache_tag}"
+        times_attr = f"_tslookup_times_ns_{cache_tag}"
+        cur_id = id(df)
+        if getattr(self, df_id_attr, None) != cur_id:
+            setattr(self, df_id_attr, cur_id)
+            setattr(self, times_attr, pd.DatetimeIndex(df.index).asi8.astype(np.int64, copy=False))
+        times_ns = getattr(self, times_attr)
+        t_ns = np.int64(pd.Timestamp(target_time).value)
+        return self._iloc_nearest_sorted_ns(times_ns, t_ns)
+
     def get_fnirs_sample(self,
         timestamp,
         temporal_shift: float = 4.0,
@@ -254,10 +281,10 @@ class DatasetProcessor:
         # Find closest fNIRS sample to (timestamp + temporal_shift)
         target_time = timestamp + temporal_shift
 
-        try:
-            closest_idx = (self.fnirs_df['time'] - target_time).abs().argmin()
-        except:
-            closest_idx = (self.fnirs_df.index.to_series() - target_time).abs().argmin()
+        if "time" in self.fnirs_df.columns:
+            closest_idx = int((self.fnirs_df["time"] - target_time).abs().argmin())
+        else:
+            closest_idx = self._nearest_iloc_from_datetime_index(self.fnirs_df, "fnirs", target_time)
 
         fnirs_neural_data = self.fnirs_df.iloc[closest_idx][fnirs_channels]
 
@@ -275,10 +302,10 @@ class DatasetProcessor:
         # Find closest fNIRS sample to (timestamp + temporal_shift)
         target_time = timestamp + temporal_shift
 
-        try:
-            closest_idx = (self.label_df['time'] - target_time).abs().argmin()
-        except:
-            closest_idx = (self.label_df.index.to_series() - target_time).abs().argmin()
+        if "time" in self.label_df.columns:
+            closest_idx = int((self.label_df["time"] - target_time).abs().argmin())
+        else:
+            closest_idx = self._nearest_iloc_from_datetime_index(self.label_df, "label", target_time)
 
         label_data = self.label_df.iloc[closest_idx][label_types]
 

@@ -10,9 +10,15 @@ class ModelTrainer:
         self.binary_hidden_layer_sizes = (cfg["binary_hidden_layer_sizes"][0],cfg["binary_hidden_layer_sizes"][1],cfg["binary_hidden_layer_sizes"][2])
         self.regressor_hidden_layer_sizes = (cfg["regressor_hidden_layer_sizes"][0],cfg["regressor_hidden_layer_sizes"][1],cfg["regressor_hidden_layer_sizes"][2])
         self.ternary_hidden_layer_sizes = (cfg["ternary_hidden_layer_sizes"][0],cfg["ternary_hidden_layer_sizes"][1],cfg["ternary_hidden_layer_sizes"][2])
-        self.clf_activation = cfg["clf_activation"]
         self.reg_activation = cfg["reg_activation"]
+        self.binary_activation = cfg["binary_activation"]
+        self.ternary_activation = cfg["ternary_activation"]
         self.model_noise = cfg["model_noise"]
+        self.early_stop = cfg["early_stopping"]
+        self.binary_alpha = cfg["binary_alpha"]
+        self.ternary_alpha = cfg["ternary_alpha"]
+        self.reg_alpha = cfg["reg_alpha"]
+        self.max_iter = 200
         self.seed = seed
 
     def get_report(self, y_test, y_pred, classifier = False):
@@ -90,11 +96,10 @@ class ModelTrainer:
                          X: np.ndarray, 
                          y: np.ndarray, 
                          test_size: float = 0.1, 
-                         granularity = "binary", 
-                         
+                         granularity = "binary",
                          random_state: int = 42, 
                          shuffle_data: bool = True):
-                         
+
         if granularity == "continuous":
             return self.train_regressor(X, y, test_size, random_state, shuffle_data)
         
@@ -106,19 +111,21 @@ class ModelTrainer:
         if granularity == "binary":
             clf = MLPClassifier(
                         hidden_layer_sizes=self.binary_hidden_layer_sizes,      #10 5 2
-                        activation='relu',
+                        activation=self.binary_activation,
+                        alpha=self.binary_alpha,                        
                         solver='adam', 
-                        early_stopping=False,  
-                        max_iter = 300,           
+                        max_iter = self.max_iter, 
+                        early_stopping=self.early_stop,          
                         random_state=random_state)
 
         if granularity == "discrete" or granularity == "ternary":
             clf = MLPClassifier(
                         hidden_layer_sizes=self.ternary_hidden_layer_sizes,      
-                        activation='relu',
+                        activation=self.ternary_activation,
+                        alpha=self.ternary_alpha,
                         solver='adam', 
-                        early_stopping=False,  
-                        max_iter = 300, 
+                        max_iter = self.max_iter,
+                        early_stopping=self.early_stop,
                         random_state=random_state)
 
         clf.fit(X, y)
@@ -142,10 +149,11 @@ class ModelTrainer:
 
         clf = MLPRegressor(
                         hidden_layer_sizes=self.regressor_hidden_layer_sizes,      
-                        activation='tanh',
+                        activation=self.reg_activation,
+                        alpha=self.reg_alpha,
                         solver='adam', 
-                        early_stopping=False,  
-                        max_iter = 300, 
+                        max_iter = self.max_iter, 
+                        early_stopping=self.early_stop,
                         random_state=random_state)
                         
         clf.fit(X, y)
