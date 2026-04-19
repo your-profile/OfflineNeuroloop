@@ -4,7 +4,14 @@ from trial import run
 with open("configs/base.yaml") as f:
     base = yaml.safe_load(f)
 
-
+NEURAL_CONDITION_MAP = {
+    "Baseline": 0,
+    "Reward Augmentation": 1,
+    "Prioritization": 2,
+    "Epsilon Modulation": 3,
+    "LR Modulation": 4,
+    "Q-Augmentation": 5,
+}
 # Ablation Studies
 
 ABLATIONS = [
@@ -18,11 +25,11 @@ ABLATIONS = [
 
 # testing: single condition, binary granularity, no ablation sweeps
 NEURAL_CONDITIONS = [
-     "Baseline",
+    #  "Baseline",
 #     "Reward Augmentation",
 #     "Prioritization",
-#     "Epsilon Modulation",
-#     "LR Modulation",
+    "Epsilon Modulation",
+    "LR Modulation",
 ]
 
 GRANULARITIES = ["binary"] #, "ternary", "continuous"]
@@ -30,7 +37,7 @@ SEEDS = [42] #, 43, 44, 45, 46]
 
 DOMAINS_TASKS = {
     "Flappy": ["Passive"], #, "Active", "Pooled"],
-    # "Lunar": ["Passive"], #, "Active", "Pooled"],
+    "Lunar": ["Passive"], #, "Active", "Pooled"],
     # "Robot": ["Passive"], #, "Active", "Pooled"],
 }
 
@@ -81,7 +88,7 @@ for ablation, (domain, tasks), condition, granularity, seed in itertools.product
                "domain": domain_cfg["experiment"]["domain"],
                 "task": task,
                 "condition": condition,
-                "experiment_list": [NEURAL_CONDITIONS.index(condition)],
+                "experiment_list": [NEURAL_CONDITION_MAP[condition]],
                 "model_granularity": granularity,
                 "random_state": seed,
             })

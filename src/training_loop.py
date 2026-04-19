@@ -42,6 +42,7 @@ def train(env:gymnasium.Env,
     ):
     # trial.py passes experiment_list; legacy kw is experiment_conditions
     flags = experiment_conditions if experiment_conditions else experiment_list
+    print(flags, experiment_list, experiment_conditions)
 
     decay = (0.01 / 1.0) ** (1 / episodes_num)
     learning_rate = agent.lr
@@ -155,7 +156,9 @@ def train(env:gymnasium.Env,
             if 3 in flags:
                 if verbose:
                     print(f"Experiment Condition 4: Exploration Modulation -- Epsilon {epsilon}")
-                epsilon = utils_rl.adjust_epsilon(epsilon, adjusted_neural_signal)
+                print(epsilon, adjusted_neural_signal)
+                epsilon = utils_rl.adjust_epsilon(epsilon, adjusted_neural_signal, decay)
+                print(epsilon)
 
             # Learning Rate Adjustment
             if 4 in flags:

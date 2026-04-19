@@ -48,6 +48,7 @@ class DDPG:
 
         self.state_normalizer = Normalizer(self.n_states[0], default_clip_range=5)
         self.goal_normalizer = Normalizer(self.n_goals, default_clip_range=5)
+        self.randomprob = 0.3
 
     def choose_action(self, state, goal, train_mode=True):
         state = self.state_normalizer.normalize(state)
@@ -66,7 +67,7 @@ class DDPG:
 
             random_actions = np.random.uniform(low=self.action_bounds[0], high=self.action_bounds[1],
                                                size=self.n_actions)
-            action += np.random.binomial(1, 0.3, 1)[0] * (random_actions - action)
+            action += np.random.binomial(1, self.randomprob, 1)[0] * (random_actions - action)
 
         return action
 
