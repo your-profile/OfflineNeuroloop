@@ -6,6 +6,7 @@ from src.networks.DQN import DQN
 from src.envs.lunar_lander import LunarLander
 from src.envs.flappy_bird import FlappyBirdEnv as FlappyBird
 import gymnasium
+import time
 from tqdm import trange
 from copy import deepcopy as dc
 import numpy as np
@@ -40,6 +41,7 @@ def train(env:gymnasium.Env,
           save_to_csv: bool = False,
           verbose: bool = False
     ):
+    start_time = time.time()
     # trial.py passes experiment_list; legacy kw is experiment_conditions
     flags = experiment_conditions if experiment_conditions else experiment_list
     print("Flags: ", flags, "Experiment List: ", experiment_list, "Experiment Conditions: ", experiment_conditions)
@@ -305,6 +307,7 @@ def train(env:gymnasium.Env,
     print(f"Episode {episode}, Reward: {total_reward:.2f}, Success: {success:.2f}")
 
     print("Summation of participant episodes seen: ", total_participant_episodes)
+    print("Elapsed time in hours: ", (time.time() - start_time) / 3600)
 
     return results
 
@@ -339,6 +342,7 @@ def train_robot(env: gymnasium.Env,
     """
     Offline neuro + online Fetch (DDPG + HER) with the same experiment_list flags as ``train``
     """
+    start_time = time.time()
     from src.networks.DDPG import DDPG
     from src.networks.DDPG_PER import DDPG as DDPG_HER
 
@@ -673,6 +677,7 @@ def train_robot(env: gymnasium.Env,
 
     print(f"Robot episode {last_participant_episode}, Reward: {total_reward:.2f}, Success: {success:.2f}")
     print("Summation of participant episodes seen: ", total_participant_episodes)
+    print("Elapsed time in hours: ", (time.time() - start_time) / 3600)
 
     return results
 
