@@ -45,7 +45,7 @@ def load_domain(env: str, steps: int = None):
 
     return env
 
-def load_pretrained_agent(pretrained_success_rate: float, algorithm: str, space=(11, 4), filename: str = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/src/policies/", verbose: bool = False):
+def load_pretrained_agent(agent: DQN | DDPG | DDPG_HER, pretrained_success_rate: float, algorithm: str, space=(11, 4), filename: str = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/src/policies/", verbose: bool = False):
     
     if algorithm == "DQN":
         if space[0] == 11:
@@ -93,16 +93,13 @@ def load_agent(algorithm: str, buffer_type: str, space=(11, 4), pretrained_succe
         agent = load_ddpg_agent(inner, buffer_type, verbose = verbose)
 
     if pretrained_success_rate > 0.0:
-        return load_pretrained_agent(pretrained_success_rate=pretrained_success_rate, algorithm=algorithm, space=space, verbose = verbose)
+        return load_pretrained_agent(agent=agent, pretrained_success_rate=pretrained_success_rate, algorithm=algorithm, space=space, verbose = verbose)
 
     return agent
 
 
 def load_ddpg_agent(env, buffer_type: str, verbose: bool = False, pretrained_success_rate: float = 0.0):
     """Build DDPG + HER replay for an existing Fetch env (same obs/action space as training)."""
-
-    if pretrained_success_rate > 0.0:
-        return load_pretrained_agent(pretrained_success_rate=pretrained_success_rate, algorithm="DDPG", space=(12, 2), verbose = verbose)
 
     memory_size = 7e+5
     batch_size = 256
@@ -120,7 +117,7 @@ def load_ddpg_agent(env, buffer_type: str, verbose: bool = False, pretrained_suc
 
 
     if buffer_type == "PER":
-        return DDPG_HER(n_states=state_shape,
+        agent = DDPG_HER(n_states=state_shape,
                 n_actions=n_actions,
                 n_goals=n_goals,
                 action_bounds=action_bounds,
@@ -134,9 +131,11 @@ def load_ddpg_agent(env, buffer_type: str, verbose: bool = False, pretrained_suc
                 k_future=k_future,
                 env=dc(env),
                 verbose=verbose)
+        if pretrained_success_rate > 0.0:
+            return load_pretrained_agent(agent=agent, pretrained_success_rate=pretrained_success_rate, algorithm="DDPG", space=(12, 2), verbose = verbose)
     else:
 
-        return DDPG(n_states=state_shape,
+        agent = DDPG(n_states=state_shape,
                 n_actions=n_actions,
                 n_goals=n_goals,
                 action_bounds=action_bounds,
@@ -150,6 +149,10 @@ def load_ddpg_agent(env, buffer_type: str, verbose: bool = False, pretrained_suc
                 k_future=k_future,
                 env=dc(env),
                 verbose=verbose)
+        if pretrained_success_rate > 0.0:
+            return load_pretrained_agent(agent=agent, pretrained_success_rate=pretrained_success_rate, algorithm="DDPG", space=(12, 2), verbose = verbose)
+
+    return agent
 
 def get_conditions(domain, task: str, verbose = False):
 

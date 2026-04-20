@@ -268,7 +268,7 @@ def train(env:gymnasium.Env,
             else:
                 all_episode_success.append(success)
 
-            if success >= 0.10:
+            if success >= 0.99:
                 # save agent if above 60% success rate
                 torch.save({
                     'episode': episode,
@@ -594,7 +594,7 @@ def train_robot(env: gymnasium.Env,
                 all_episode_success.append(success)
                 last_success = success
 
-                if success >= 0.40:
+                if success >= 0.99:
                     torch.save(
                         {
                             "episode": episode,

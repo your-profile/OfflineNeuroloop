@@ -17,7 +17,7 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
 def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='.'):
 
     env = utils.load_domain(cfg["experiment"]["domain"], cfg["rl"]["steps"])
-    agent = utils.load_agent(cfg["rl"]["algorithm"], cfg["rl"]["buffer_type"], space = (cfg["rl"]["observation_space"], cfg["rl"]["action_space"]), pretrained_success_rate = cfg["experiment"]["pretrained_success_rate"])
+    agent = utils.load_agent(cfg["rl"]["algorithm"], cfg["rl"]["buffer_type"], space = (cfg["rl"]["observation_space"], cfg["rl"]["action_space"]), pretrained_success_rate = cfg["experiment"]["pretrained_success_rate"], verbose = verbose)
     
     #TODO: Make anonymous/internal
     if not os.path.exists(os.path.join(DATA_PATH, 'fNIRS/LabeledData/')):
