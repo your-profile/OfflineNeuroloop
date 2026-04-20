@@ -1,7 +1,7 @@
 import torch
 from torch import from_numpy, device
 import numpy as np
-from src.torch_checkpoint import torch_load_checkpoint
+from src.rl_loop.utils_rl import torch_load_checkpoint
 from torch.optim import Adam
 from mpi4py import MPI
 import threading
@@ -18,7 +18,8 @@ class DDPG:
                  tau=0.05,
                  actor_lr=1e-3,
                  critic_lr=1e-3,
-                 gamma=0.98):
+                 gamma=0.98,
+                 verbose = False):
         self.device = device("cpu")
         self.n_states = n_states
         self.n_actions = n_actions
@@ -49,7 +50,17 @@ class DDPG:
 
         self.state_normalizer = Normalizer(self.n_states[0], default_clip_range=5)
         self.goal_normalizer = Normalizer(self.n_goals, default_clip_range=5)
-        print("INIT PER")
+        self.verbose = verbose
+
+        if self.verbose:
+            print(f"Initialized DDPG_PER Agent with buffer type: Prioritized Experience Replay")
+            print(f"Initialized DDPG_PER Agent with batch size: {batch_size}")
+            print(f"Initialized DDPG_PER Agent with actor learning rate: {actor_lr}")
+            print(f"Initialized DDPG_PER Agent with critic learning rate: {critic_lr}")
+            print(f"Initialized DDPG_PER Agent with gamma: {gamma}")
+            print(f"Initialized DDPG_PER Agent with tau: {tau}")
+            print(f"Initialized DDPG_PER Agent with k_future: {k_future}")
+            print("\n\n")
 
     def choose_action(self, state, goal, train_mode=True):
         state = self.state_normalizer.normalize(state)

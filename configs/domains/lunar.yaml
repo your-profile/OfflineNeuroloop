@@ -1,6 +1,6 @@
 experiment:
   domain: "Lunar Lander"
-  pretrained_success_rate: 0.0
+  pretrained_success_rate: 20.0
 
 mlp:
   binary_hidden_layer_sizes: [75, 50, 5]

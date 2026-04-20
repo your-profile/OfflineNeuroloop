@@ -28,7 +28,6 @@ class DataLoader:
                 [df, fnirs_dict[key]],
                 ignore_index=True
             )
-        # print(df.head(2))
         df['time'] = pd.to_datetime(df['time'], utc=True)
         df = df.sort_values(by=['pid', 'time'])
 
@@ -148,7 +147,6 @@ class DataLoader:
                         new_dict["desired_goal"].append(np.nan)
                         new_dict["achieved_goal"].append(np.nan)
 
-        # print(demo_dict)
         return pd.DataFrame(new_dict)
 
     def compute_discounted_rewards(self, rewards, gamma):

@@ -5,10 +5,9 @@ from src.networks.DDPG import DDPG
 from src.networks.DDPG_PER import DDPG as DDPG_HER
 from src.envs.lunar_lander import LunarLander
 from src.envs.flappy_bird import FlappyBirdEnv
+import torch
 
-
-
-def make_fetch_env(max_episode_steps=50, mujoco_version: int = 4):
+def make_fetch_env(max_episode_steps=50, mujoco_version: int = 4, verbose: bool = False):
     """
     OpenAI Gym / Gymnasium Fetch Pick and Place. Prefer v2 when registered;
     fall back to v3/v4 if the installed gymnasium-robotics build omits v2.
@@ -40,35 +39,36 @@ def load_domain(env: str, steps: int = None):
     elif env[0].lower() == "f":
         env = FlappyBirdEnv(score_limit=30)
     elif env[0].lower() == "r":
-        env = make_fetch_env(max_episode_steps=steps, mujoco_version=2)
+        env = make_fetch_env(max_episode_steps=steps, mujoco_version=4)
     else:
         Exception("Incorrect domain key received. Domains are: \n lunar_lander \n flappy_bird \n robot")
 
     return env
 
-def load_pretrained_agent(agent: DQN | DDPG, pretrained_success_rate: float, algorithm: str, space=(11, 4), filename: str = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/src/policies/"):
+def load_pretrained_agent(pretrained_success_rate: float, algorithm: str, space=(11, 4), filename: str = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/src/policies/", verbose: bool = False):
     
     if algorithm == "DQN":
         if space[0] == 11:
-            print(filename+"lunar/"+"LPolicy"+str(int(pretrained_success_rate)))
+            if verbose:
+                print(filename+"lunar/"+"LPolicy"+str(int(pretrained_success_rate)))
 
             agent = agent.load_model(filename = filename+"lunar/"+"LPolicy"+str(int(pretrained_success_rate)))
         elif space[0] == 12:
-            print(filename+"flappy/"+"FPolicy"+str(int(pretrained_success_rate)))
+            if verbose:
+                print(filename+"flappy/"+"FPolicy"+str(int(pretrained_success_rate)))
             agent = agent.load_model(filename = filename+"flappy/"+"FPolicy"+str(int(pretrained_success_rate)))
         
     if algorithm == "DDPG":
-        print(filename+"robot/"+"FetchPolicy"+str(int(pretrained_success_rate)))
+        if verbose:
+            print(filename+"robot/"+"FetchPolicy"+str(int(pretrained_success_rate)))
         agent = agent.load_model(filename = filename+"robot/"+"FetchPolicy"+str(int(pretrained_success_rate)))
     
     return agent
 
-def load_agent(algorithm: str, buffer_type: str, space=(11, 4), pretrained_success_rate: float = 0.0):
+def load_agent(algorithm: str, buffer_type: str, space=(11, 4), pretrained_success_rate: float = 0.0, verbose: bool = False):
     agent = None
-    print(algorithm)
 
     if algorithm == "DQN":
-
         if space[0] == 11:
             hidden_layer_size = 256
         else:
@@ -85,20 +85,24 @@ def load_agent(algorithm: str, buffer_type: str, space=(11, 4), pretrained_succe
             tau=0.005,
             buffer_type=buffer_type,
             hidden_layer_size=hidden_layer_size,
+            verbose=verbose
         )
 
     elif algorithm == "DDPG":
-        inner = make_fetch_env(max_episode_steps=50, mujoco_version=2)
-        agent = load_ddpg_agent(inner, buffer_type)
+        inner = make_fetch_env(max_episode_steps=50, mujoco_version=4, verbose = verbose)
+        agent = load_ddpg_agent(inner, buffer_type, verbose = verbose)
 
     if pretrained_success_rate > 0.0:
-        return load_pretrained_agent(agent, pretrained_success_rate, algorithm, space)
+        return load_pretrained_agent(pretrained_success_rate=pretrained_success_rate, algorithm=algorithm, space=space, verbose = verbose)
 
     return agent
 
 
-def load_ddpg_agent(env, buffer_type: str):
+def load_ddpg_agent(env, buffer_type: str, verbose: bool = False, pretrained_success_rate: float = 0.0):
     """Build DDPG + HER replay for an existing Fetch env (same obs/action space as training)."""
+
+    if pretrained_success_rate > 0.0:
+        return load_pretrained_agent(pretrained_success_rate=pretrained_success_rate, algorithm="DDPG", space=(12, 2), verbose = verbose)
 
     memory_size = 7e+5
     batch_size = 256
@@ -128,7 +132,8 @@ def load_ddpg_agent(env, buffer_type: str):
                 gamma=gamma,
                 tau=tau,
                 k_future=k_future,
-                env=dc(env))
+                env=dc(env),
+                verbose=verbose)
     else:
 
         return DDPG(n_states=state_shape,
@@ -143,7 +148,8 @@ def load_ddpg_agent(env, buffer_type: str):
                 gamma=gamma,
                 tau=tau,
                 k_future=k_future,
-                env=dc(env))
+                env=dc(env),
+                verbose=verbose)
 
 def get_conditions(domain, task: str, verbose = False):
 
@@ -168,15 +174,3 @@ def get_conditions(domain, task: str, verbose = False):
     if verbose: print(f"Condition List: {condition_list}")
 
     return condition_list
-
-def get_labels(granularity, domain, reward):
-
-    #optimality ground truths (lunar lander)
-
-    if reward > 90.0:
-        return 0
-    elif reward > 17.0:
-        return 1
-    else:
-        return 2
-

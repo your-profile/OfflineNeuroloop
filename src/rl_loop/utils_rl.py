@@ -8,11 +8,10 @@ class Results():
     '''
     Results: Saving hyperparameters and final results for experiments
     '''
-    def save_results(episodes, avg_rewards, total_rewards, success_rate, steps, experiment_list, save_to_csv = False):
+    def save_results(episodes, avg_rewards, total_rewards, success_rate, steps, experiment_list, save_to_csv = False, filepath = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/results"):
         import datetime
 
-        print(len(avg_rewards),len(total_rewards),len(success_rate),len(steps), episodes)
-        # assert(len(avg_rewards) == len(total_rewards))
+        print(f"Len Average Rewards: {len(avg_rewards)}, Len Total Rewards: {len(total_rewards)}, Len Success Rate: {len(success_rate)}, Len Steps: {len(steps)}, Episodes: {episodes}")
 
         row = {
             "date": datetime.date.today(),
@@ -26,12 +25,9 @@ class Results():
         }
 
         if save_to_csv:
+            write_header = not os.path.exists(filepath)
 
-            csv_filename = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/results"
-
-            write_header = not os.path.exists(csv_filename)
-
-            with open(csv_filename, mode='a', newline='') as csvfile:
+            with open(filepath, mode='a', newline='') as csvfile:
                 writer = csv.DictWriter(csvfile, fieldnames=row.keys())
 
                 if write_header:
@@ -42,7 +38,7 @@ class Results():
         return row
         
 
-    def save_parameters(domain:str, participant_list, algorithm_name, experiment_list, episodes:int, state_dim:int, action_dim:int, learning_rate:float, gamma:float, epsilon_type:str, target_update:int, resample_rate, window_size, step_size, buffer_type:str, credit_type:str, temporal_shift, save_to_csv = False):
+    def save_parameters(domain:str, participant_list, algorithm_name, experiment_list, episodes:int, state_dim:int, action_dim:int, learning_rate:float, gamma:float, epsilon_type:str, target_update:int, resample_rate, window_size, step_size, buffer_type:str, credit_type:str, temporal_shift, save_to_csv = False, filepath = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/parameters"):
         import datetime
         row = {"date": datetime.date.today(),
             "time": datetime.datetime.now(),
@@ -77,13 +73,11 @@ class Results():
             }
         
         if save_to_csv:
-            csv_filename = "/Users/juliasantaniello/Desktop/NEURO-LOOP/data/exp_parameters.csv"
-
             fieldnames = row.keys()
-            write_header = not os.path.exists(csv_filename)
+            write_header = not os.path.exists(filepath)
 
 
-            with open(csv_filename, mode='a', newline='') as csvfile:
+            with open(filepath, mode='a', newline='') as csvfile:
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
                 if write_header:
@@ -93,12 +87,14 @@ class Results():
 
         return row
 
-def adjust_neural_classification(output: int|None, beta = 1.0) -> float:
+def adjust_neural_classification(output: int|None, beta = 1.0, verbose = False) -> float:
     """
     adjust_neural_classification(output: int, 
         beta: float = 1.0):
-        Receives classifier/regressor output. Weighs output based on beta parameter. Beta default set to 1.0
+        Receives classifier/regressor output. Scales output based on beta parameter. Beta default set to 1.0
     """
+    original_output = output
+
     if output is None:
         return 0.0
 
@@ -112,6 +108,9 @@ def adjust_neural_classification(output: int|None, beta = 1.0) -> float:
     # regressor output (continuous)
     else:
         adjustment = -output
+
+    if verbose:
+        print(f"Original Neural Classification: {original_output}, Adjusted w/o Beta {output}, Beta: {beta}, Adjusted Neural Classification: {adjustment*beta}")
     
     return adjustment*beta #scale value with beta parameter
 
@@ -131,7 +130,7 @@ def adjust_reward(reward: float, neural_signal: int|float, environment_reward: b
 
     return reward + neural_signal
 
-def adjust_epsilon(epsilon: float, neural_signal: float):
+def adjust_epsilon(epsilon: float, neural_signal: float, verbose = False):
     """
     adjust_epsilon(epsilon: float, 
         neural_signal: float) -> adjusted_epsilon: float
@@ -141,23 +140,26 @@ def adjust_epsilon(epsilon: float, neural_signal: float):
 
     # neural signal in tenths place, subtracted from current decay
     new_epsilon = epsilon - (neural_signal/20)
+
+    if verbose:
+        print(f"Original Epsilon: {epsilon}, Neural Signal: {neural_signal}, Adjusted Epsilon: {new_epsilon}")
     
     # epsilon is not lower than 0.05 or higher than 1.0
     return min(max(0.05, new_epsilon), 1.0)
 
 
-def adjust_action(state, neural_signal, agent, verbose = False):
-    action_distribution = agent.chooseAction(state, epislon = 0.0, returnDist = True)
+# def adjust_action(state, neural_signal, agent, verbose = False):
+#     action_distribution = agent.chooseAction(state, epislon = 0.0, returnDist = True)
     
-    argmax_idx = np.argmax(action_distribution)
-    action_distribution[argmax_idx] += neural_signal
+#     argmax_idx = np.argmax(action_distribution)
+#     action_distribution[argmax_idx] += neural_signal
 
-    new_argmax_idx = np.argmax(action_distribution)
+#     new_argmax_idx = np.argmax(action_distribution)
 
-    if verbose:
-        print(f"Old Action: {argmax_idx}, New Action: {new_argmax_idx}")
+#     if verbose:
+#         print(f"Old Action: {argmax_idx}, New Action: {new_argmax_idx}")
 
-    return new_argmax_idx
+#     return new_argmax_idx
 
 def get_neural_signal(clf, features):
 
@@ -191,49 +193,12 @@ def evaluate(env, agent, steps=600, episodes=20, domain_key=None):
             else:
                 state, reward, done, win = env.step(action)
 
-
             if done:
                 if win:
                     successes += 1
                 break
 
     return successes/episodes
-
-# def evaluate_fetch(env_, agent_, steps=50, episodes = 20):
-#     total_success_rate = []
-#     running_r = []
-#     for ep in range(10):
-#         per_success_rate = []
-#         env_dictionary, _ = env_.reset()
-#         s = env_dictionary["observation"]
-#         ag = env_dictionary["achieved_goal"]
-#         g = env_dictionary["desired_goal"]
-#         while np.linalg.norm(ag - g) <= 0.05:
-#             env_dictionary, _ = env_.reset()
-#             s = env_dictionary["observation"]
-#             ag = env_dictionary["achieved_goal"]
-#             g = env_dictionary["desired_goal"]
-#         ep_r = 0
-#         for t in range(steps):
-#             with torch.no_grad():
-#                 a = agent_.choose_action(s, g, train_mode=False)
-#             observation_new, r, done, info_, info = env_.step(a)
-#             s = observation_new['observation']
-#             g = observation_new['desired_goal']
-#             succ = 0
-#             if info["is_success"] > 0.0:
-#                 succ = 1
-#                 print("win")
-#             per_success_rate.append(succ)
-#             ep_r += r
-#         total_success_rate.append(per_success_rate)
-#         if ep == 0:
-#             running_r.append(ep_r)
-#         else:
-#             running_r.append(running_r[-1] * 0.99 + 0.01 * ep_r)
-#     total_success_rate = np.array(total_success_rate)
-#     local_success_rate = np.mean(total_success_rate)
-#     return local_success_rate, running_r, ep_r
 
 def evaluate_fetch(env, agent, steps=50, episodes=20):
     """Evaluate DDPG on a goal-conditioned Fetch env (dict observations)."""
@@ -251,3 +216,13 @@ def evaluate_fetch(env, agent, steps=50, episodes=20):
                 break
         successes += int(float(info.get("is_success", 0.0)))
     return successes / max(episodes, 1)
+    
+def torch_load_checkpoint(path: str, map_location=None):
+    kwargs = {}
+    if map_location is not None:
+        kwargs["map_location"] = map_location
+    try:
+        return torch.load(path, weights_only=False, **kwargs)
+    except TypeError:
+        # PyTorch < 2.0 has no weights_only
+        return torch.load(path, **kwargs)

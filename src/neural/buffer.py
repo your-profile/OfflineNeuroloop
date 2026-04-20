@@ -47,21 +47,23 @@ class fNIRSBuffer:
         if granularity[0] != "c":
             classes, counts = np.unique(np.array(relevant_classes), return_counts=True)
             max_count = classes[np.argmax(counts)]
+            if self.verbose:
+                print(f"Classes: {classes}, Counts: {counts}, Max Count: {max_count}")
             return int(max_count)
         else:
+            if self.verbose:
+                print(f"Relevant Classes: {relevant_classes}")
+                print(f"Mean of Relevant Classes: {np.mean(np.array(relevant_classes))}")
             return np.mean(np.array(relevant_classes))
 
     def get_window(self):
-        # TODO: Adding window length
-
         window_steps = int(round(self.window_duration_s / self.sample_period_s))
         starting_idx = len(self.timestamps) - window_steps
-        # print(f"Window Steps: {window_steps}")
-
 
         if not self.values or starting_idx < 0:
             if self.verbose:
                 print(f"Window Length Necessary: {window_steps} -- At Starting Index: {starting_idx}")
+                print("\n\n")
             return None, None
 
         ts = np.array(self.timestamps)

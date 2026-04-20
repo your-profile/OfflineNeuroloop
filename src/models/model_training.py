@@ -6,7 +6,7 @@ import numpy as np
 import random
 
 class ModelTrainer:
-    def __init__(self, cfg, seed):
+    def __init__(self, cfg, seed, verbose = False):
         self.binary_hidden_layer_sizes = (cfg["binary_hidden_layer_sizes"][0],cfg["binary_hidden_layer_sizes"][1],cfg["binary_hidden_layer_sizes"][2])
         self.regressor_hidden_layer_sizes = (cfg["regressor_hidden_layer_sizes"][0],cfg["regressor_hidden_layer_sizes"][1],cfg["regressor_hidden_layer_sizes"][2])
         self.ternary_hidden_layer_sizes = (cfg["ternary_hidden_layer_sizes"][0],cfg["ternary_hidden_layer_sizes"][1],cfg["ternary_hidden_layer_sizes"][2])
@@ -20,6 +20,7 @@ class ModelTrainer:
         self.reg_alpha = cfg["reg_alpha"]
         self.max_iter = 200
         self.seed = seed
+        self.verbose = verbose
 
     def get_report(self, y_test, y_pred, classifier = False):
 
@@ -60,6 +61,10 @@ class ModelTrainer:
             noisy = np.random.choice(wrong_classes)
         else:
             noisy = prediction
+
+        if self.verbose:
+            print(f"Flipped label from {prediction} to {noisy}")
+            print(f"Flip rate: {flip_rate}")
 
         return noisy
 
@@ -128,6 +133,19 @@ class ModelTrainer:
                         early_stopping=self.early_stop,
                         random_state=random_state)
 
+        if self.verbose: 
+            print(f"Training classifier with hidden layer sizes: {self.binary_hidden_layer_sizes if granularity == 'binary' else self.ternary_hidden_layer_sizes}")
+            print(f"Training classifier with activation: {self.binary_activation if granularity == 'binary' else self.ternary_activation}")
+            print(f"Training classifier with alpha: {self.binary_alpha if granularity == 'binary' else self.ternary_alpha}")
+            print(f"Training classifier with solver: adam")
+            print(f"Training classifier with max iter: {self.max_iter}")
+            print(f"Training classifier with early stopping: {self.early_stop}")
+            print(f"Training classifier with random state: {random_state}")
+            print(f"Training classifier with shuffle data: {shuffle_data}")
+            print(f"Training classifier with test size: {test_size}")
+            print(f"Training classifier with granularity: {granularity}")
+            print("\n\n")
+
         clf.fit(X, y)
 
         y_pred = clf.predict(X_test)
@@ -155,7 +173,20 @@ class ModelTrainer:
                         max_iter = self.max_iter, 
                         early_stopping=self.early_stop,
                         random_state=random_state)
-                        
+
+        if self.verbose:
+            print(f"Training regressor with hidden layer sizes: {self.regressor_hidden_layer_sizes}")
+            print(f"Training regressor with activation: {self.reg_activation}")
+            print(f"Training regressor with alpha: {self.reg_alpha}")
+            print(f"Training regressor with solver: adam")
+            print(f"Training regressor with max iter: {self.max_iter}")
+            print(f"Training regressor with early stopping: {self.early_stop}")
+            print(f"Training regressor with random state: {random_state}")
+            print(f"Training regressor with shuffle data: {shuffle_data}")
+            print(f"Training regressor with test size: {test_size}")
+            print(f"Training regressor with granularity: continuous")
+            print("\n\n")
+
         clf.fit(X, y)
 
         y_pred = clf.predict(X_test)

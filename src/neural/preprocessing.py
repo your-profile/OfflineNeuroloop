@@ -4,9 +4,9 @@ from typing import Tuple, List
 import statistics
 
 class DatasetProcessor:
-    def __init__(self):
+    def __init__(self, verbose = False):
         self.neural_channels = None
-        self.verbose = False
+        self.verbose = verbose
         self.gap_threshold_s = 600
         self.fnirs_df = None
         self.label_df = None
@@ -139,7 +139,8 @@ class DatasetProcessor:
                             window_duration_s: float = 6.0,
                             resample_rate_hz: float = 5.2,
                             random_state: int | None = None,
-                            granularity: str = "binary"):
+                            granularity: str = "binary"
+                            ):
 
         X, y_binary, y_ternary, y_continuous = self.build_supervised_dataset(
             aligned_df=aligned_df,
@@ -208,13 +209,15 @@ class DatasetProcessor:
             f"Unknown granularity {granularity!r}; use 'binary', 'ternary', or 'continuous'."
         )
 
-    def shift_labels_for_delay(
-        self, aligned_df: pd.DataFrame,
-        delay_s: float,
-        label_col_binary: str = 'binary_optimal',
-        label_col_ternary: str = 'discrete_optimal',
-        label_col_continuous: str = 'continuous_optimal',
-        verbose: bool = False) -> pd.DataFrame:
+    def shift_labels_for_delay(self, 
+                    aligned_df: pd.DataFrame,
+                    delay_s: float,
+                    label_col_binary: str = 'binary_optimal',
+                    label_col_ternary: str = 'discrete_optimal',
+                    label_col_continuous: str = 'continuous_optimal',
+                    verbose: bool = False
+            ) -> pd.DataFrame:
+
         df = aligned_df.copy()
         dt = (df.index[1] - df.index[0]).total_seconds()
         shift_periods = int(round(delay_s / dt))

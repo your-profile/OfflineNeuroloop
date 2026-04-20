@@ -1,6 +1,6 @@
 experiment:
   domain: "Robot"  
-  pretrained_success_rate: 75
+  pretrained_success_rate: 0.0
 
 mlp:
   binary_hidden_layer_sizes: [75, 50, 5]
@@ -17,6 +17,6 @@ mlp:
 rl:
   n_episodes: 100000
   algorithm: "DDPG"
-  steps: 75
+  steps: 50
   action_space: None
   observation_space: None

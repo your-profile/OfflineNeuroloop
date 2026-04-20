@@ -1,7 +1,7 @@
 
 import torch
 import torch.nn as nn
-from src.torch_checkpoint import torch_load_checkpoint
+from src.rl_loop.utils_rl import torch_load_checkpoint
 import torch.optim as optim
 import numpy as np
 import random
@@ -31,7 +31,7 @@ class DeepQNetwork(nn.Module):
 
 #DQN ALGORITHM
 class DQN():
-    def __init__(self, n_observations, n_actions, batch_size=64, lr=1e-4, gamma=0.99, mem_size=int(1e5), learn_step=5, tau=1e-3, hidden_layer_size=128, buffer_type = "ER"):
+    def __init__(self, n_observations, n_actions, batch_size=64, lr=1e-4, gamma=0.99, mem_size=int(1e5), learn_step=5, tau=1e-3, hidden_layer_size=128, buffer_type = "ER", verbose = False):
         self.n_observations = n_observations
         self.n_actions = n_actions
         self.batch_size = batch_size
@@ -53,7 +53,17 @@ class DQN():
             self.memory = ReplayBuffer(n_actions, mem_size, batch_size)
 
         self.algorithm = "DQN"
-        
+        self.verbose = verbose
+
+        if self.verbose:
+            print(f"Initialized DQN Agent with buffer type: {buffer_type}")
+            print(f"Initialized DQN Agent with hidden layer size: {hidden_layer_size}")
+            print(f"Initialized DQN Agent with batch size: {batch_size}")
+            print(f"Initialized DQN Agent with learning rate: {lr}")
+            print(f"Initialized DQN Agent with gamma: {gamma}")
+            print(f"Initialized DQN Agent with tau: {tau}")
+            print("\n\n")
+
 
         self.counter = 0
 
@@ -138,6 +148,8 @@ class ReplayBuffer:
         self.capacity = int(memory_size)
         self.memory = deque(maxlen=self.capacity)
 
+        print("Initialized Replay Buffer")
+
     def __len__(self):
         return len(self.memory)
 
@@ -170,6 +182,8 @@ class PrioritizedReplayBuffer():
         self.priorities = np.zeros((memory_size,), dtype=np.float32)
         self.pos = 0
         self.experience = _Experience
+
+        print("Initialized Prioritized Replay Buffer")
 
     def __len__(self):
         return len(self.memory)

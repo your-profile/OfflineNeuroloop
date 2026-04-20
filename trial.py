@@ -19,8 +19,6 @@ def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
     env = utils.load_domain(cfg["experiment"]["domain"], cfg["rl"]["steps"])
     agent = utils.load_agent(cfg["rl"]["algorithm"], cfg["rl"]["buffer_type"], space = (cfg["rl"]["observation_space"], cfg["rl"]["action_space"]), pretrained_success_rate = cfg["experiment"]["pretrained_success_rate"])
     
-    if verbose: print(f"Observation Space for {cfg['experiment']['domain']}: {env.observation_space.shape[0]}, Action Space: {env.action_space.n}")
-    
     #TODO: Make anonymous/internal
     if not os.path.exists(os.path.join(DATA_PATH, 'fNIRS/LabeledData/')):
         try:
@@ -51,7 +49,7 @@ def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
     labels_df = loader.load_labels()
 
     # align timestamps
-    processor = DatasetProcessor()
+    processor = DatasetProcessor(verbose = verbose)
     aligned_df, fnirs_channels = processor.align_streams(
         fnirs_df,
         task_df,
@@ -59,7 +57,7 @@ def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
         resample_rate_hz = cfg["neural"]["fnirs_rate_hz"],
     )
 
-    shifted_df = processor.shift_labels_for_delay(aligned_df, delay_s = cfg["neural"]["temporal_shift"])
+    shifted_df = processor.shift_labels_for_delay(aligned_df, delay_s = cfg["neural"]["temporal_shift"], verbose = verbose)
 
     X, y = processor.build_balanced_dataset(
         shifted_df,
@@ -71,7 +69,7 @@ def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
         random_state = cfg["experiment"]["random_state"],
     )
 
-    modelTrainer = ModelTrainer(cfg = cfg["mlp"], seed = cfg["experiment"]["random_state"])
+    modelTrainer = ModelTrainer(cfg = cfg["mlp"], seed = cfg["experiment"]["random_state"], verbose = verbose)
     classifier, report = modelTrainer.train_classifier(X, y, granularity = cfg["experiment"]["model_granularity"], random_state =  cfg["experiment"]["random_state"])
     
     print("MLP Report: \n", report)
@@ -97,7 +95,7 @@ def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
             steps = cfg["rl"]["steps"], 
             save_results = True,
             save_to_csv = False,
-            verbose = False)
+            verbose = verbose)
 
     trial_dict = {}
     trial_dict = {"parameters": cfg, "results": results_dictionary}
@@ -126,8 +124,8 @@ def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
 def run_robot(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='.'):
 
     steps = cfg["rl"].get("steps", 50)
-    env = utils.make_fetch_env(max_episode_steps=steps, mujoco_version=4)
-    agent = utils.load_ddpg_agent(env, cfg["rl"]["buffer_type"], pretrained_success_rate = cfg["experiment"]["pretrained_success_rate"])
+    env = utils.make_fetch_env(max_episode_steps=steps, mujoco_version=4, verbose = verbose)
+    agent = utils.load_ddpg_agent(env, cfg["rl"]["buffer_type"], pretrained_success_rate = cfg["experiment"]["pretrained_success_rate"], verbose = verbose)
 
     if not os.path.exists(os.path.join(DATA_PATH, 'fNIRS/LabeledData/')):
         try:
@@ -155,7 +153,7 @@ def run_robot(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
     task_df = loader.load_task()
     labels_df = loader.load_labels()
 
-    processor = DatasetProcessor()
+    processor = DatasetProcessor(verbose = verbose)
     aligned_df, fnirs_channels = processor.align_streams(
         fnirs_df,
         task_df,
@@ -164,7 +162,7 @@ def run_robot(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
     )
 
     shifted_df = processor.shift_labels_for_delay(
-        aligned_df, delay_s=cfg["neural"]["temporal_shift"]
+        aligned_df, delay_s=cfg["neural"]["temporal_shift"], verbose = verbose
     )
 
     X, y = processor.build_balanced_dataset(
@@ -177,7 +175,7 @@ def run_robot(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
         random_state=cfg["experiment"]["random_state"],
     )
 
-    modelTrainer = ModelTrainer(cfg=cfg["mlp"], seed=cfg["experiment"]["random_state"])
+    modelTrainer = ModelTrainer(cfg=cfg["mlp"], seed=cfg["experiment"]["random_state"], verbose = verbose)
 
     classifier, report = modelTrainer.train_classifier(X, y, granularity=cfg["experiment"]["model_granularity"], random_state=cfg["experiment"]["random_state"])
 
@@ -204,7 +202,7 @@ def run_robot(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
         steps=steps,
         save_results=True,
         save_to_csv=False,
-        verbose=verbose,
+        verbose=verbose
     )
 
     trial_dict = {"parameters": cfg, "results": results_dictionary}

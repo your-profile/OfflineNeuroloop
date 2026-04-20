@@ -42,10 +42,9 @@ def train(env:gymnasium.Env,
     ):
     # trial.py passes experiment_list; legacy kw is experiment_conditions
     flags = experiment_conditions if experiment_conditions else experiment_list
-    print(flags, experiment_list, experiment_conditions)
+    print("Flags: ", flags, "Experiment List: ", experiment_list, "Experiment Conditions: ", experiment_conditions)
+    
     epsilon = 0.1
-
-
     decay = 1.0 #(0.01 / 1.0) ** (1 / episodes_num)
     learning_rate = agent.lr
 
@@ -54,19 +53,20 @@ def train(env:gymnasium.Env,
     buffer = fNIRSBuffer(window_duration_s=window_duration_s, sample_period_s=sample_period_s)
     grouped = task_df.groupby(['participantKey', 'episode'])
     
-    # # Calculate total number of participant episodes by counting unique (participantKey, episode) pairs
+    # Calculate total number of participant episodes
     total_participant_episodes = task_df.drop_duplicates(subset=["participantKey", "episode"]).shape[0]
-    print(total_participant_episodes)
+    print("Total Participant Episodes: ", total_participant_episodes)
 
+    # granularity index
     if granularity[0] == "b": gr = 0
     if granularity[0] == "t": gr = 1
     if granularity[0] == "c": gr = 2
 
+    # rewards, timesteps, success rate, optimality predictions
+    all_average_rewards, all_total_rewards, all_episode_steps, all_episode_success, classes_truth, classes_pred = [],[],[],[],[],[]
+    success, combined_episodes = (0.0, 0)
 
-    # rewards, timesteps, success rate
-    all_average_rewards, all_total_rewards, all_episode_steps, all_episode_success = [],[],[],[]
-    classes_truth, classes_pred = [],[]
-    success, last_success, last_participant_episode, combined_episodes = (0.0, 0.0, 0, 0)
+    # domain key
     domain_key = task_df["condition"].iloc[0][0]
 
     # training progress bar
@@ -76,7 +76,6 @@ def train(env:gymnasium.Env,
     # for loop for participant task data
     for (participant, episode), episode_df in grouped:  
         total_reward, last_state_action_value, state_action_value = 0, 0, 0
-        combined_episodes += 1
         done = False
 
         rows = episode_df.reset_index(drop=True)
@@ -118,37 +117,45 @@ def train(env:gymnasium.Env,
             # get + adjust neural classification
             new_neural_signal = buffer.get_neural_credit(granularity = granularity, X = smoothing_window_size)
 
+            # add noise to neural classification
             if noise > 0.0:
-                
                 new_neural_signal = ml.noisy_output(clf,  new_neural_signal, granularity, flip_rate = noise)
 
+            # adjust neural classification
             adjusted_neural_signal = utils_rl.adjust_neural_classification(new_neural_signal, beta=beta)
+
+            # get true sample label
             class_truth = processor.get_label_sample(timestamp = rl_timestamp, temporal_shift = -shift)
             
+            # get next action distribution, unless episode ends
             fs = int(final_step) if pd.notna(final_step) else n
             if t < fs - 1 and t + 1 < n:
                 next_action_dist = rows["optimal_actions"].iloc[t + 1]
             else:
                 next_action_dist = action_dist
 
+            # get priority for PER buffer
             if "desired_goal" in episode_df.columns:
                 priority = ddpg_priority(reward, action, action_dist, next_action_dist)
             else:
                 priority = dqn_priority(reward, action, action_dist, next_action_dist)
 
+            # set priority to 0 for ER buffer functionality
             if buffer_type == "ER":
                 priority = 0.0
 
             # Reward Augmentation Experiment
             if 1 in flags:
                 if verbose:
-                    print(f"Experiment Condition 0: Reward Augmentation -- Episode {episode} -- Participant: {participant}")
+                    print(f"Experiment Condition 1: Reward Augmentation -- Episode {episode} -- Participant: {participant}")
+                    print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal, "| Adjusted Reward: ", reward + adjusted_neural_signal)
                 reward = reward + adjusted_neural_signal
             
             # Priorirization experiment
             if 2 in flags:
                 if verbose:
-                    print(f"Experiment Condition 1: Prioritization -- Episode {episode} -- Participant: {participant}")
+                    print(f"Experiment Condition 2: Prioritization -- Episode {episode} -- Participant: {participant}")
+                    print("Original Priority: ", priority, "| Neural Signal: ", new_neural_signal, "| Adjusted Priority: ", priority + adjusted_neural_signal)
                 
                 priority += adjusted_neural_signal
             else:
@@ -157,52 +164,59 @@ def train(env:gymnasium.Env,
             # Epsilon/Exploration Adjustment
             if 3 in flags:
                 if verbose:
-                    print(f"Experiment Condition 4: Exploration Modulation -- Epsilon {epsilon}")
+                    print(f"Experiment Condition 3: Exploration Modulation -- Epsilon {epsilon}")
+                    print("Original Epsilon: ", epsilon, "| Neural Signal: ", new_neural_signal, "| Adjusted Epsilon: ", utils_rl.adjust_epsilon(epsilon, adjusted_neural_signal))
                 # print(epsilon, adjusted_neural_signal)
                 epsilon = utils_rl.adjust_epsilon(epsilon, adjusted_neural_signal)
                 # print(epsilon)
 
-            # Learning Rate Adjustment
+            # Q Augmentation Experiment
             if 4 in flags:
+                if verbose:
+                    print(f"Experiment Condition 4: Q-Augmentation -- Episode {episode} -- Participant: {participant}")
+                agent.remember(state, action, reward, next_state, done, q_augmentation = adjusted_neural_signal)
+
+            # Learning Rate Adjustment
+            if 5 in flags:
                 if verbose:
                     print(f"Experiment Condition 5: Learning Rate Modulation -- Learning Rate {learning_rate}")
                 learning_rate = utils_rl.adjust_epsilon(learning_rate, adjusted_neural_signal)
                 agent.set_lr(learning_rate)
 
-            # Q Augmentation Experiment
-            if 5 in flags:
-                if verbose:
-                    print(f"Experiment Condition 5: Q-Augmentation -- Episode {episode} -- Participant: {participant}")
-                agent.remember(state, action, reward, next_state, done, q_augmentation = adjusted_neural_signal)
-
+            # remember transition
             if buffer_type == "ER":
                 agent.remember(state, action, reward, next_state, done)
             if buffer_type == "PER":
                 agent.remember(state, action, reward, next_state, done, priority = priority)
 
+            # update total reward
             total_reward += reward
+
+            # update last state action value
             last_state_action_value = state_action_value
         
-        # model optimality predictions
+        # store sample optimality prediction and truth
         if smoothing_window_size > 1 or noise > 0.0:
-            classes_pred.append(new_neural_signal) #predictions with smoothing
+            classes_pred.append(new_neural_signal) #predictions that have been altered
         else:
             classes_pred.append(neural_signal) #raw predictions
         
-        classes_truth.append(class_truth.to_list()[gr])
+        classes_truth.append(class_truth.to_list()[gr]) #truth
 
-        # episodes needed to complete training
+        # episode intervals for online training
         new_episode_num = max(0, episodes_num // max(total_participant_episodes, 1))
 
         # observe new states outside of data
-        for new_epsiode in range(0, new_episode_num):
+        for _ in range(0, new_episode_num):
             # set seed
             if domain_key == "F":
-                state, _ = env.reset(seed=seed)
+                state, _ = env.reset(seed=seed) #seed for flappy bird
             else:
-                state = env.reset(seed=seed)
+                state = env.reset(seed=seed) #seed for lunar lander
 
-            seed += 1
+            seed += 1 #increment seed
+
+            # reset total reward and state action value
             total_reward, state_action_value, last_state_action_value = 0, 0, 0
 
             for step in range(steps):
@@ -211,25 +225,27 @@ def train(env:gymnasium.Env,
                 
                 # take action in env
                 if domain_key == "F":
-                    next_state, reward, done, _, _ = env.step(action)
+                    next_state, reward, done, terminated, _ = env.step(action) #flappy bird
                 else:
-                    next_state, reward, done, _ = env.step(action)
+                    terminated = False
+                    next_state, reward, done, _ = env.step(action) #lunar lander
 
-                
                 # td_error for PER
-                td_error = reward + state_action_value - last_state_action_value
+
+                if buffer_type == "PER":
+                    error = reward + state_action_value - last_state_action_value
+                else:
+                    error = 0.0
                 
                 # save trajectory in buffer
-                agent.remember(state, action, reward, next_state, done, priority = td_error)
+                agent.remember(state, action, reward, next_state, done, priority = error)
                 
                 state = next_state
                 last_state_action_value = state_action_value
                 total_reward += reward
 
-                if done:                    
+                if done or terminated:                    
                     break
-
-            combined_episodes += 1
 
             all_average_rewards.append(round(total_reward/step, 2))
             all_total_rewards.append(round(total_reward, 2))
@@ -239,13 +255,16 @@ def train(env:gymnasium.Env,
             # decay epsilon
             epsilon = max(0.01, epsilon*decay)
 
+            # evaluate agent
             if combined_episodes % target_update == 0:
-                if domain_key == "F":
-                    success = utils_rl.evaluate(env=FlappyBird(score_limit=20), agent=agent, episodes=20, steps=1000, domain_key=domain_key)
-                else:
+                if domain_key == "F": #flappy bird
+                    success = utils_rl.evaluate(env=FlappyBird(score_limit=20), agent=agent, episodes=20, steps=800, domain_key=domain_key)
+                else: #lunar lander
                     success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=20, steps=600, domain_key=domain_key)
+               
+                # store success rate
                 all_episode_success.append(success)
-                last_success = success
+
             else:
                 all_episode_success.append(success)
 
@@ -262,13 +281,18 @@ def train(env:gymnasium.Env,
             pbar.set_postfix(
                 {"Score": f"{total_reward:7.2f}",
                     "Avg50": f"{score_avg:7.2f}",
-                    "Eval": f"{last_success:.3f}",
-                    "Success": f"{success:.3f}"
+                    "Eval": f"{success:.3f}",
                 }, refresh=True
             )          
             pbar.update(1)
-            combined_episodes += 1
 
+            # increment combined episodes for online training
+            combined_episodes += 1
+        
+        # increment combined episodes for offline training
+        combined_episodes += 1
+
+    # close environment
     env.close()
 
     offline_model_report = ml.get_report(np.array(classes_truth), np.array(classes_pred), (granularity[0] != "c"))
@@ -321,9 +345,11 @@ def train_robot(env: gymnasium.Env,
     Offline neuro + online Fetch (DDPG + HER) with the same experiment_list flags as ``train``
     """
     from src.networks.DDPG import DDPG
+    from src.networks.DDPG_PER import DDPG as DDPG_HER
 
     if not isinstance(agent, DDPG):
-        raise TypeError("train_robot requires a DDPG agent from load_ddpg_agent / load_agent(DDPG).")
+        if not isinstance(agent, DDPG_HER):
+            raise TypeError("train_robot requires a DDPG agent from load_ddpg_agent / load_agent(DDPG).")
 
     flags = list(experiment_list)
     sample_period_s = 1.0 / fnirs_rate_hz
@@ -489,7 +515,6 @@ def train_robot(env: gymnasium.Env,
 
         step_count = len(episode_dict["state"]) - 1
         step_count = max(step_count, 1)
-        combined_episodes += 1
         new_episode_num = max(0, episodes_num // max(total_participant_episodes, 1))
             
         for online_episode in range(new_episode_num):
@@ -594,6 +619,7 @@ def train_robot(env: gymnasium.Env,
             )
             pbar.update(1)
             combined_episodes += 1
+        combined_episodes += 1   
  
     env.close()
 

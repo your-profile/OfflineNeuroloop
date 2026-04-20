@@ -9,8 +9,9 @@ NEURAL_CONDITION_MAP = {
     "Reward Augmentation": 1,
     "Prioritization": 2,
     "Epsilon Modulation": 3,
-    "LR Modulation": 4,
-    "Q-Augmentation": 5,
+    "Q-Augmentation": 4,
+    "LR Modulation": 5,
+
 }
 # Ablation Studies
 
@@ -133,4 +134,4 @@ for ablation, (domain, tasks), condition, granularity, seed in itertools.product
 
             set_nested(cfg, ablation["key"], val)
             print(cfg)
-            run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH, RESULTS_PATH=RESULTS_PATH)
+            run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH, RESULTS_PATH=RESULTS_PATH, verbose = cfg["experiment"]["verbose"])
