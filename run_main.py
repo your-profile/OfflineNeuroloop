@@ -34,7 +34,7 @@ NEURAL_CONDITIONS = [
 ]
 
 GRANULARITIES = ["binary"] #, "ternary", "continuous"]
-SEEDS = [42] # [42, 43, 44, 45, 46] # 
+SEEDS = [42, 43, 44, 45, 46] # 
 
 DOMAINS_TASKS = {
     "Lunar": ["Passive"], #, "Active", "Pooled"],
