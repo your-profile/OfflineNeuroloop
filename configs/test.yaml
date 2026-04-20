@@ -7,6 +7,7 @@ experiment:
   participant_list: [22, 23, 24] #[2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
   random_state: 42
   pretrained_success_rate: 0.0
+  verbose: True
 
 
 neural:
@@ -25,7 +26,7 @@ mlp:
   clf_activation: "relu"
   reg_activation: "tanh"
 rl:
-  n_episodes: 10
+  n_episodes: test
   algorithm: "DQN"
   buffer_type: "ER"
   learning_rate_init: 0.001

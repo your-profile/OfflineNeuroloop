@@ -61,8 +61,8 @@ def load_pretrained_agent(agent: DQN | DDPG | DDPG_HER, pretrained_success_rate:
     if algorithm == "DDPG":
         if verbose:
             print(filename+"robot/"+"FetchPolicy"+str(int(pretrained_success_rate)))
-        agent = agent.load_model(filename = filename+"robot/"+"FetchPolicy"+str(int(pretrained_success_rate)))
-    
+        agent = agent.load_model(filename = filename+"robot/"+"FetchPolicy"+str(int(pretrained_success_rate)) + ".pth")
+        print("Loaded DDPG agent from: " + filename+"robot/"+"FetchPolicy"+str(int(pretrained_success_rate)) + ".pth")
     return agent
 
 def load_agent(algorithm: str, buffer_type: str, space=(11, 4), pretrained_success_rate: float = 0.0, verbose: bool = False):

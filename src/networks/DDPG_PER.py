@@ -20,7 +20,7 @@ class DDPG:
                  critic_lr=1e-3,
                  gamma=0.98,
                  verbose = False):
-        self.device = device("cpu")
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.n_states = n_states
         self.n_actions = n_actions
         self.n_goals = n_goals
@@ -61,6 +61,8 @@ class DDPG:
             print(f"Initialized DDPG_PER Agent with tau: {tau}")
             print(f"Initialized DDPG_PER Agent with k_future: {k_future}")
             print("\n\n")
+            
+        print("GPU Available: ", torch.cuda.is_available())
 
     def choose_action(self, state, goal, train_mode=True):
         state = self.state_normalizer.normalize(state)
@@ -102,7 +104,7 @@ class DDPG:
             t_params.data.copy_(tau * e_params.data + (1 - tau) * t_params.data)
 
     def train(self):
-        states, actions, rewards, next_states, goals = self.memory.sample(self.batch_size)
+        states, actions, rewards, next_states, goals, q_augmentation = self.memory.sample(self.batch_size)
 
         states = self.state_normalizer.normalize(states)
         next_states = self.state_normalizer.normalize(next_states)
@@ -112,12 +114,13 @@ class DDPG:
 
         inputs = torch.Tensor(inputs).to(self.device)
         rewards = torch.Tensor(rewards).to(self.device)
+        q_augmentation = torch.Tensor(q_augmentation).to(self.device)
         next_inputs = torch.Tensor(next_inputs).to(self.device)
         actions = torch.Tensor(actions).to(self.device)
 
         with torch.no_grad():
             target_q = self.critic_target(next_inputs, self.actor_target(next_inputs))
-            target_returns = rewards + self.gamma * target_q.detach()
+            target_returns = rewards + self.gamma * target_q.detach() + q_augmentation
             target_returns = torch.clamp(target_returns, -1 / (1 - self.gamma), 0)
 
         q_eval = self.critic(inputs, actions)
@@ -199,6 +202,7 @@ class DDPG:
         self.critic_target.load_state_dict(checkpoint["critic_target"])
         self.actor_optim.load_state_dict(checkpoint["actor_optim"])
         self.critic_optim.load_state_dict(checkpoint["critic_optim"])
+        return self
 
 
 def _get_flat_params_or_grads(network, mode='params'):
@@ -344,6 +348,7 @@ class Memory:
         desired_goals = []
         next_states = []
         next_achieved_goals = []
+        q_augmentation = []
 
         for episode, timestep in zip(ep_indices, time_indices):
             states.append(dc(self.memory[episode]["state"][timestep]))
@@ -351,12 +356,14 @@ class Memory:
             desired_goals.append(dc(self.memory[episode]["desired_goal"][timestep]))
             next_achieved_goals.append(dc(self.memory[episode]["next_achieved_goal"][timestep]))
             next_states.append(dc(self.memory[episode]["next_state"][timestep]))
+            q_augmentation.append(dc(self.memory[episode]["q_augmentation"][timestep]))
 
         states = np.vstack(states)
         actions = np.vstack(actions)
         desired_goals = np.vstack(desired_goals)
         next_achieved_goals = np.vstack(next_achieved_goals)
         next_states = np.vstack(next_states)
+        q_augmentation = np.vstack(q_augmentation)
 
         her_mask = np.random.uniform(size=batch_size) < self.future_p
         her_idx = np.flatnonzero(her_mask)
@@ -381,7 +388,7 @@ class Memory:
             desired_goals[her_idx] = future_ag
         rewards = np.expand_dims(self.env.compute_reward(next_achieved_goals, desired_goals, None), 1)
 
-        return self.clip_obs(states), actions, rewards, self.clip_obs(next_states), self.clip_obs(desired_goals)
+        return self.clip_obs(states), actions, rewards, self.clip_obs(next_states), self.clip_obs(desired_goals), q_augmentation
 
     def add(self, transition):
         self.memory.append(transition)

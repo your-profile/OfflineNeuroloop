@@ -17,6 +17,6 @@ mlp:
 rl:
   n_episodes: 200
   algorithm: "DQN"
-  steps: 600
+  steps: 700
   action_space: 4
   observation_space: 11
