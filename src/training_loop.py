@@ -43,8 +43,10 @@ def train(env:gymnasium.Env,
     # trial.py passes experiment_list; legacy kw is experiment_conditions
     flags = experiment_conditions if experiment_conditions else experiment_list
     print(flags, experiment_list, experiment_conditions)
+    epsilon = 0.1
 
-    decay = (0.01 / 1.0) ** (1 / episodes_num)
+
+    decay = 1.0 #(0.01 / 1.0) ** (1 / episodes_num)
     learning_rate = agent.lr
 
     # calculate window size + initialize buffer
@@ -65,7 +67,6 @@ def train(env:gymnasium.Env,
     all_average_rewards, all_total_rewards, all_episode_steps, all_episode_success = [],[],[],[]
     classes_truth, classes_pred = [],[]
     success, last_success, last_participant_episode, combined_episodes = (0.0, 0.0, 0, 0)
-    epsilon = 1.0
     domain_key = task_df["condition"].iloc[0][0]
 
     # training progress bar
@@ -129,6 +130,7 @@ def train(env:gymnasium.Env,
                 next_action_dist = rows["optimal_actions"].iloc[t + 1]
             else:
                 next_action_dist = action_dist
+
             if "desired_goal" in episode_df.columns:
                 priority = ddpg_priority(reward, action, action_dist, next_action_dist)
             else:
@@ -156,9 +158,9 @@ def train(env:gymnasium.Env,
             if 3 in flags:
                 if verbose:
                     print(f"Experiment Condition 4: Exploration Modulation -- Epsilon {epsilon}")
-                print(epsilon, adjusted_neural_signal)
-                epsilon = utils_rl.adjust_epsilon(epsilon, adjusted_neural_signal, decay)
-                print(epsilon)
+                # print(epsilon, adjusted_neural_signal)
+                epsilon = utils_rl.adjust_epsilon(epsilon, adjusted_neural_signal)
+                # print(epsilon)
 
             # Learning Rate Adjustment
             if 4 in flags:
@@ -247,7 +249,7 @@ def train(env:gymnasium.Env,
             else:
                 all_episode_success.append(success)
 
-            if success >= 0.40:
+            if success >= 0.10:
                 # save agent if above 60% success rate
                 torch.save({
                     'episode': episode,

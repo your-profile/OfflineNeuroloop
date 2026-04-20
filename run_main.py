@@ -25,19 +25,20 @@ ABLATIONS = [
 
 # testing: single condition, binary granularity, no ablation sweeps
 NEURAL_CONDITIONS = [
-    #  "Baseline",
-#     "Reward Augmentation",
-#     "Prioritization",
+    "Baseline",
+    "Prioritization",
+    "Q-Augmentation",
+    "Reward Augmentation",
     "Epsilon Modulation",
-    "LR Modulation",
+    # "LR Modulation",
 ]
 
 GRANULARITIES = ["binary"] #, "ternary", "continuous"]
-SEEDS = [42] #, 43, 44, 45, 46]
+SEEDS = [42] # [42, 43, 44, 45, 46] # 
 
 DOMAINS_TASKS = {
-    "Flappy": ["Passive"], #, "Active", "Pooled"],
     "Lunar": ["Passive"], #, "Active", "Pooled"],
+    # "Flappy": ["Passive"], #, "Active", "Pooled"],
     # "Robot": ["Passive"], #, "Active", "Pooled"],
 }
 
@@ -67,6 +68,15 @@ def make_run_name(cfg):
         f"__{n['smoothing_window_size']}"
     )
 
+def print_cfg(cfg):
+    #print the cfg in a readable format
+    for k, v in cfg.items():
+        print(f"{k}: {v}")
+        if isinstance(v, dict):
+            print_cfg(v)
+        else:
+            print(f"{k}: {v}")
+
 # Ablation sweeps across the full condition grid
 for ablation, (domain, tasks), condition, granularity, seed in itertools.product(
     ABLATIONS, DOMAINS_TASKS.items(), NEURAL_CONDITIONS, GRANULARITIES, SEEDS
@@ -91,6 +101,7 @@ for ablation, (domain, tasks), condition, granularity, seed in itertools.product
                 "experiment_list": [NEURAL_CONDITION_MAP[condition]],
                 "model_granularity": granularity,
                 "random_state": seed,
+                "pretrained_success_rate": domain_cfg["experiment"]["pretrained_success_rate"],
             })
 
             cfg["mlp"].update({
@@ -112,11 +123,14 @@ for ablation, (domain, tasks), condition, granularity, seed in itertools.product
                 "algorithm": domain_cfg["rl"]["algorithm"],
                 "steps": domain_cfg["rl"]["steps"],
                 "action_space": domain_cfg["rl"]["action_space"],
-                "observation_space": domain_cfg["rl"]["observation_space"]
+                "observation_space": domain_cfg["rl"]["observation_space"],
+                "buffer_type": cfg["rl"]["buffer_type"]
+
             })
 
             if condition == "Prioritization":
                 cfg['rl']['buffer_type'] = "PER"
 
             set_nested(cfg, ablation["key"], val)
+            print(cfg)
             run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH, RESULTS_PATH=RESULTS_PATH)

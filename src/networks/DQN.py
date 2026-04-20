@@ -1,6 +1,7 @@
 
 import torch
 import torch.nn as nn
+from src.torch_checkpoint import torch_load_checkpoint
 import torch.optim as optim
 import numpy as np
 import random
@@ -39,14 +40,17 @@ class DQN():
         self.tau = tau
         self.lr = lr
         self.hidden_layer_size = hidden_layer_size
+        self.buffer_type = buffer_type
 
         self.policy_net = DeepQNetwork(n_observations, n_actions, hidden_layer_size).to(device)
         self.target_net = DeepQNetwork(n_observations, n_actions, hidden_layer_size).to(device)
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=lr)
         self.criterion = nn.MSELoss()
 
-        
-        self.memory = PrioritizedReplayBuffer(n_actions, mem_size, batch_size)
+        if buffer_type == "PER":
+            self.memory = PrioritizedReplayBuffer(n_actions, mem_size, batch_size)
+        else:
+            self.memory = ReplayBuffer(n_actions, mem_size, batch_size)
 
         self.algorithm = "DQN"
         
@@ -111,8 +115,47 @@ class DQN():
             target_param.data.copy_(self.tau*eval_param.data + (1.0-self.tau)*target_param.data)
         
     def load_model(self, filename):
-        self.policy_net.load_state_dict(torch.load(filename))
-        self.target_net.load_state_dict(torch.load(filename))
+        ckpt = torch_load_checkpoint(filename)
+        if isinstance(ckpt, dict) and "model_state_dict" in ckpt:
+            state = ckpt["model_state_dict"]
+        else:
+            state = ckpt
+        self.policy_net.load_state_dict(state)
+        self.target_net.load_state_dict(state)
+
+        return self
+
+
+_Experience = namedtuple("Experience", field_names=["state", "action", "reward", "next_state", "done"])
+
+
+class ReplayBuffer:
+    """Uniform experience replay: FIFO storage and uniform random minibatches."""
+
+    def __init__(self, n_actions, memory_size, batch_size):
+        self.n_actions = n_actions
+        self.batch_size = batch_size
+        self.capacity = int(memory_size)
+        self.memory = deque(maxlen=self.capacity)
+
+    def __len__(self):
+        return len(self.memory)
+
+    def add(self, state, action, reward, next_state, done, priority=None):
+        self.memory.append(_Experience(state, action, reward, next_state, done))
+
+    def sample(self):
+        current_size = len(self.memory)
+        k = min(self.batch_size, current_size)
+        experiences = random.sample(self.memory, k=k)
+
+        states = torch.from_numpy(np.vstack([e.state for e in experiences])).float().to(device)
+        actions = torch.from_numpy(np.vstack([e.action for e in experiences])).long().to(device)
+        rewards = torch.from_numpy(np.vstack([e.reward for e in experiences])).float().to(device)
+        next_states = torch.from_numpy(np.vstack([e.next_state for e in experiences])).float().to(device)
+        dones = torch.from_numpy(np.vstack([e.done for e in experiences]).astype(np.uint8)).float().to(device)
+
+        return (states, actions, rewards, next_states, dones)
 
 
 class PrioritizedReplayBuffer():
@@ -126,7 +169,7 @@ class PrioritizedReplayBuffer():
         self.memory = []
         self.priorities = np.zeros((memory_size,), dtype=np.float32)
         self.pos = 0
-        self.experience = namedtuple("Experience", field_names=["state", "action", "reward", "next_state", "done"])
+        self.experience = _Experience
 
     def __len__(self):
         return len(self.memory)
@@ -174,33 +217,6 @@ class PrioritizedReplayBuffer():
 
         return (states, actions, rewards, next_states, dones)
 
-
-# #EXPERIENCE REPLAY
-# class ReplayBuffer():
-#     def __init__(self, n_actions, memory_size, batch_size):
-#         self.n_actions = n_actions
-#         self.batch_size = batch_size
-#         self.memory = deque(maxlen = memory_size)
-#         self.experience = namedtuple("Experience", field_names=["state", "action", "reward", "next_state", "done"])
-        
-        
-#     def __len__(self):
-#         return len(self.memory)
-
-#     def add(self, state, action, reward, next_state, done, priority=None):
-#         e = self.experience(state, action, reward, next_state, done)
-#         self.memory.append(e)
-
-#     def sample(self):
-#         experiences = random.sample(self.memory, k=self.batch_size)
-
-#         states = torch.from_numpy(np.vstack([e.state for e in experiences if e is not None])).float().to(device)
-#         actions = torch.from_numpy(np.vstack([e.action for e in experiences if e is not None])).long().to(device)
-#         rewards = torch.from_numpy(np.vstack([e.reward for e in experiences if e is not None])).float().to(device)
-#         next_states = torch.from_numpy(np.vstack([e.next_state for e in experiences if e is not None])).float().to(device)
-#         dones = torch.from_numpy(np.vstack([e.done for e in experiences if e is not None]).astype(np.uint8)).float().to(device)
-
-#         return (states, actions, rewards, next_states, dones)
 
 # #PRIORITIZED EXPERIENCE REPLAY (IN PROGRESS)  
 # class PrioritizedReplayBuffer():

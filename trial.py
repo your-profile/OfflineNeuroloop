@@ -17,7 +17,7 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
 def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='.'):
 
     env = utils.load_domain(cfg["experiment"]["domain"], cfg["rl"]["steps"])
-    agent = utils.load_agent(cfg["rl"]["algorithm"], cfg["rl"]["buffer_type"], space = (cfg["rl"]["observation_space"], cfg["rl"]["action_space"]))
+    agent = utils.load_agent(cfg["rl"]["algorithm"], cfg["rl"]["buffer_type"], space = (cfg["rl"]["observation_space"], cfg["rl"]["action_space"]), pretrained_success_rate = cfg["experiment"]["pretrained_success_rate"])
     
     if verbose: print(f"Observation Space for {cfg['experiment']['domain']}: {env.observation_space.shape[0]}, Action Space: {env.action_space.n}")
     
@@ -127,7 +127,7 @@ def run_robot(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
 
     steps = cfg["rl"].get("steps", 50)
     env = utils.make_fetch_env(max_episode_steps=steps, mujoco_version=4)
-    agent = utils.load_ddpg_agent(env, cfg["rl"]["buffer_type"])
+    agent = utils.load_ddpg_agent(env, cfg["rl"]["buffer_type"], pretrained_success_rate = cfg["experiment"]["pretrained_success_rate"])
 
     if not os.path.exists(os.path.join(DATA_PATH, 'fNIRS/LabeledData/')):
         try:

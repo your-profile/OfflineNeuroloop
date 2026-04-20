@@ -46,23 +46,26 @@ def load_domain(env: str, steps: int = None):
 
     return env
 
-def load_pretrained_agent(pretrained_success_rate: float, algorithm: str, space=(11, 4)):
+def load_pretrained_agent(agent: DQN | DDPG, pretrained_success_rate: float, algorithm: str, space=(11, 4), filename: str = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/src/policies/"):
+    
     if algorithm == "DQN":
         if space[0] == 11:
-            agent = DQN.load_model("LLPolicy" + str(int(pretrained_success_rate)) + ".pth")
-        if space[0] == 12:
-            agent = DQN.load_model("FlappyPolicy" + str(int(pretrained_success_rate)) + ".pth")
+            print(filename+"lunar/"+"LPolicy"+str(int(pretrained_success_rate)))
+
+            agent = agent.load_model(filename = filename+"lunar/"+"LPolicy"+str(int(pretrained_success_rate)))
+        elif space[0] == 12:
+            print(filename+"flappy/"+"FPolicy"+str(int(pretrained_success_rate)))
+            agent = agent.load_model(filename = filename+"flappy/"+"FPolicy"+str(int(pretrained_success_rate)))
         
     if algorithm == "DDPG":
-        agent = DDPG.load_model("FetchPolicy" + str(int(pretrained_success_rate)) + ".pth")
+        print(filename+"robot/"+"FetchPolicy"+str(int(pretrained_success_rate)))
+        agent = agent.load_model(filename = filename+"robot/"+"FetchPolicy"+str(int(pretrained_success_rate)))
     
     return agent
 
 def load_agent(algorithm: str, buffer_type: str, space=(11, 4), pretrained_success_rate: float = 0.0):
     agent = None
-
-    if pretrained_success_rate > 0.0:
-        return load_pretrained_agent(pretrained_success_rate, algorithm, space)
+    print(algorithm)
 
     if algorithm == "DQN":
 
@@ -87,6 +90,9 @@ def load_agent(algorithm: str, buffer_type: str, space=(11, 4), pretrained_succe
     elif algorithm == "DDPG":
         inner = make_fetch_env(max_episode_steps=50, mujoco_version=2)
         agent = load_ddpg_agent(inner, buffer_type)
+
+    if pretrained_success_rate > 0.0:
+        return load_pretrained_agent(agent, pretrained_success_rate, algorithm, space)
 
     return agent
 

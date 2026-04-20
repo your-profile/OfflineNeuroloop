@@ -1,6 +1,7 @@
 import torch
 from torch import from_numpy, device
 import numpy as np
+from src.torch_checkpoint import torch_load_checkpoint
 from torch.optim import Adam
 from mpi4py import MPI
 import threading
@@ -136,7 +137,7 @@ class DDPG:
 
     def load_weights(self):
 
-        checkpoint = torch.load("FetchPickAndPlace.pth")
+        checkpoint = torch_load_checkpoint("FetchPickAndPlace.pth")
         actor_state_dict = checkpoint["actor_state_dict"]
         self.actor.load_state_dict(actor_state_dict)
         state_normalizer_mean = checkpoint["state_normalizer_mean"]
@@ -180,7 +181,7 @@ class DDPG:
         _set_flat_params_or_grads(network, global_grads, mode='grads')
     
     def load_model(self, filename):
-        checkpoint = torch.load(filename)
+        checkpoint = torch_load_checkpoint(filename)
         self.actor.load_state_dict(checkpoint["actor"])
         self.critic.load_state_dict(checkpoint["critic"])
         self.actor_target.load_state_dict(checkpoint["actor_target"])

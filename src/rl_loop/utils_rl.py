@@ -106,9 +106,9 @@ def adjust_neural_classification(output: int|None, beta = 1.0) -> float:
     if output == 0.0:
         return 1.0
     elif output == 1.0:
-        return -1.0
+        return -0.0
     elif output == 2.0:
-        return -2.0
+        return -1.0
     # regressor output (continuous)
     else:
         adjustment = -output
@@ -131,7 +131,7 @@ def adjust_reward(reward: float, neural_signal: int|float, environment_reward: b
 
     return reward + neural_signal
 
-def adjust_epsilon(epsilon: float, neural_signal: float, current_decay: float):
+def adjust_epsilon(epsilon: float, neural_signal: float):
     """
     adjust_epsilon(epsilon: float, 
         neural_signal: float) -> adjusted_epsilon: float
@@ -140,7 +140,7 @@ def adjust_epsilon(epsilon: float, neural_signal: float, current_decay: float):
     """
 
     # neural signal in tenths place, subtracted from current decay
-    new_epsilon = current_decay - (neural_signal/10)
+    new_epsilon = epsilon - (neural_signal/20)
     
     # epsilon is not lower than 0.05 or higher than 1.0
     return min(max(0.05, new_epsilon), 1.0)
