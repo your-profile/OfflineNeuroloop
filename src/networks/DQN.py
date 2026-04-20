@@ -65,6 +65,8 @@ class DQN():
             print(f"Initialized DQN Agent with tau: {tau}")
             print("\n\n")
 
+        print("GPU Available: ", torch.cuda.is_available())
+
 
         self.counter = 0
 
