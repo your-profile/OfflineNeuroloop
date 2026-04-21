@@ -6,11 +6,13 @@ with open("configs/base.yaml") as f:
 
 NEURAL_CONDITION_MAP = {
     "Baseline": [0],
+    "Baseline-PER": [0],
     "Reward Augmentation": [1],
     "Prioritization": [2],
     "Epsilon Modulation": [3],
     "Q-Augmentation": [4],
-    "All": [0, 1, 2, 4],
+    "All": [0, 1, 4],
+    "All-PER": [0, 1, 2, 4],
 
 }
 # Ablation Studies
@@ -44,7 +46,7 @@ DOMAINS_TASKS = {
 
 DATA_PATH = '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/' 
 RESULTS_PATH = '/Users/juliasantaniello/Desktop/OfflineNeuroloop/' 
-
+RESULTS_FILE_NAME = 'trial_results.csv'
 # DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/' 
 # RESULTS_PATH = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/' 
 
@@ -81,6 +83,9 @@ def print_cfg(cfg):
 for ablation, (domain, tasks), condition, granularity, seed in itertools.product(
     ABLATIONS, DOMAINS_TASKS.items(), NEURAL_CONDITIONS, GRANULARITIES, SEEDS
 ):
+    if condition == "Baseline-PER" and granularity != "binary":
+        continue
+
     if condition == "Baseline" and granularity != "binary":
         continue
 
@@ -131,8 +136,10 @@ for ablation, (domain, tasks), condition, granularity, seed in itertools.product
 
             })
 
-            if condition == "Prioritization":
-                cfg['rl']['buffer_type'] = "PER"
+            # if condition == "Prioritization" or condition == "Baseline-PER":
+            #     cfg['rl']['buffer_type'] = "PER"
+            # else:
+            #     cfg['rl']['buffer_type'] = "ER"
             
             if condition == "Baseline" and ((ablation["key"][1] == "model_noise" and val != 0.0) or (ablation["key"][1] == "temporal_shift" and val != 0.0)):
                 continue
@@ -140,4 +147,4 @@ for ablation, (domain, tasks), condition, granularity, seed in itertools.product
             set_nested(cfg, ablation["key"], val)
             print(cfg)
             # input("Press Enter to continue... \n")
-            run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH, RESULTS_PATH=RESULTS_PATH, verbose = cfg["experiment"]["verbose"])
+            run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH, RESULTS_PATH=RESULTS_PATH,RESULTS_FILE_NAME=RESULTS_FILE_NAME, verbose = cfg["experiment"]["verbose"])
