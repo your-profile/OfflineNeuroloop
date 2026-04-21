@@ -62,7 +62,7 @@ class DDPG:
             print(f"Initialized DDPG Agent with tau: {tau}")
             print(f"Initialized DDPG Agent with k_future: {k_future}")
             print("\n\n")
-            
+
         print("GPU Available: ", torch.cuda.is_available())
 
     def choose_action(self, state, goal, train_mode=True):
@@ -203,6 +203,8 @@ class DDPG:
         self.critic_target.load_state_dict(checkpoint["critic_target"])
         self.actor_optim.load_state_dict(checkpoint["actor_optim"])
         self.critic_optim.load_state_dict(checkpoint["critic_optim"])
+
+        return self
 
 
 def _get_flat_params_or_grads(network, mode='params'):

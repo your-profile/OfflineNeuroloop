@@ -1,11 +1,11 @@
 experiment:
   domain: "Robot"  
-  pretrained_success_rate: 30.0
+  pretrained_success_rate: 50.0
 
 mlp:
   binary_hidden_layer_sizes: [75, 50, 5]
   ternary_hidden_layer_sizes: [75, 50, 5]
-  regressor_hidden_layer_sizes: [100, 40, 2]
+  regressor_hidden_layer_sizes: [150, 75, 5]
   binary_activation: "relu"
   ternary_activation: "relu"
   reg_activation: "relu"

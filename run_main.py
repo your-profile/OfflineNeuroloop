@@ -1,52 +1,53 @@
 import itertools, copy, yaml
 from trial import run
 
-with open("configs/base.yaml") as f:
+with open("configs/test.yaml") as f:
     base = yaml.safe_load(f)
 
 NEURAL_CONDITION_MAP = {
     "Baseline": 0,
-    # "Reward Augmentation": 1,
-    # "Prioritization": 2,
-    # "Epsilon Modulation": 3,
-    # "Q-Augmentation": 4,
-    # "LR Modulation": 5,
+    "Reward Augmentation": 1,
+    "Prioritization": 2,
+    "Epsilon Modulation": 3,
+    "Q-Augmentation": 4,
+    "LR Modulation": 5,
 
 }
 # Ablation Studies
 
 ABLATIONS = [
-    {"key": ["mlp", "model_noise"], "vals": [0.0]}, #, 0.1, 0.2, 0.3]},
+    {"key": ["mlp", "model_noise"], "vals": [0.0, 0.1, 0.2, 0.3]},
     # {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0]},
     # {"key": ["neural", "beta"], "vals": [0.5, 1.0, 5.0, 10.0]},
-    # {"key": ["neural", "smoothing_window_size"], "vals": [1, 3, 5, 7]},
+    {"key": ["neural", "smoothing_window_size"], "vals": [1, 3, 5, 7]},
     # {"key": ["neural", "window_size_s"], "vals": [2.0, 3.0, 4.0, 5.0]},
     # {"key": ["rl", "pretrained_success_rate"], "vals": [0.0, 0.4, 0.6, 0.8]},
 ]
 
 # testing: single condition, binary granularity, no ablation sweeps
 NEURAL_CONDITIONS = [
-    "Baseline",
-    # "Prioritization",
-    # "Q-Augmentation",
-    # "Reward Augmentation",
-    # "Epsilon Modulation",
+    # "Baseline",
+    "Prioritization",
+    "Q-Augmentation",
+    "Reward Augmentation",
+    "Epsilon Modulation",
 ]
 
-GRANULARITIES = ["binary"] #, "ternary", "continuous"]
-SEEDS = [100] # 42, 43, 44, 45, 46] 
+GRANULARITIES = ["binary", "ternary", "continuous"]
+GRANULARITIES = ["continuous"]
+SEEDS = [42] #, 43, 44, 45, 46] 
 
 DOMAINS_TASKS = {
     # "Lunar": ["Passive", "Active", "Pooled"],
     # "Flappy": ["Passive", "Active", "Pooled"],
-    "Robot": ["Passive"]#, "Active", "Pooled"],
+    "Robot": ["Passive", "Active", "Pooled"],
 }
 
-#DATA_PATH = '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/' 
-#RESULTS_PATH = '/Users/juliasantaniello/Desktop/OfflineNeuroloop/' 
+DATA_PATH = '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/' 
+RESULTS_PATH = '/Users/juliasantaniello/Desktop/OfflineNeuroloop/' 
 
-DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/' 
-RESULTS_PATH = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/' 
+# DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/' 
+# RESULTS_PATH = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/' 
 
 #DATA_PATH = '/cluster/home/mbrowe02/fNIRS2RL/Experiment/ParticipantData/'
 #RESULTS_PATH = '/cluster/home/mbrowe02/LunarOfflineNeuroloop/OfflineNeuroloop'
@@ -138,5 +139,5 @@ for ablation, (domain, tasks), condition, granularity, seed in itertools.product
                 continue
             set_nested(cfg, ablation["key"], val)
             print(cfg)
-            # input("Press Enter to continue... \n")
+            input("Press Enter to continue... \n")
             run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH, RESULTS_PATH=RESULTS_PATH, verbose = cfg["experiment"]["verbose"])

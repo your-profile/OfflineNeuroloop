@@ -29,9 +29,12 @@ class ModelTrainer:
             y_pred = [int(x) for x in y_pred]
             report = classification_report(y_test, y_pred, output_dict=False)
         else:
+            y_test = np.array([float(x) for x in y_test])
+            y_pred = np.array([float(x) for x in y_pred])
             mse = mean_squared_error(y_test, y_pred)
             r2 = r2_score(y_test, y_pred)
             mae = np.mean(np.abs(y_test - y_pred)) 
+            
 
             report = {
                 "R2": r2,
@@ -78,7 +81,7 @@ class ModelTrainer:
         return self.flip_labels(preds, flip_rate, classes=[0, 1])
 
 
-    def noisy_ternary(self, preds, flip_rate=0.1):
+    def noisy_ternary(self, model, preds, flip_rate=0.1):
         """
         flip_rate=0.1 → ~10% of predictions flipped to one of the other two classes.
         """
@@ -86,17 +89,20 @@ class ModelTrainer:
         return self.flip_labels(preds, flip_rate, classes=[0, 1, 2])
 
 
-    def noisy_regressor(self, preds, noise_level=0.1):
+    def noisy_regressor(self, model, preds, noise_level=0.1):
         """
         noise_level=0.1 → noise std = 10% of the prediction's own std.
         Degrades R² roughly proportionally.
         """
         if self.seed is not None:
             np.random.seed(self.seed)
-        
-        noise = np.random.normal(0, noise_level, size=preds.shape)
-        return preds + noise
 
+        if random.random() < noise_level:
+            noise = np.random.random()
+            return noise
+        else:
+            return preds
+        
     def train_classifier(self, 
                          X: np.ndarray, 
                          y: np.ndarray, 

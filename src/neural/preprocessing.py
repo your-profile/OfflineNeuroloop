@@ -312,6 +312,9 @@ class DatasetProcessor:
 
         label_data = self.label_df.iloc[closest_idx][label_types]
 
+        if label_data.isna().any() or label_data.isnull().any():
+            return label_data.fillna(0.0)
+
         return label_data
 
     def build_supervised_dataset(self, 
