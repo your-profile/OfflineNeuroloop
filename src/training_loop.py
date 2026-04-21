@@ -161,7 +161,7 @@ def train(env:gymnasium.Env,
                 priority = abs(priority)
                 priority += adjusted_neural_signal
             else:
-                priority = 0.0
+                priority = None
        
             # Epsilon/Exploration Adjustment
             if 3 in flags:
@@ -192,9 +192,6 @@ def train(env:gymnasium.Env,
                 agent.remember(state, action, reward, next_state, done, q_augmentation = q_augmentation)
             if buffer_type == "PER":
                 agent.remember(state, action, reward, next_state, done, priority = priority, q_augmentation = q_augmentation)
-
-            # update total reward
-            total_reward += reward
 
             # update last state action value
             last_state_action_value = state_action_value
@@ -255,9 +252,9 @@ def train(env:gymnasium.Env,
             # evaluate agent
             if combined_episodes % target_update == 0:
                 if domain_key == "F": #flappy bird
-                    success = utils_rl.evaluate(env=FlappyBird(score_limit=20), agent=agent, episodes=20, steps=steps, domain_key=domain_key)
+                    success = utils_rl.evaluate(env=FlappyBird(score_limit=20), agent=agent, episodes=50, steps=steps, domain_key=domain_key)
                 else: #lunar lander
-                    success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=20, steps=steps, domain_key=domain_key)
+                    success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=50, steps=steps, domain_key=domain_key)
                
                 # store success rate
                 all_episode_success.append(success)
@@ -477,7 +474,7 @@ def train_robot(env: gymnasium.Env,
                 priority = abs(priority)
                 priority = priority + adjusted_neural_signal
             else:
-                priority = 0.0
+                priority = None
 
             # Epsilon/Exploration Adjustment
             if 3 in flags:
@@ -494,7 +491,7 @@ def train_robot(env: gymnasium.Env,
                     print("Neural Signal: ", new_neural_signal, "| Q-Value: ", reward + adjusted_neural_signal)
                 q_aug = float(adjusted_neural_signal)
             else:
-                q_aug = 0.0
+                q_aug = None
 
             # Learning Rate Adjustment
             if 5 in flags:
@@ -513,7 +510,6 @@ def train_robot(env: gymnasium.Env,
             episode_dict["desired_goal"].append(desired_goal.astype(np.float32))
             episode_dict["done"].append(float(done))
             episode_dict["q_augmentation"].append(q_aug)
-            total_reward += reward
 
             if transition_priority is not None:
                 transition_priority.append(priority)
@@ -581,9 +577,11 @@ def train_robot(env: gymnasium.Env,
                 next_state = next_obs["observation"].astype(np.float32).ravel()
                 next_achieved_goal = next_obs["achieved_goal"].astype(np.float32).ravel()
 
-                td_proxy = 0.0
+                td_error = 0.0
                 if buffer_type == "PER":
-                    td_proxy = abs(float(reward)) + 1e-6
+                    td_error = ddpg_priority(reward, action, desired_goal, next_achieved_goal)
+                    print(td_error)
+     
 
                 online_ep["state"].append(state)
                 online_ep["action"].append(action.astype(np.float32))
@@ -596,7 +594,7 @@ def train_robot(env: gymnasium.Env,
                 online_ep["q_augmentation"].append(0.0)
 
                 if prios is not None:
-                    prios.append(td_proxy)
+                    prios.append(td_error)
 
                 obs = next_obs
                 total_reward += float(reward)
@@ -627,7 +625,7 @@ def train_robot(env: gymnasium.Env,
 
             if combined_episodes%800 == 0:
                 agent.save_weights()
-                success = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=20)
+                success = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=50)
                 all_episode_success.append(success)
                 last_success = success
 

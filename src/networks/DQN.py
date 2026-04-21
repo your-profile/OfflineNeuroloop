@@ -87,7 +87,16 @@ class DQN():
     def remember(self, state, action, reward, next_state, done, q_augmentation = 0.0, priority = None):
         if priority is None:
             #priority is td error
-            priority = reward + self.gamma * self.target_net((torch.from_numpy(next_state).float().unsqueeze(0).to(self.device))).squeeze()[action]  - self.policy_net(torch.from_numpy(state).float().unsqueeze(0).to(self.device)).squeeze()[action] 
+            next_state_tensor = torch.from_numpy(next_state).float().unsqueeze(0).to(self.device)
+            state_tensor = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
+            next_q = self.target_net(next_state_tensor).squeeze()[action].detach().cpu().numpy()
+            current_q = self.policy_net(state_tensor).squeeze()[action].detach().cpu().numpy()
+            priority = reward + self.gamma * next_q - current_q
+       
+            
+            #if priority is nan, set to 0
+            if np.isnan(priority) or priority != priority:
+                priority = 0.0
         
         action = int(action)
 
@@ -218,6 +227,9 @@ class PrioritizedReplayBuffer():
         current_size = len(self.memory)
         k = min(self.batch_size, current_size)
         priorities = self.priorities[:current_size]
+
+        # if any nan in priorities, swap those specific nans to 0
+        priorities = np.where(np.isnan(priorities), 0.0, priorities)
 
         scaled = np.maximum(priorities, self.eps) ** self.alpha
         total = float(scaled.sum())

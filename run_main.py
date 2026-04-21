@@ -1,7 +1,7 @@
 import itertools, copy, yaml
 from trial import run
 
-with open("configs/test.yaml") as f:
+with open("configs/base.yaml") as f:
     base = yaml.safe_load(f)
 
 NEURAL_CONDITION_MAP = {
@@ -25,20 +25,21 @@ ABLATIONS = [
 # testing: single condition, binary granularity, no ablation sweeps
 NEURAL_CONDITIONS = [
     "Baseline",
-    # "Prioritization",
-    # "Q-Augmentation",
-    # "Reward Augmentation",
-    # "All",
+    "Prioritization",
+    "Q-Augmentation",
+    "Reward Augmentation",
+    "All",
 ]
 
-GRANULARITIES = ["binary", "ternary", "continuous"]
+GRANULARITIES = ["ternary", "binary", "continuous"]
+GRANULARITIES = ["binary"]
 
-SEEDS = [42, 44, 45, 46, 47, 48, 49, 50, 51] 
+SEEDS = [100] #, 44, 45, 46, 47, 48, 49, 50, 51] 
 
 DOMAINS_TASKS = {
-    "Lunar": ["Passive", "Active", "Pooled"],
-    "Flappy": ["Passive", "Active", "Pooled"],
-    "Robot": ["Passive", "Active", "Pooled"],
+    # "Lunar": ["Passive", "Active", "Pooled"],
+    "Flappy": ["Passive"]#, "Active", "Pooled"],
+    # "Robot": ["Passive", "Active", "Pooled"],
 }
 
 DATA_PATH = '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/' 
@@ -138,5 +139,5 @@ for ablation, (domain, tasks), condition, granularity, seed in itertools.product
 
             set_nested(cfg, ablation["key"], val)
             print(cfg)
-            input("Press Enter to continue... \n")
+            # input("Press Enter to continue... \n")
             run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH, RESULTS_PATH=RESULTS_PATH, verbose = cfg["experiment"]["verbose"])

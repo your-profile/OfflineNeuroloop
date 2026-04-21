@@ -1,6 +1,6 @@
 experiment:
   domain: "Flappy Bird"    
-  pretrained_success_rate: 0.0
+  pretrained_success_rate: 2.0
 
 mlp:
   binary_hidden_layer_sizes: [75, 50, 5]
@@ -15,7 +15,7 @@ mlp:
   early_stopping: True
   
 rl:
-  n_episodes: 3500
+  n_episodes: 1000
   algorithm: "DQN"
   steps: 800
   action_space: 2
