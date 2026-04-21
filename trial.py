@@ -6,15 +6,15 @@ import src.utils as utils
 import os
 import csv
 
-def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='.'):
+def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='.', RESULTS_FILE_NAME = 'trial_results.csv'):
     if cfg["experiment"]["domain"][0].lower() == "l" or cfg["experiment"]["domain"][0].lower() == "f":
-        run_lunar(cfg, run_name, verbose, DATA_PATH, RESULTS_PATH)
+        run_lunar(cfg, run_name, verbose, DATA_PATH, RESULTS_PATH, RESULTS_FILE_NAME)
     elif cfg["experiment"]["domain"][0].lower() == "r":
-        run_robot(cfg, run_name, verbose, DATA_PATH, RESULTS_PATH)
+        run_robot(cfg, run_name, verbose, DATA_PATH, RESULTS_PATH, RESULTS_FILE_NAME)
     else:
         raise ValueError(f"Invalid domain: {cfg['experiment']['domain']}")
 
-def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='.'):
+def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='.', RESULTS_FILE_NAME = 'trial_results.csv'):
 
     env = utils.load_domain(cfg["experiment"]["domain"], cfg["rl"]["steps"])
     agent = utils.load_agent(cfg["rl"]["algorithm"], cfg["rl"]["buffer_type"], space = (cfg["rl"]["observation_space"], cfg["rl"]["action_space"]), pretrained_success_rate = cfg["experiment"]["pretrained_success_rate"], verbose = verbose)
@@ -113,8 +113,8 @@ def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
 
     flat_trial = flatten_dict(trial_dict)
 
-    csv_path = os.path.join(RESULTS_PATH,'src/results/trial_results.csv')
-    write_header = not os.path.exists(os.path.join(RESULTS_PATH,'src/results/trial_results.csv'))
+    csv_path = os.path.join(RESULTS_PATH,'src/results/', RESULTS_FILE_NAME)
+    write_header = not os.path.exists(os.path.join(RESULTS_PATH,'src/results/', RESULTS_FILE_NAME))
     with open(csv_path, 'a', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=flat_trial.keys())
         if write_header:
@@ -122,7 +122,7 @@ def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
         writer.writerow(flat_trial)
 
 
-def run_robot(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='.'):
+def run_robot(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='.', RESULTS_FILE_NAME = 'trial_results.csv'):
 
     steps = cfg["rl"].get("steps", 50)
     env = utils.make_fetch_env(max_episode_steps=steps, mujoco_version=4, verbose = verbose)
@@ -221,8 +221,8 @@ def run_robot(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
 
     flat_trial = flatten_dict(trial_dict)
 
-    csv_path = os.path.join(RESULTS_PATH,'src/results/trial_results.csv')
-    write_header = not os.path.exists(os.path.join(RESULTS_PATH,'src/results/trial_results.csv'))
+    csv_path = os.path.join(RESULTS_PATH,'src/results/', RESULTS_FILE_NAME)
+    write_header = not os.path.exists(os.path.join(RESULTS_PATH,'src/results/', RESULTS_FILE_NAME))
     with open(csv_path, 'a', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=flat_trial.keys())
         if write_header:
