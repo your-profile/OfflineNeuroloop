@@ -78,7 +78,7 @@ class ModelTrainer:
         return self.flip_labels(preds, flip_rate, classes=[0, 1])
 
 
-    def noisy_ternary(self, preds, flip_rate=0.1):
+    def noisy_ternary(self, model, preds, flip_rate=0.1):
         """
         flip_rate=0.1 → ~10% of predictions flipped to one of the other two classes.
         """
@@ -86,7 +86,7 @@ class ModelTrainer:
         return self.flip_labels(preds, flip_rate, classes=[0, 1, 2])
 
 
-    def noisy_regressor(self, preds, noise_level=0.1):
+    def noisy_regressor(self, model, preds, noise_level=0.1):
         """
         noise_level=0.1 → noise std = 10% of the prediction's own std.
         Degrades R² roughly proportionally.
