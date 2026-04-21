@@ -5,12 +5,12 @@ with open("configs/base.yaml") as f:
     base = yaml.safe_load(f)
 
 NEURAL_CONDITION_MAP = {
-    "Baseline": 0,
-    "Reward Augmentation": 1,
-    "Prioritization": 2,
-    "Epsilon Modulation": 3,
-    "Q-Augmentation": 4,
-    "LR Modulation": 5,
+    "Baseline": [0],
+    "Reward Augmentation": [1],
+    "Prioritization": [2],
+    "Epsilon Modulation": [3],
+    "Q-Augmentation": [4],
+    "All": [0, 1, 2, 3, 4],
 
 }
 # Ablation Studies
@@ -24,17 +24,18 @@ ABLATIONS = [
 
 # testing: single condition, binary granularity, no ablation sweeps
 NEURAL_CONDITIONS = [
-    # "Baseline",
-    "Prioritization",
+    "Baseline",
+    "All",
+    # "Prioritization",
     # "Q-Augmentation",
-    # "Reward Augmentation",
+    "Reward Augmentation",
     # "Epsilon Modulation",
 ]
 
 GRANULARITIES = ["binary", "ternary", "continuous"]
 GRANULARITIES = ["binary"]
 
-SEEDS = [42, 43] #, 44, 45, 46, 47, 48, 49, 50, 51] 
+SEEDS = [42] #, 44, 45, 46, 47, 48, 49, 50, 51] 
 
 DOMAINS_TASKS = {
     # "Lunar": ["Passive", "Active", "Pooled"],
@@ -101,7 +102,7 @@ for ablation, (domain, tasks), condition, granularity, seed in itertools.product
                "domain": domain_cfg["experiment"]["domain"],
                 "task": task,
                 "condition": condition,
-                "experiment_list": [NEURAL_CONDITION_MAP[condition]],
+                "experiment_list": NEURAL_CONDITION_MAP[condition],
                 "model_granularity": granularity,
                 "random_state": seed,
                 "pretrained_success_rate": domain_cfg["experiment"]["pretrained_success_rate"],
@@ -136,6 +137,7 @@ for ablation, (domain, tasks), condition, granularity, seed in itertools.product
             
             if condition == "Baseline" and ((ablation["key"][1] == "model_noise" and val != 0.0) or (ablation["key"][1] == "temporal_shift" and val != 0.0)):
                 continue
+
             set_nested(cfg, ablation["key"], val)
             print(cfg)
             # input("Press Enter to continue... \n")

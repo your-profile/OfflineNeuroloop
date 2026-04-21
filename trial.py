@@ -199,8 +199,9 @@ def run_robot(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
         fnirs_rate_hz=cfg["neural"]["fnirs_rate_hz"],
         beta=cfg["neural"]["beta"],
         noise=cfg["mlp"]["model_noise"],
+        seed = cfg["experiment"]["random_state"],
         buffer_type=cfg["rl"]["buffer_type"],
-        steps=steps,
+        steps=cfg["rl"]["steps"],
         save_results=True,
         save_to_csv=False,
         verbose=verbose
