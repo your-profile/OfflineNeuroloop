@@ -102,7 +102,7 @@ def adjust_neural_classification(output: int|None, beta = 1.0, verbose = False) 
     if output == 0.0:
         return 1.0
     elif output == 1.0:
-        return -0.5
+        return -0.1
     elif output == 2.0:
         return -1.0
     # regressor output (continuous)
