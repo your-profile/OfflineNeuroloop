@@ -1,7 +1,7 @@
 import itertools, copy, yaml
 from trial import run
 
-with open("configs/test.yaml") as f:
+with open("configs/base.yaml") as f:
     base = yaml.safe_load(f)
 
 NEURAL_CONDITION_MAP = {
@@ -16,27 +16,29 @@ NEURAL_CONDITION_MAP = {
 # Ablation Studies
 
 ABLATIONS = [
-    {"key": ["mlp", "model_noise"], "vals": [0.0, 0.2, 0.5, 1.0]},
-    {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0]},
-    {"key": ["neural", "beta"], "vals": [0.5, 1.0, 5.0, 10.0]},
-    {"key": ["neural", "window_size_s"], "vals": [4.0, 5.0]},
+    {"key": ["mlp", "model_noise"], "vals": [0.0]} #, 0.2, 0.5, 1.0]},
+    # {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0]},
+    # {"key": ["neural", "beta"], "vals": [0.5, 1.0, 5.0, 10.0]},
+    # {"key": ["neural", "window_size_s"], "vals": [4.0, 5.0]},
 ]
 
 # testing: single condition, binary granularity, no ablation sweeps
 NEURAL_CONDITIONS = [
-    "Baseline",
+    # "Baseline",
     "Prioritization",
-    "Q-Augmentation",
-    "Reward Augmentation",
-    "Epsilon Modulation",
+    # "Q-Augmentation",
+    # "Reward Augmentation",
+    # "Epsilon Modulation",
 ]
 
 GRANULARITIES = ["binary", "ternary", "continuous"]
-SEEDS = [42, 43, 44, 45, 46, 47, 48, 49, 50, 51] 
+GRANULARITIES = ["binary"]
+
+SEEDS = [42, 43] #, 44, 45, 46, 47, 48, 49, 50, 51] 
 
 DOMAINS_TASKS = {
-    "Lunar": ["Passive", "Active", "Pooled"],
-    # "Flappy": ["Passive", "Active", "Pooled"],
+    # "Lunar": ["Passive", "Active", "Pooled"],
+    "Flappy": ["Passive"]#, "Active", "Pooled"],
     # "Robot": ["Passive", "Active", "Pooled"],
 }
 
@@ -136,5 +138,5 @@ for ablation, (domain, tasks), condition, granularity, seed in itertools.product
                 continue
             set_nested(cfg, ablation["key"], val)
             print(cfg)
-            input("Press Enter to continue... \n")
+            # input("Press Enter to continue... \n")
             run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH, RESULTS_PATH=RESULTS_PATH, verbose = cfg["experiment"]["verbose"])

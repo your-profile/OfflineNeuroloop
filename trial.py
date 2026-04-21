@@ -58,6 +58,7 @@ def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
     )
 
     shifted_df = processor.shift_labels_for_delay(aligned_df, delay_s = cfg["neural"]["temporal_shift"], verbose = verbose)
+    # likelihood_of_events = processor.compute_poisson_likelihood(cfg["experiment"]["model_granularity"])
 
     X, y = processor.build_balanced_dataset(
         shifted_df,

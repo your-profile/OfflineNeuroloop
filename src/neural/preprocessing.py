@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from typing import Tuple, List
 import statistics
+import scipy.stats
 
 class DatasetProcessor:
     def __init__(self, verbose = False):
@@ -131,6 +132,22 @@ class DatasetProcessor:
         aligned.index.name = 'time'
 
         return aligned, fnirs_channels
+
+    def compute_poisson_likelihood(self, granularity: str) -> pd.DataFrame:
+        df = self.fnirs_df.copy()
+        time_interval_s = (df.index[16] - df.index[0]).total_seconds()
+        mu = 1.0 / time_interval_s
+        events = df["binary_label_shifted"].values
+        events = events[events != 0]
+        likelihood_of_events = scipy.stats.poisson.pmf(events, mu)
+
+        print("Likelihood of events: ", likelihood_of_events)
+        print("Number of probabilities: ", len(likelihood_of_events))
+        print("Time interval: ", time_interval_s)
+        print("Number of original events: ", len(events))
+
+        return likelihood_of_events
+
 
     def build_balanced_dataset(self, 
                             aligned_df: pd.DataFrame,
