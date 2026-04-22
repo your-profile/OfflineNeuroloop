@@ -26,22 +26,22 @@ ABLATIONS = [
 
 # testing: single condition, binary granularity, no ablation sweeps
 NEURAL_CONDITIONS = [
-    "Baseline",
-    "Prioritization",
+    # "Baseline",
+    # "Prioritization",
     "Q-Augmentation",
-    "Reward Augmentation",
-    "All",
+    # "Reward Augmentation",
+    # "All",
 ]
 
 GRANULARITIES = ["ternary", "binary", "continuous"]
 GRANULARITIES = ["binary"]
 
-SEEDS = [100] #, 44, 45, 46, 47, 48, 49, 50, 51] 
+SEEDS = [42] #, 44, 45, 46, 47, 48, 49, 50, 51] 
 
 DOMAINS_TASKS = {
     # "Lunar": ["Passive", "Active", "Pooled"],
-    "Flappy": ["Passive"]#, "Active", "Pooled"],
-    # "Robot": ["Passive", "Active", "Pooled"],
+    # "Flappy": ["Passive"]#, "Active", "Pooled"],
+    "Robot": ["Passive"]#, "Active", "Pooled"],
 }
 
 DATA_PATH = '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/' 

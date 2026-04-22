@@ -464,7 +464,7 @@ def train_robot(env: gymnasium.Env,
                 if verbose: 
                     print(f"Reward Augmentation — ep {episode} participant {participant}")
                     print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal, "| Adjusted Reward: ", reward + adjusted_neural_signal)
-                reward = reward + adjusted_neural_signal
+                reward = float(reward + adjusted_neural_signal)
 
             # Priorirization experiment
             if 2 in flags:
@@ -472,7 +472,7 @@ def train_robot(env: gymnasium.Env,
                     print(f"Prioritization — ep {episode} participant {participant}")
                     print("Original Priority: ", abs(priority), "| Neural Signal: ", new_neural_signal, "| Adjusted Priority: ", abs(priority) + adjusted_neural_signal)
                 priority = abs(priority)
-                priority = priority + adjusted_neural_signal
+                priority = float(priority + adjusted_neural_signal)
             else:
                 priority = None
 
@@ -491,7 +491,7 @@ def train_robot(env: gymnasium.Env,
                     print("Neural Signal: ", new_neural_signal, "| Q-Value: ", reward + adjusted_neural_signal)
                 q_aug = float(adjusted_neural_signal)
             else:
-                q_aug = None
+                q_aug = 0.0
 
             # Learning Rate Adjustment
             if 5 in flags:
@@ -509,7 +509,7 @@ def train_robot(env: gymnasium.Env,
             episode_dict["next_achieved_goal"].append(next_achieved_goal.astype(np.float32))
             episode_dict["desired_goal"].append(desired_goal.astype(np.float32))
             episode_dict["done"].append(float(done))
-            episode_dict["q_augmentation"].append(q_aug)
+            episode_dict["q_augmentation"].append(float(q_aug))
 
             if transition_priority is not None:
                 transition_priority.append(priority)
@@ -580,8 +580,6 @@ def train_robot(env: gymnasium.Env,
                 td_error = 0.0
                 if buffer_type == "PER":
                     td_error = ddpg_priority(reward, action, desired_goal, next_achieved_goal)
-                    print(td_error)
-     
 
                 online_ep["state"].append(state)
                 online_ep["action"].append(action.astype(np.float32))
@@ -591,7 +589,7 @@ def train_robot(env: gymnasium.Env,
                 online_ep["next_achieved_goal"].append(next_achieved_goal)
                 online_ep["desired_goal"].append(desired_goal)
                 online_ep["done"].append(done)
-                online_ep["q_augmentation"].append(0.0)
+                online_ep["q_augmentation"].append(float(0.0 + 1e-4))
 
                 if prios is not None:
                     prios.append(td_error)

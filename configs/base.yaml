@@ -26,7 +26,7 @@ mlp:
 rl:
   n_episodes: 100
   algorithm: "DQN"
-  buffer_type: "ER"
+  buffer_type: "PER"
   learning_rate_init: 0.001
   observation_space: 11
   action_space: 4
