@@ -4,7 +4,7 @@ experiment:
 
 mlp:
   binary_hidden_layer_sizes: [75, 50, 5]
-  ternary_hidden_layer_sizes: [75, 50, 5]
+  ternary_hidden_layer_sizes: [80, 50, 5]
   regressor_hidden_layer_sizes: [100, 40, 2]
   binary_activation: "relu"
   ternary_activation: "relu"
@@ -15,7 +15,7 @@ mlp:
   early_stopping: True
   
 rl:
-  n_episodes: 4000
+  n_episodes: 5000
   algorithm: "DQN"
   steps: 600
   action_space: 4

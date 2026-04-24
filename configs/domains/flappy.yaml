@@ -1,10 +1,10 @@
 experiment:
   domain: "Flappy Bird"    
-  pretrained_success_rate: 2.0
+  pretrained_success_rate: 0.0
 
 mlp:
   binary_hidden_layer_sizes: [75, 50, 5]
-  ternary_hidden_layer_sizes: [75, 50, 5]
+  ternary_hidden_layer_sizes: [80, 50, 5]
   regressor_hidden_layer_sizes: [100, 40, 2]
   binary_activation: "relu"
   ternary_activation: "relu"
@@ -15,8 +15,8 @@ mlp:
   early_stopping: True
   
 rl:
-  n_episodes: 1000
+  n_episodes: 3000
   algorithm: "DQN"
-  steps: 800
+  steps: 1000
   action_space: 2
   observation_space: 12

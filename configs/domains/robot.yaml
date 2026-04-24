@@ -1,10 +1,10 @@
 experiment:
   domain: "Robot"  
-  pretrained_success_rate: 50.0
+  pretrained_success_rate: 40.0
 
 mlp:
   binary_hidden_layer_sizes: [75, 50, 5]
-  ternary_hidden_layer_sizes: [75, 50, 5]
+  ternary_hidden_layer_sizes: [80, 50, 5]
   regressor_hidden_layer_sizes: [150, 75, 5]
   binary_activation: "relu"
   ternary_activation: "relu"
@@ -15,7 +15,7 @@ mlp:
   early_stopping: True
 
 rl:
-  n_episodes: 10000
+  n_episodes: 20000
   algorithm: "DDPG"
   steps: 50
   action_space: None

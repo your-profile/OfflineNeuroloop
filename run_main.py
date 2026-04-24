@@ -20,7 +20,7 @@ NEURAL_CONDITION_MAP = {
 ABLATIONS = [
     {"key": ["mlp", "model_noise"], "vals": [0.0]} #, 0.2, 0.5, 1.0]},
     # {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0]},
-    # {"key": ["neural", "beta"], "vals": [0.5, 1.0, 5.0, 10.0]},
+    {"key": ["neural", "beta"], "vals": [0.5, 1.0, 5.0, 10.0]},
     # {"key": ["neural", "window_size_s"], "vals": [4.0, 5.0]},
 ]
 
@@ -36,22 +36,22 @@ NEURAL_CONDITIONS = [
 GRANULARITIES = ["ternary", "binary", "continuous"]
 GRANULARITIES = ["binary"]
 
-SEEDS = [42] #, 44, 45, 46, 47, 48, 49, 50, 51] 
+SEEDS = [42, 44, 45, 46, 47, 48, 49, 50, 51] 
 
 DOMAINS_TASKS = {
     # "Lunar": ["Passive", "Active", "Pooled"],
-    # "Flappy": ["Passive"]#, "Active", "Pooled"],
-    "Robot": ["Passive"]#, "Active", "Pooled"],
+    "Flappy": ["Passive"]#, "Active", "Pooled"],
+    #"Robot": ["Passive"]#, "Active", "Pooled"],
 }
 
-DATA_PATH = '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/' 
-RESULTS_PATH = '/Users/juliasantaniello/Desktop/OfflineNeuroloop/' 
-RESULTS_FILE_NAME = 'trial_results.csv'
+# DATA_PATH = '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/' 
+# RESULTS_PATH = '/Users/juliasantaniello/Desktop/OfflineNeuroloop/' 
+RESULTS_FILE_NAME = 'trial_results_baseline_runs.csv'
 # DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/' 
 # RESULTS_PATH = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/' 
 
-#DATA_PATH = '/cluster/home/mbrowe02/fNIRS2RL/Experiment/ParticipantData/'
-#RESULTS_PATH = '/cluster/home/mbrowe02/LunarOfflineNeuroloop/OfflineNeuroloop'
+DATA_PATH = '/cluster/home/mbrowe02/fNIRS2RL/Experiment/ParticipantData/'
+RESULTS_PATH = '/cluster/home/mbrowe02/OfflineNeuroloop/'
 
 def set_nested(cfg, keys, val):
     cfg[keys[0]][keys[1]] = val
