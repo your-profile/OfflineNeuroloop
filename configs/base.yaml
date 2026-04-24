@@ -14,7 +14,7 @@ neural:
   temporal_shift: 0.0
   window_size_s: 4.0
   fnirs_rate_hz: 5.2
-  beta: 1.0
+  beta: 50.0
 
 mlp:
   model_noise: 0.0
