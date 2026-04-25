@@ -26,15 +26,15 @@ ABLATIONS = [
 
 # testing: single condition, binary granularity, no ablation sweeps
 NEURAL_CONDITIONS = [
-    # "Baseline",
-    # "Prioritization",
+    "Baseline",
+    "Prioritization",
+    "Reward Augmentation",
     "Q-Augmentation",
-    # "Reward Augmentation",
-    # "All",
+    "All",
 ]
 
 GRANULARITIES = ["ternary", "binary", "continuous"]
-GRANULARITIES = ["binary"]
+GRANULARITIES = ["continuous"]
 
 SEEDS = [42, 44, 45, 46, 47, 48, 49, 50, 51] 
 
@@ -83,11 +83,11 @@ def print_cfg(cfg):
 for ablation, (domain, tasks), condition, granularity, seed in itertools.product(
     ABLATIONS, DOMAINS_TASKS.items(), NEURAL_CONDITIONS, GRANULARITIES, SEEDS
 ):
-    if condition == "Baseline-PER" and granularity != "binary":
-        continue
+    # if condition == "Baseline-PER" and granularity != "binary":
+    #     continue
 
-    if condition == "Baseline" and granularity != "binary":
-        continue
+    # if condition == "Baseline" and granularity != "binary":
+    #     continue
 
     with open(f"configs/domains/{domain}.yaml") as f:
         domain_base = yaml.safe_load(f)

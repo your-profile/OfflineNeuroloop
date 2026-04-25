@@ -5,11 +5,13 @@ from src.rl_loop.utils_rl import torch_load_checkpoint
 import torch.optim as optim
 import numpy as np
 import random
+from tqdm import trange
 from collections import namedtuple, deque
+import heapq
 from src.networks import utils_networks as utils
 
 
-device =  torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 #Q NETWORK ARCHITECTURE
 class DeepQNetwork(nn.Module):
@@ -29,7 +31,7 @@ class DeepQNetwork(nn.Module):
 
 #DQN ALGORITHM
 class DQN():
-    def __init__(self, n_observations, n_actions, batch_size=64, lr=1e-4, gamma=0.99, mem_size=int(1e5), learn_step=5, tau=1e-3, hidden_layer_size=128, buffer_type = "ER", verbose = False):
+    def __init__(self, n_observations, n_actions, batch_size=64, lr=1e-4, gamma=0.99, mem_size=int(1e5), learn_step=5, tau=1e-3, hidden_layer_size=128, buffer_type = "ER", verbose=False):
         self.n_observations = n_observations
         self.n_actions = n_actions
         self.batch_size = batch_size
@@ -39,10 +41,9 @@ class DQN():
         self.lr = lr
         self.hidden_layer_size = hidden_layer_size
         self.buffer_type = buffer_type
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-        self.policy_net = DeepQNetwork(n_observations, n_actions, hidden_layer_size).to(self.device)
-        self.target_net = DeepQNetwork(n_observations, n_actions, hidden_layer_size).to(self.device)
+        self.policy_net = DeepQNetwork(n_observations, n_actions, hidden_layer_size).to(device)
+        self.target_net = DeepQNetwork(n_observations, n_actions, hidden_layer_size).to(device)
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=lr)
         self.criterion = nn.MSELoss()
 
@@ -52,24 +53,12 @@ class DQN():
             self.memory = ReplayBuffer(n_actions, mem_size, batch_size)
 
         self.algorithm = "DQN"
-        self.verbose = verbose
-
-        if self.verbose:
-            print(f"Initialized DQN Agent with buffer type: {buffer_type}")
-            print(f"Initialized DQN Agent with hidden layer size: {hidden_layer_size}")
-            print(f"Initialized DQN Agent with batch size: {batch_size}")
-            print(f"Initialized DQN Agent with learning rate: {lr}")
-            print(f"Initialized DQN Agent with gamma: {gamma}")
-            print(f"Initialized DQN Agent with tau: {tau}")
-            print("\n\n")
-
-        print("GPU Available: ", torch.cuda.is_available())
-
+        
 
         self.counter = 0
 
     def chooseAction(self, state, epsilon):
-        state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
+        state = torch.from_numpy(state).float().unsqueeze(0).to(device)
 
         self.policy_net.eval()
         with torch.no_grad():
@@ -85,49 +74,29 @@ class DQN():
         return action, utils.Data.from_tensor(x=action_values)[action]
 
     def remember(self, state, action, reward, next_state, done, q_augmentation = 0.0, priority = None):
-        if priority is None:
-            #priority is td error
-            next_state_tensor = torch.from_numpy(next_state).float().unsqueeze(0).to(self.device)
-            state_tensor = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
-            next_q = self.target_net(next_state_tensor).squeeze()[action].detach().cpu().numpy()
-            current_q = self.policy_net(state_tensor).squeeze()[action].detach().cpu().numpy()
-            priority = reward + self.gamma * next_q - current_q
-       
-            
-            #if priority is nan, set to 0
-            if np.isnan(priority) or priority != priority:
-                priority = 0.0
-        
         action = int(action)
+        # if priority is None:
+        #     td_error = reward + self.gamma * self.target_net((torch.from_numpy(next_state).float().unsqueeze(0).to(device))).squeeze()[action]  - self.policy_net(torch.from_numpy(state).float().unsqueeze(0).to(device)).squeeze()[action] 
+        #     priority = td_error.item()
 
         self.counter += 1
         if self.counter % self.learn_step == 0:
             if len(self.memory) >= self.batch_size:
                 experiences = self.memory.sample()
-                self.learn(experiences)
+                self.learn(experiences, q_augmentation=q_augmentation)
 
         self.memory.add(state, action, reward, next_state, done, priority, q_augmentation)
 
-    def learn(self, experiences):
-        if self.buffer_type == "PER":
-            states, actions, rewards, next_states, dones, q_augmentation, indices, is_weights = experiences
-        else:
-            states, actions, rewards, next_states, dones, q_augmentation = experiences
-            indices, is_weights = None, None
+    def learn(self, experiences, q_augmentation: float = 0.0):
+        states, actions, rewards, next_states, dones = experiences
 
         q_target = self.target_net(next_states).detach().max(axis=1)[0].unsqueeze(1)
         y_j = rewards + self.gamma * q_target * (1 - dones)  
         y_j += q_augmentation
         q_eval = self.policy_net(states).gather(1, actions)
 
-        # backpropagation
-        if is_weights is not None:
-            td_error = y_j - q_eval
-            per_sample_loss = td_error.pow(2)
-            loss = (is_weights * per_sample_loss).mean()
-            self.memory.update_priorities(indices, td_error.detach().squeeze(1).cpu().numpy())
-        else:
-            loss = self.criterion(q_eval, y_j)
+        #backpropogation
+        loss = self.criterion(q_eval, y_j)
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -138,6 +107,8 @@ class DQN():
     def set_lr(self, new_lr):
         for param_group in self.optimizer.param_groups:
             param_group['lr'] = new_lr
+
+
 
     def softUpdate(self):
         for eval_param, target_param in zip(self.policy_net.parameters(), self.target_net.parameters()):
@@ -155,7 +126,7 @@ class DQN():
         return self
 
 
-_Experience = namedtuple("Experience", field_names=["state", "action", "reward", "next_state", "done", "q_augmentation"])
+_Experience = namedtuple("Experience", field_names=["state", "action", "reward", "next_state", "done"])
 
 
 class ReplayBuffer:
@@ -166,53 +137,60 @@ class ReplayBuffer:
         self.batch_size = batch_size
         self.capacity = int(memory_size)
         self.memory = deque(maxlen=self.capacity)
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-        print("Initialized Replay Buffer")
 
     def __len__(self):
         return len(self.memory)
 
-    def add(self, state, action, reward, next_state, done, priority=None, q_augmentation=0.0):
-        self.memory.append(_Experience(state, action, reward, next_state, done, q_augmentation))
+    def add(self, state, action, reward, next_state, done, priority=None, q_augmentation = None):
+        self.memory.append(_Experience(state, action, reward, next_state, done))
 
     def sample(self):
         current_size = len(self.memory)
         k = min(self.batch_size, current_size)
         experiences = random.sample(self.memory, k=k)
 
-        states = torch.from_numpy(np.vstack([e.state for e in experiences])).float().to(self.device)
-        actions = torch.from_numpy(np.vstack([e.action for e in experiences])).long().to(self.device)
-        rewards = torch.from_numpy(np.vstack([e.reward for e in experiences])).float().to(self.device)
-        next_states = torch.from_numpy(np.vstack([e.next_state for e in experiences])).float().to(self.device)
-        dones = torch.from_numpy(np.vstack([e.done for e in experiences]).astype(np.uint8)).float().to(self.device)
-        q_augmentation = torch.from_numpy(np.vstack([e.q_augmentation for e in experiences])).float().to(self.device)
-        return (states, actions, rewards, next_states, dones, q_augmentation)
+        states = torch.from_numpy(np.vstack([e.state for e in experiences])).float().to(device)
+        actions = torch.from_numpy(np.vstack([e.action for e in experiences])).long().to(device)
+        rewards = torch.from_numpy(np.vstack([e.reward for e in experiences])).float().to(device)
+        next_states = torch.from_numpy(np.vstack([e.next_state for e in experiences])).float().to(device)
+        dones = torch.from_numpy(np.vstack([e.done for e in experiences]).astype(np.uint8)).float().to(device)
+
+        return (states, actions, rewards, next_states, dones)
 
 
 class PrioritizedReplayBuffer():
-    def __init__(self, n_actions, memory_size, batch_size, alpha=0.6, beta=0.4, beta_increment=1e-4, eps=1e-6):
+    def __init__(self, n_actions, memory_size, batch_size, alpha=0.6, eps=1e-6):
         self.n_actions = n_actions
         self.batch_size = batch_size
         self.capacity = memory_size
         self.alpha = alpha
-        self.beta = beta
-        self.beta_increment = beta_increment
         self.eps = eps  
 
         self.memory = []
         self.priorities = np.zeros((memory_size,), dtype=np.float32)
         self.pos = 0
         self.experience = _Experience
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-        print("Initialized Prioritized Replay Buffer")
 
     def __len__(self):
         return len(self.memory)
 
-    def add(self, state, action, reward, next_state, done, priority=None, q_augmentation=0.0):
-        e = self.experience(state, action, reward, next_state, done, q_augmentation)
+    def add(self, state, action, reward, next_state, done, priority=None, q_augmentation = None):
+        # if priority is None:
+        # #priority is td error
+        #     next_state_tensor = torch.from_numpy(next_state).float().unsqueeze(0).to(self.device)
+        #     state_tensor = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
+        #     next_q = self.target_net(next_state_tensor).squeeze()[action].detach().cpu().numpy()
+        #     current_q = self.policy_net(state_tensor).squeeze()[action].detach().cpu().numpy()
+        #     priority = reward + self.gamma * next_q - current_q
+       
+            
+        #     #if priority is nan, set to 0
+        #     if np.isnan(priority) or priority != priority:
+        #         priority = 0.0
+
+        # if priority is None:
+        #     priority = 
+        e = self.experience(state, action, reward, next_state, done)
 
         if len(self.memory) < self.capacity:
             self.memory.append(e)
@@ -228,18 +206,13 @@ class PrioritizedReplayBuffer():
         k = min(self.batch_size, current_size)
         priorities = self.priorities[:current_size]
 
-        # if any nan in priorities, swap those specific nans to 0
-        priorities = np.where(np.isnan(priorities), 0.0, priorities)
-
         scaled = np.maximum(priorities, self.eps) ** self.alpha
         total = float(scaled.sum())
 
         if total <= 0 or current_size == 0:
             indices = np.random.choice(current_size, k, replace=False)
-            sampled_probs = np.full(k, 1.0 / max(current_size, 1), dtype=np.float32)
         elif np.allclose(scaled, scaled[0]):
             indices = np.random.choice(current_size, k, replace=False)
-            sampled_probs = np.full(k, 1.0 / max(current_size, 1), dtype=np.float32)
         else:
             probs = scaled / total
             nonzero = int(np.count_nonzero(probs))
@@ -248,25 +221,13 @@ class PrioritizedReplayBuffer():
                 indices = np.random.choice(current_size, k, replace=True, p=probs)
             else:
                 indices = np.random.choice(current_size, k, replace=False, p=probs)
-            sampled_probs = probs[indices]
 
         experiences = [self.memory[i] for i in indices]
 
-        states = torch.from_numpy(np.vstack([e.state for e in experiences])).float().to(self.device)
-        actions = torch.from_numpy(np.vstack([e.action for e in experiences])).long().to(self.device)
-        rewards = torch.from_numpy(np.vstack([e.reward for e in experiences])).float().to(self.device)
-        next_states = torch.from_numpy(np.vstack([e.next_state for e in experiences])).float().to(self.device)
-        dones = torch.from_numpy(np.vstack([e.done for e in experiences]).astype(np.uint8)).float().to(self.device)
-        q_augmentation = torch.from_numpy(np.vstack([e.q_augmentation for e in experiences])).float().to(self.device)
-        sampled_probs = np.maximum(sampled_probs, self.eps)
-        is_weights = (current_size * sampled_probs) ** (-self.beta)
-        is_weights = is_weights / np.max(is_weights)
-        is_weights = torch.from_numpy(is_weights.astype(np.float32)).unsqueeze(1).to(self.device)
-        self.beta = min(1.0, self.beta + self.beta_increment)
+        states = torch.from_numpy(np.vstack([e.state for e in experiences])).float().to(device)
+        actions = torch.from_numpy(np.vstack([e.action for e in experiences])).long().to(device)
+        rewards = torch.from_numpy(np.vstack([e.reward for e in experiences])).float().to(device)
+        next_states = torch.from_numpy(np.vstack([e.next_state for e in experiences])).float().to(device)
+        dones = torch.from_numpy(np.vstack([e.done for e in experiences]).astype(np.uint8)).float().to(device)
 
-        return (states, actions, rewards, next_states, dones, q_augmentation, indices, is_weights)
-
-    def update_priorities(self, indices, td_errors):
-        td_errors = np.abs(td_errors).reshape(-1)
-        for idx, td in zip(indices, td_errors):
-            self.priorities[idx] = max(float(td), self.eps)
+        return (states, actions, rewards, next_states, dones)

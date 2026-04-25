@@ -161,7 +161,7 @@ def train(env:gymnasium.Env,
                 priority = abs(priority)
                 priority += adjusted_neural_signal
             else:
-                priority = None
+                priority = 0.0
        
             # Epsilon/Exploration Adjustment
             if 3 in flags:
@@ -188,10 +188,7 @@ def train(env:gymnasium.Env,
                 agent.set_lr(learning_rate)
 
             # remember transition
-            if buffer_type == "ER":
-                agent.remember(state, action, reward, next_state, done, q_augmentation = q_augmentation)
-            if buffer_type == "PER":
-                agent.remember(state, action, reward, next_state, done, priority = priority, q_augmentation = q_augmentation)
+            agent.remember(state, action, reward, next_state, done, priority = priority, q_augmentation = q_augmentation)
 
             # update last state action value
             last_state_action_value = state_action_value
@@ -232,7 +229,8 @@ def train(env:gymnasium.Env,
                     next_state, reward, done, _ = env.step(action) #lunar lander
                 
                 # save trajectory in buffer
-                agent.remember(state, action, reward, next_state, done, q_augmentation = 0.0)
+                
+                agent.remember(state, action, reward, next_state, done, priority = 0.0, q_augmentation = 0.0)
                 
                 state = next_state
                 last_state_action_value = state_action_value
