@@ -45,7 +45,7 @@ def load_domain(env: str, steps: int = None):
 
     return env
 
-def load_pretrained_agent(agent: DQN | DDPG | DDPG_HER, pretrained_success_rate: float, algorithm: str, space=(11, 4), filename: str = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/src/policies/", verbose: bool = False):
+def load_pretrained_agent(agent: DQN | DDPG | DDPG_HER, pretrained_success_rate: float, algorithm: str, space=(11, 4), filename: str = "/cluster/home/mbrowe02/OfflineNeuroloop/src/policies/", verbose: bool = False):
     
     if algorithm == "DQN":
         if space[0] == 11:
