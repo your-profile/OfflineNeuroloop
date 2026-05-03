@@ -11,7 +11,7 @@ experiment:
 
 neural:
   smoothing_window_size: 1
-  temporal_shift: 0.0
+  temporal_shift: 2.0
   window_size_s: 4.0
   fnirs_rate_hz: 5.2
   beta: 50.0
@@ -24,7 +24,7 @@ mlp:
   clf_activation: "relu"
   reg_activation: "tanh"
 rl:
-  n_episodes: 100
+  n_episodes: 1
   algorithm: "DQN"
   buffer_type: "ER"
   learning_rate_init: 0.001

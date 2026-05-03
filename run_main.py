@@ -5,14 +5,13 @@ with open("configs/base.yaml") as f:
     base = yaml.safe_load(f)
 
 NEURAL_CONDITION_MAP = {
-    "Baseline": [0],
+    "Baseline-ER": [0],
     "Baseline-PER": [0],
     "Reward Augmentation": [1],
     "Prioritization": [2],
-    "Epsilon Modulation": [3],
-    "Q-Augmentation": [4],
-    "All": [0, 1, 4],
-    "All-PER": [0, 1, 2, 4],
+    "Q-Augmentation": [3],
+    "All-ER": [0, 1, 3],
+    "All-PER": [0, 1, 2, 3],
 
 }
 # Ablation Studies
@@ -26,15 +25,15 @@ ABLATIONS = [
 
 # testing: single condition, binary granularity, no ablation sweeps
 NEURAL_CONDITIONS = [
-    "Baseline",
+    "Baseline-ER",
     #"Prioritization",
     #"Q-Augmentation",
     #"Reward Augmentation",
-    "All",
+    # "All",
 ]
 
-GRANULARITIES = ["ternary", "binary", "continuous"]
-GRANULARITIES = ["continuous"]
+GRANULARITIES = ["binary", "ternary", "continuous"]
+GRANULARITIES = ["binary"]
 
 SEEDS = [42, 43, 44, 45, 46, 47, 48, 49, 50, 51] 
 
@@ -67,8 +66,6 @@ def make_run_name(cfg):
         f"__{e['pretrained_success_rate']}"
         f"__noise{m['model_noise']}__{n['smoothing_window_size']}"
         f"__{n['temporal_shift']}"
-        f"__{n['temporal_shift']}"
-        f"__{n['smoothing_window_size']}"
     )
 
 def print_cfg(cfg):

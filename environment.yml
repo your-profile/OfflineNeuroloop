@@ -1,4 +1,4 @@
-name: offline_neuro_loop
+name: offline-neuroloop
 
 channels:
   - conda-forge

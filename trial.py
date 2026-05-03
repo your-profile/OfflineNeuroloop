@@ -79,7 +79,7 @@ def run_lunar(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_
             processor = processor,
             task_df = task_df, 
             agent = agent, 
-            experiment_list = cfg["experiment"]["experiment_list"], 
+            flags = cfg["experiment"]["experiment_list"], 
             granularity = cfg["experiment"]["model_granularity"],
             episodes_num = cfg["rl"]["n_episodes"],
             clf = classifier, 

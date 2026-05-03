@@ -22,7 +22,7 @@ def train(env:gymnasium.Env,
           clf, 
           processor: DatasetProcessor,
           ml: ModelTrainer,
-          experiment_list: list, 
+          flags: list, 
           fnirs_channel_names: List[str], 
           episodes_num: int, 
           steps: int, 
@@ -36,19 +36,14 @@ def train(env:gymnasium.Env,
           buffer_type: str = 'ER', 
           seed: int = 42,
           beta: float = 1.0,
-          experiment_conditions: List[str] = [], 
           save_results: bool = False, 
           save_to_csv: bool = False,
           verbose: bool = False
     ):
+
     start_time = time.time()
-    # trial.py passes experiment_list; legacy kw is experiment_conditions
-    flags = experiment_conditions if experiment_conditions else experiment_list
-    print("Flags: ", flags, "Experiment List: ", experiment_list, "Experiment Conditions: ", experiment_conditions)
-    
     epsilon = 0.1
-    decay = 1.0 #(0.01 / 1.0) ** (1 / episodes_num)
-    learning_rate = agent.lr
+    # temporal_shift = 0.0
 
     # calculate window size + initialize buffer
     sample_period_s = 1.0 / fnirs_rate_hz
@@ -57,7 +52,7 @@ def train(env:gymnasium.Env,
     
     # Calculate total number of participant episodes
     total_participant_episodes = task_df.drop_duplicates(subset=["participantKey", "episode"]).shape[0]
-    print("Total Participant Episodes: ", total_participant_episodes)
+    print("Total Participant Episodes: ", total_participant_episodes, "Flags: ", flags)
 
     # granularity index
     if granularity[0] == "b": gr = 0
@@ -75,13 +70,13 @@ def train(env:gymnasium.Env,
     bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} < {remaining}, {rate_fmt} | {postfix}]'
     pbar = trange(episodes_num, unit="ep", bar_format=bar_format, ascii=True)
 
-    # for loop for participant task data
+    # OFFLINE DATASET TRAINING LOOP
     for (participant, episode), episode_df in grouped:  
         total_reward, last_state_action_value, state_action_value = 0, 0, 0
-        done = False
-
         rows = episode_df.reset_index(drop=True)
         n = len(rows)
+        done = False
+
         for t in range(n):
             action = rows["actions"].iloc[t]
             action_dist = rows["optimal_actions"].iloc[t]
@@ -94,6 +89,7 @@ def train(env:gymnasium.Env,
                 if action != action:
                     continue
                 action = int(action)
+
             if isinstance(action, (list)):
                 print(action)
 
@@ -123,7 +119,7 @@ def train(env:gymnasium.Env,
             if noise > 0.0:
                 new_neural_signal = ml.noisy_output(clf,  new_neural_signal, granularity, flip_rate = noise)
 
-            # adjust neural classification
+            # adjust neural classification - scales with beta and makes 0 class and 1 class negative
             adjusted_neural_signal = utils_rl.adjust_neural_classification(new_neural_signal, beta=beta)
 
             # get true sample label
@@ -136,22 +132,14 @@ def train(env:gymnasium.Env,
             else:
                 next_action_dist = action_dist
 
-            # get priority for PER buffer
-            if "desired_goal" in episode_df.columns:
-                priority = ddpg_priority(reward, action, action_dist, next_action_dist)
-            else:
-                priority = dqn_priority(reward, action, action_dist, next_action_dist)
-
-            # set priority to 0 for ER buffer functionality
-            if buffer_type == "ER":
-                priority = 0.0
+            priority = dqn_priority(reward, action, action_dist, next_action_dist)
 
             # Reward Augmentation Experiment
             if 1 in flags:
                 if verbose:
                     print(f"Experiment Condition 1: Reward Augmentation -- Episode {episode} -- Participant: {participant}")
                     print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal, "| Adjusted Reward: ", reward + adjusted_neural_signal)
-                reward = reward + adjusted_neural_signal
+                reward = utils_rl.adjust_reward(reward, adjusted_neural_signal)
             
             # Priorirization experiment
             if 2 in flags:
@@ -160,32 +148,18 @@ def train(env:gymnasium.Env,
                     print("Original Priority: ", abs(priority), "| Neural Signal: ", new_neural_signal, "| Adjusted Priority: ", abs(priority) + adjusted_neural_signal)
                 priority = abs(priority)
                 priority += adjusted_neural_signal
-            else:
-                priority = 0.0
-       
-            # Epsilon/Exploration Adjustment
-            if 3 in flags:
-                if verbose:
-                    print(f"Experiment Condition 3: Exploration Modulation -- Epsilon {epsilon}")
-                    print("Original Epsilon: ", epsilon, "| Neural Signal: ", new_neural_signal, "| Adjusted Epsilon: ", utils_rl.adjust_epsilon(epsilon, adjusted_neural_signal))
-                # print(epsilon, adjusted_neural_signal)
-                epsilon = utils_rl.adjust_epsilon(epsilon, adjusted_neural_signal)
-                # print(epsilon)
 
             # Q Augmentation Experiment
-            if 4 in flags:
+            if 3 in flags:
                 if verbose:
                     print(f"Experiment Condition 4: Q-Augmentation -- Episode {episode} -- Participant: {participant}")
                 q_augmentation = adjusted_neural_signal
             else:
                 q_augmentation = 0.0
-
-            # Learning Rate Adjustment
-            if 5 in flags:
-                if verbose:
-                    print(f"Experiment Condition 5: Learning Rate Modulation -- Learning Rate {learning_rate}")
-                learning_rate = utils_rl.adjust_epsilon(learning_rate, adjusted_neural_signal)
-                agent.set_lr(learning_rate)
+            
+            # set priority to 0 for ER buffer functionality
+            if buffer_type == "ER":
+                priority = 0.0
 
             # remember transition
             agent.remember(state, action, reward, next_state, done, priority = priority, q_augmentation = q_augmentation)
@@ -193,18 +167,18 @@ def train(env:gymnasium.Env,
             # update last state action value
             last_state_action_value = state_action_value
         
-        # store sample optimality prediction and truth
-        if smoothing_window_size > 1 or noise > 0.0:
-            classes_pred.append(new_neural_signal) #predictions that have been altered
-        else:
-            classes_pred.append(neural_signal) #raw predictions
-        
-        classes_truth.append(class_truth.to_list()[gr]) #truth
+            # store sample optimality prediction and truth
+            if smoothing_window_size > 1 or noise > 0.0:
+                classes_pred.append(new_neural_signal) #predictions that have been altered
+            else:
+                classes_pred.append(neural_signal) #raw predictions
+            
+            classes_truth.append(class_truth.to_list()[gr]) #truth
 
         # episode intervals for online training
         new_episode_num = max(0, episodes_num // max(total_participant_episodes, 1))
 
-        # observe new states outside of data
+        # ONLINE TRAINING LOOP
         for _ in range(0, new_episode_num):
             # set seed
             if domain_key == "F":
@@ -243,9 +217,6 @@ def train(env:gymnasium.Env,
             all_total_rewards.append(round(total_reward, 2))
             all_episode_steps.append(step)
             score_avg = np.mean(all_total_rewards[-50:])
-
-            # decay epsilon
-            epsilon = max(0.01, epsilon*decay)
 
             # evaluate agent
             if combined_episodes % target_update == 0:
@@ -291,7 +262,7 @@ def train(env:gymnasium.Env,
     print(offline_model_report)
 
     if save_results:
-        results = utils_rl.Results.save_results(experiment_list = experiment_list, 
+        results = utils_rl.Results.save_results(experiment_list = flags, 
                                    episodes = episodes_num, 
                                    avg_rewards = all_average_rewards, 
                                    total_rewards = all_total_rewards, 
@@ -474,30 +445,14 @@ def train_robot(env: gymnasium.Env,
             else:
                 priority = None
 
-            # Epsilon/Exploration Adjustment
-            if 3 in flags:
-                if verbose:
-                    print(f"Exploration modulation — randomprob {agent.randomprob:.3f}")
-                    print("Original Random Prob: ", agent.randomprob, "| Neural Signal: ", new_neural_signal, "| Adjusted Random Prob: ", agent.randomprob - 0.02 * float(adjusted_neural_signal))
-
-                agent.randomprob = float(np.clip(agent.randomprob - 0.02 * float(adjusted_neural_signal), 0.05, 0.5))
-
             # Q Augmentation Experiment
-            if 4 in flags:
+            if 3 in flags:
                 if verbose:
                     print(f"Q-aug analogue — ep {episode} participant {participant}")
                     print("Neural Signal: ", new_neural_signal, "| Q-Value: ", reward + adjusted_neural_signal)
                 q_aug = float(adjusted_neural_signal)
             else:
                 q_aug = 0.0
-
-            # Learning Rate Adjustment
-            if 5 in flags:
-                if verbose:
-                    print(f"LR modulation — lr {learning_rate:.6f}")
-                    print("Original Learning Rate: ", learning_rate, "| Neural Signal: ", new_neural_signal, "| Adjusted Learning Rate: ", learning_rate - 1e-4 * float(adjusted_neural_signal))
-                learning_rate = float(np.clip(learning_rate - 1e-4 * float(adjusted_neural_signal), 1e-5, 1e-2))
-                agent.set_lr(learning_rate)
 
             episode_dict["state"].append(state)
             episode_dict["action"].append(action.astype(np.float32))

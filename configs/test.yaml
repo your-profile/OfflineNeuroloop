@@ -1,5 +1,5 @@
 experiment: 
-  domain: "Lunar"                         # robot | lunar | flappy 
+  domain: "Robot"                         # robot | lunar | flappy 
   task: "Passive"                         # Passive | Active | Pooled    
   condition: "Baseline"                   # Baseline (0) | Reward Augmentation (1) | Prioritization (2) | Epsilon Modulation (3) | LR Modulation (4) | Q-Augmentation (5)      
   experiment_list: [0]                    # Baseline (0) | Reward Augmentation (1) | Prioritization (2) | Epsilon Modulation (3) | LR Modulation (4) | Q-Augmentation (5)       
@@ -12,8 +12,8 @@ experiment:
 
 neural:
   smoothing_window_size: 1
-  temporal_shift: 0.0
-  window_size_s: 4.0
+  temporal_shift: 4.0
+  window_size_s: 1.0
   # step_size_s: 0.5 
   fnirs_rate_hz: 5.2
   beta: 1.0

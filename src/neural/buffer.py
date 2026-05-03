@@ -30,7 +30,7 @@ class fNIRSBuffer:
             if self.curr_length < self.max_len -1 :
                 self.curr_length += 1   
 
-    def get_neural_credit(self, granularity, X: int = 5):
+    def get_neural_credit(self, granularity, X: int = 1):
         """
         Looks at the last X classifications and uses majority voting to determine the classification.
         Returns the majority class (float or int).
