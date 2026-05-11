@@ -303,7 +303,6 @@ class Memory:
 
     @staticmethod
     def _trajectory_priority(trajectory):
-        """Scalar weight for prioritized sampling. Taken from the episode dict passed to ``add``."""
         if trajectory is None:
             return 1.0
         if "trajectory_priority" in trajectory:

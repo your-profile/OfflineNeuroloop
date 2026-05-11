@@ -1,6 +1,6 @@
 experiment: 
   domain: "Lunar"                         # robot | lunar | flappy 
-  task: "Passive"                         # Passive | Active | Pooled    
+  task: "Pooled"                         # Passive | Active | Pooled    
   condition: "Baseline"                   # Baseline (0) | Reward Augmentation (1) | Prioritization (2) | Epsilon Modulation (3) | LR Modulation (4) | Q-Augmentation (5)      
   experiment_list: [0]                    # Baseline (0) | Reward Augmentation (1) | Prioritization (2) | Epsilon Modulation (3) | LR Modulation (4) | Q-Augmentation (5)       
   model_granularity: "binary"             # binary | ternary | continuous
@@ -8,13 +8,14 @@ experiment:
   random_state: 42
   pretrained_success_rate: 0.0
   verbose: False
+  integration_type: "finetune"              # early | interleaved | finetune
 
 neural:
   smoothing_window_size: 1
-  temporal_shift: 2.0
+  temporal_shift: 0.0
   window_size_s: 4.0
   fnirs_rate_hz: 5.2
-  beta: 50.0
+  beta: 1.0
 
 mlp:
   model_noise: 0.0
@@ -26,7 +27,7 @@ mlp:
 rl:
   n_episodes: 1
   algorithm: "DQN"
-  buffer_type: "ER"
+  buffer_type: "PER"
   learning_rate_init: 0.001
   observation_space: 11
   action_space: 4

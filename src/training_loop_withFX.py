@@ -57,29 +57,21 @@ def train(env:gymnasium.Env,
     total_participant_episodes = task_df.drop_duplicates(subset=["participantKey", "episode"]).shape[0]
     print("Total Participant Episodes: ", total_participant_episodes, "Flags: ", flags)
 
-    # domain key
-    domain_key = task_df["condition"].iloc[0][0]
-
     # granularity index
     if granularity[0] == "b": gr = 0
     if granularity[0] == "t": gr = 1
     if granularity[0] == "c": gr = 2
 
-    if domain_key.lower() == "l":
-        means = (1.4, -0.95, -2.6)
-    if domain_key.lower() == "f":
-        means = (0.75, -0.1, -0.75)
-
     # rewards, timesteps, success rate, optimality predictions
     all_average_rewards, all_total_rewards, all_episode_steps, all_episode_success, classes_truth, classes_pred = [],[],[],[],[],[]
     success, combined_episodes = (0.0, 0)
 
+    # domain key
+    domain_key = task_df["condition"].iloc[0][0]
+
     # training progress bar
     bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} < {remaining}, {rate_fmt} | {postfix}]'
     pbar = trange(episodes_num, unit="ep", bar_format=bar_format, ascii=True)
-
-    # episode intervals for online training
-    online_episode_num = max(0, episodes_num // max(total_participant_episodes, 1))
 
     # OFFLINE DATASET TRAINING LOOP
     for (participant, episode), episode_df in grouped:  
@@ -94,14 +86,15 @@ def train(env:gymnasium.Env,
             reward = rows["rewards"].iloc[t]
             state = rows["states"].iloc[t]
             final_step = rows["steps"].iloc[t]
-            priority = None
-            q_augmentation = 0.0
 
             # if action is Nan, skip
-            if action != action or action_dist is None:
-                continue
-            else:
+            if isinstance(action, (float, int)):
+                if action != action:
+                    continue
                 action = int(action)
+
+            if isinstance(action, (list)):
+                print(action)
 
             # get next state unless episode ends
             if t + 1 < n:
@@ -111,70 +104,62 @@ def train(env:gymnasium.Env,
                 done = True
                 next_state = state
 
-            if 0 not in flags:
-                # get rl task statistic tuple (state, action, reward) timestamp
-                rl_timestamp = rows["time"].iloc[t]
+            # get rl task statistic tuple (state, action, reward) timestamp
+            rl_timestamp = rows["time"].iloc[t]
 
-                # get associated fNIRS sample given timestep
-                neural_features = buffer.get_features()
-                neural_signal, clf_probs = utils_rl.get_neural_signal(features = neural_features, clf = clf)
+            # get associated fNIRS sample given timestep
+            neural_features = buffer.get_features()
+            neural_signal = utils_rl.get_neural_signal(features = neural_features, clf = clf)
 
-                # update neural buffer
-                fnirs_sample = processor.get_fnirs_sample(timestamp = rl_timestamp, temporal_shift = -shift, fnirs_channels = fnirs_channel_names)
-                buffer.add_sample(timestamp = rl_timestamp, x = fnirs_sample, classification=neural_signal)
-                
-                # get + adjust neural classification
-                new_neural_signal = buffer.get_neural_credit(granularity = granularity, X = smoothing_window_size)
+            # update neural buffer
+            fnirs_sample = processor.get_fnirs_sample(timestamp = rl_timestamp, temporal_shift = -shift, fnirs_channels = fnirs_channel_names)
+            buffer.add_sample(timestamp = rl_timestamp, x = fnirs_sample, classification=neural_signal)
+            
+            # get + adjust neural classification
+            new_neural_signal = buffer.get_neural_credit(granularity = granularity, X = smoothing_window_size)
 
-                # add noise to neural classification
-                if noise > 0.0:
-                    new_neural_signal = ml.noisy_output(clf,  new_neural_signal, granularity, flip_rate = noise)
+            # add noise to neural classification
+            if noise > 0.0:
+                new_neural_signal = ml.noisy_output(clf,  new_neural_signal, granularity, flip_rate = noise)
 
-                # adjust neural classification - scales with beta and makes 0 class and 1 class negative
-                adjusted_neural_signal = utils_rl.adjust_neural_classification(new_neural_signal, beta=beta)
+            # adjust neural classification - scales with beta and makes 0 class and 1 class negative
+            adjusted_neural_signal = utils_rl.adjust_neural_classification(new_neural_signal, beta=beta)
 
-                # get true sample label
-                class_truth = processor.get_label_sample(timestamp = rl_timestamp, temporal_shift = -shift)
-                
-                # get next action distribution, unless episode ends
-                fs = int(final_step) if pd.notna(final_step) else n
+            # get true sample label
+            class_truth = processor.get_label_sample(timestamp = rl_timestamp, temporal_shift = -shift)
+            
+            # get next action distribution, unless episode ends
+            fs = int(final_step) if pd.notna(final_step) else n
+            if t < fs - 1 and t + 1 < n:
+                next_action_dist = rows["optimal_actions"].iloc[t + 1]
+            else:
+                next_action_dist = action_dist
 
-                if t < fs - 1 and t + 1 < n:
-                    next_action_dist = rows["optimal_actions"].iloc[t + 1]
-                else:
-                    next_action_dist = action_dist
+            priority = dqn_priority(reward, action, action_dist, next_action_dist)
 
-                priority = dqn_priority(reward, action, action_dist, next_action_dist)
+            # Reward Augmentation Experiment
+            if 1 in flags:
+                if verbose:
+                    print(f"Experiment Condition 1: Reward Augmentation -- Episode {episode} -- Participant: {participant}")
+                    print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal, "| Adjusted Reward: ", reward + adjusted_neural_signal)
+                reward = utils_rl.adjust_reward(reward, adjusted_neural_signal)
+            
+            # Priorirization experiment
+            if 2 in flags:
+                if verbose:
+                    print(f"Experiment Condition 2: Prioritization -- Episode {episode} -- Participant: {participant}")
+                    print("Original Priority: ", abs(priority), "| Neural Signal: ", new_neural_signal, "| Adjusted Priority: ", abs(priority) + adjusted_neural_signal)
+                priority = abs(priority)
+                priority += adjusted_neural_signal
 
-                # Reward Augmentation Experiment
-                if 1 in flags:
-                    if verbose:
-                        print(f"Experiment Condition 1: Reward Augmentation -- Episode {episode} -- Participant: {participant}")
-                        print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal, "| Adjusted Reward: ", reward + adjusted_neural_signal)
-                    reward = utils_rl.adjust_reward(reward, new_neural_signal, clf_probs = clf_probs, means = means)
-                
-                # Priorirization experiment
-                if 2 in flags:
-                    if verbose:
-                        print(f"Experiment Condition 2: Prioritization -- Episode {episode} -- Participant: {participant}")
-                        print("Original Priority: ", abs(priority), "| Neural Signal: ", new_neural_signal, "| Adjusted Priority: ", abs(priority) + adjusted_neural_signal)
-                    priority = abs(priority)
-                    priority += adjusted_neural_signal
-
-                # Q Augmentation Experiment
-                if 3 in flags:
-                    if verbose:
-                        print(f"Experiment Condition 3: Q-Augmentation -- Episode {episode} -- Participant: {participant}")
-                    q_augmentation = utils_rl.adjust_reward(0.0, new_neural_signal, clf_probs = clf_probs)
-
-                 # store sample optimality prediction and truth
-                if smoothing_window_size > 1 or noise > 0.0:
-                    classes_pred.append(new_neural_signal) #predictions that have been altered
-                else:
-                    classes_pred.append(neural_signal) #raw predictions
-                
-                classes_truth.append(class_truth.to_list()[gr]) #truth
-                
+            # Q Augmentation Experiment
+            if 3 in flags:
+                if verbose:
+                    print(f"Experiment Condition 4: Q-Augmentation -- Episode {episode} -- Participant: {participant}")
+                q_augmentation = adjusted_neural_signal
+            else:
+                q_augmentation = 0.0
+            
             # set priority to 0 for ER buffer functionality
             if buffer_type == "ER":
                 priority = 0.0
@@ -182,8 +167,22 @@ def train(env:gymnasium.Env,
             # remember transition
             agent.remember(state, action, reward, next_state, done, priority = priority, q_augmentation = q_augmentation)
 
+            # update last state action value
+            last_state_action_value = state_action_value
+        
+            # store sample optimality prediction and truth
+            if smoothing_window_size > 1 or noise > 0.0:
+                classes_pred.append(new_neural_signal) #predictions that have been altered
+            else:
+                classes_pred.append(neural_signal) #raw predictions
+            
+            classes_truth.append(class_truth.to_list()[gr]) #truth
+
+        # episode intervals for online training
+        new_episode_num = max(0, episodes_num // max(total_participant_episodes, 1))
+
         # ONLINE TRAINING LOOP
-        for _ in range(0, online_episode_num):
+        for _ in range(0, new_episode_num):
             # set seed
             if domain_key == "F":
                 state, _ = env.reset(seed=seed) #seed for flappy bird
@@ -193,12 +192,19 @@ def train(env:gymnasium.Env,
             seed += 1 #increment seed
 
             # reset total reward and state action value
-            total_reward, state_action_value = 0, 0
+            total_reward, state_action_value, last_state_action_value = 0, 0, 0
 
+            pred_buffer = None
+            base_t = pd.Timestamp("1970-01-01", tz="UTC")
+
+            if fnirs_predictor is not None:
+                pred_buffer = fNIRSBuffer(window_duration_s=window_duration_s, sample_period_s=sample_period_s, neural_channels=fnirs_channel_names)
+
+            online_truth = []
+            predicted_truth = []
             for step in range(steps):
-                combined_steps += 1
                 # choose action
-                action, _ = agent.chooseAction(state, epsilon)
+                action, state_action_value = agent.chooseAction(state, epsilon)
                 
                 # take action in env
                 if domain_key == "F":
@@ -207,9 +213,57 @@ def train(env:gymnasium.Env,
                     terminated = False
                     next_state, reward, done, _ = env.step(action) #lunar lander
 
-                agent.remember(state=state, action=action, reward=reward, next_state=next_state, done=done, priority=None, q_augmentation=0.0)
+                reward_online = float(reward)
+                priority_online = 0.0
+                q_aug_online = 0.0
+
+                if fnirs_predictor is not None and pred_buffer is not None:
+                    # get env state
+                    state_vector = np.asarray(state, dtype=np.float32).ravel()
+
+                    # check if state vector is the correct size
+                    if state_vector.size != fnirs_predictor.state_dim:
+                        raise Exception("State vector is not the correct size")
+
+                    features = pred_buffer.get_features()
+                    neural_signal = utils_rl.get_neural_signal(clf, features)
+
+                    predicted_neural_vector = fnirs_predictor.predict_numpy(state_vector)
+                    pred_row = pd.Series(predicted_neural_vector, index=list(fnirs_channel_names), name=int(step))
+                    ts = base_t + pd.Timedelta(seconds=float(step) * sample_period_s)
+                    pred_buffer.add_sample(ts, pred_row, neural_signal)
+                    new_neural_signal = pred_buffer.get_neural_credit(granularity=granularity, X=smoothing_window_size)
+
+                    if noise > 0.0:
+                        new_neural_signal = ml.noisy_output(clf, new_neural_signal, granularity, flip_rate=noise)
+                    adjusted_neural_signal = utils_rl.adjust_neural_classification(new_neural_signal, beta=beta)
+
+                    if 1 in flags:
+                        reward_online = float(utils_rl.adjust_reward(reward_online, adjusted_neural_signal))
+                    if 2 in flags:
+                        priority_online = abs(reward_online) + float(adjusted_neural_signal)
+                    if 3 in flags:
+                        q_aug_online = float(adjusted_neural_signal)
+                    if buffer_type == "ER":
+                        priority_online = 0.0
+
+                    if domain_key == "L":
+                        if reward >= 90.0:
+                            online_truth.append(0)
+                        else:
+                            online_truth.append(1)
+                    else:
+                        if reward >= 0.0:
+                            online_truth.append(0)
+                        else:
+                            online_truth.append(1)
+
+                    predicted_truth.append(neural_signal)
+
+                agent.remember(state=state, action=action, reward=reward_online, next_state=next_state, done=done, priority=priority_online, q_augmentation=q_aug_online)
                 
                 state = next_state
+                last_state_action_value = state_action_value
                 total_reward += reward
 
                 if done or terminated:                    
@@ -223,30 +277,30 @@ def train(env:gymnasium.Env,
             # evaluate agent
             if combined_episodes % target_update == 0:
                 if domain_key == "F": #flappy bird
-                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=20), agent=agent, episodes=20, steps=steps, domain_key=domain_key)
+                    success = utils_rl.evaluate(env=FlappyBird(score_limit=20), agent=agent, episodes=50, steps=steps, domain_key=domain_key)
                 else: #lunar lander
-                    eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=20, steps=steps, domain_key=domain_key)
+                    success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=50, steps=steps, domain_key=domain_key)
                
                 # store success rate
-                all_episode_success.append(eval_success)
+                all_episode_success.append(success)
 
             else:
-                all_episode_success.append(eval_success)
+                all_episode_success.append(success)
 
-            if eval_success >= 0.01:
+            if success >= 0.99:
                 # save agent if above 60% success rate
                 torch.save({
                     'episode': episode,
                     'model_state_dict': agent.policy_net.state_dict(),
-                    'target_model_state_dict': agent.target_net.state_dict(),  # critical
-                    'optimizer_state_dict': agent.optimizer.state_dict(),
-                    'epsilon': agent.epsilon,  # important
-                }, f"{str(domain_key).upper()}Policy{str(int(success*100))}")
+                    'optimizer_state_dict': agent.optimizer.state_dict()}, 
+                    f"{str(domain_key).upper()}Policy" + str(int(success*100
+                )))
 
             # bar update
             pbar.set_postfix(
-                {"Score": f"{eval_reward:7.2f}",
-                    "Eval": f"{eval_success:.3f}",
+                {"Score": f"{total_reward:7.2f}",
+                    "Avg50": f"{score_avg:7.2f}",
+                    "Eval": f"{success:.3f}",
                 }, refresh=True
             )          
             pbar.update(1)
@@ -260,9 +314,13 @@ def train(env:gymnasium.Env,
     # close environment
     env.close()
 
-    if 0 not in flags:
-        offline_model_report = ml.get_report(np.array(classes_truth), np.array(classes_pred), (granularity[0] != "c"))
-        print("OFFLINE:\n", offline_model_report)
+    offline_model_report = ml.get_report(np.array(classes_truth), np.array(classes_pred), (granularity[0] != "c"))
+    print("OFFLINE:\n", offline_model_report)
+
+    if fnirs_predictor is not None:
+        online_model_report = ml.get_report(np.array(online_truth), np.array(predicted_truth), (granularity[0] != "c"))
+        print("ONLINE: \n", online_model_report)
+
 
     if save_results:
         results = utils_rl.Results.save_results(experiment_list = flags, 

@@ -57,22 +57,17 @@ def train(env:gymnasium.Env,
     total_participant_episodes = task_df.drop_duplicates(subset=["participantKey", "episode"]).shape[0]
     print("Total Participant Episodes: ", total_participant_episodes, "Flags: ", flags)
 
-    # domain key
-    domain_key = task_df["condition"].iloc[0][0]
-
     # granularity index
     if granularity[0] == "b": gr = 0
     if granularity[0] == "t": gr = 1
     if granularity[0] == "c": gr = 2
 
-    if domain_key.lower() == "l":
-        means = (1.4, -0.95, -2.6)
-    if domain_key.lower() == "f":
-        means = (0.75, -0.1, -0.75)
-
     # rewards, timesteps, success rate, optimality predictions
     all_average_rewards, all_total_rewards, all_episode_steps, all_episode_success, classes_truth, classes_pred = [],[],[],[],[],[]
     success, combined_episodes = (0.0, 0)
+
+    # domain key
+    domain_key = task_df["condition"].iloc[0][0]
 
     # training progress bar
     bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} < {remaining}, {rate_fmt} | {postfix}]'
@@ -83,7 +78,7 @@ def train(env:gymnasium.Env,
 
     # OFFLINE DATASET TRAINING LOOP
     for (participant, episode), episode_df in grouped:  
-        total_reward, last_state_action_value, state_action_value = 0, 0, 0
+        total_reward = 0
         rows = episode_df.reset_index(drop=True)
         n = len(rows)
         done = False
@@ -98,10 +93,13 @@ def train(env:gymnasium.Env,
             q_augmentation = 0.0
 
             # if action is Nan, skip
-            if action != action or action_dist is None:
-                continue
-            else:
+            if isinstance(action, (float, int)):
+                if action != action:
+                    continue
                 action = int(action)
+
+            if isinstance(action, (list)):
+                print(action)
 
             # get next state unless episode ends
             if t + 1 < n:
@@ -117,7 +115,7 @@ def train(env:gymnasium.Env,
 
                 # get associated fNIRS sample given timestep
                 neural_features = buffer.get_features()
-                neural_signal, clf_probs = utils_rl.get_neural_signal(features = neural_features, clf = clf)
+                neural_signal = utils_rl.get_neural_signal(features = neural_features, clf = clf)
 
                 # update neural buffer
                 fnirs_sample = processor.get_fnirs_sample(timestamp = rl_timestamp, temporal_shift = -shift, fnirs_channels = fnirs_channel_names)
@@ -151,7 +149,7 @@ def train(env:gymnasium.Env,
                     if verbose:
                         print(f"Experiment Condition 1: Reward Augmentation -- Episode {episode} -- Participant: {participant}")
                         print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal, "| Adjusted Reward: ", reward + adjusted_neural_signal)
-                    reward = utils_rl.adjust_reward(reward, new_neural_signal, clf_probs = clf_probs, means = means)
+                    reward = utils_rl.adjust_reward(reward, adjusted_neural_signal)
                 
                 # Priorirization experiment
                 if 2 in flags:
@@ -164,8 +162,8 @@ def train(env:gymnasium.Env,
                 # Q Augmentation Experiment
                 if 3 in flags:
                     if verbose:
-                        print(f"Experiment Condition 3: Q-Augmentation -- Episode {episode} -- Participant: {participant}")
-                    q_augmentation = utils_rl.adjust_reward(0.0, new_neural_signal, clf_probs = clf_probs)
+                        print(f"Experiment Condition 4: Q-Augmentation -- Episode {episode} -- Participant: {participant}")
+                    q_augmentation = adjusted_neural_signal
 
                  # store sample optimality prediction and truth
                 if smoothing_window_size > 1 or noise > 0.0:
@@ -181,82 +179,81 @@ def train(env:gymnasium.Env,
 
             # remember transition
             agent.remember(state, action, reward, next_state, done, priority = priority, q_augmentation = q_augmentation)
-
-        # ONLINE TRAINING LOOP
-        for _ in range(0, online_episode_num):
-            # set seed
-            if domain_key == "F":
-                state, _ = env.reset(seed=seed) #seed for flappy bird
-            else:
-                state = env.reset(seed=seed) #seed for lunar lander
-
-            seed += 1 #increment seed
-
-            # reset total reward and state action value
-            total_reward, state_action_value = 0, 0
-
-            for step in range(steps):
-                combined_steps += 1
-                # choose action
-                action, _ = agent.chooseAction(state, epsilon)
-                
-                # take action in env
-                if domain_key == "F":
-                    next_state, reward, done, terminated, _ = env.step(action) #flappy bird
-                else:
-                    terminated = False
-                    next_state, reward, done, _ = env.step(action) #lunar lander
-
-                agent.remember(state=state, action=action, reward=reward, next_state=next_state, done=done, priority=None, q_augmentation=0.0)
-                
-                state = next_state
-                total_reward += reward
-
-                if done or terminated:                    
-                    break
-
-            all_average_rewards.append(round(total_reward/step, 2))
-            all_total_rewards.append(round(total_reward, 2))
-            all_episode_steps.append(step)
-            score_avg = np.mean(all_total_rewards[-50:])
-
-            # evaluate agent
-            if combined_episodes % target_update == 0:
-                if domain_key == "F": #flappy bird
-                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=20), agent=agent, episodes=20, steps=steps, domain_key=domain_key)
-                else: #lunar lander
-                    eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=20, steps=steps, domain_key=domain_key)
-               
-                # store success rate
-                all_episode_success.append(eval_success)
-
-            else:
-                all_episode_success.append(eval_success)
-
-            if eval_success >= 0.01:
-                # save agent if above 60% success rate
-                torch.save({
-                    'episode': episode,
-                    'model_state_dict': agent.policy_net.state_dict(),
-                    'target_model_state_dict': agent.target_net.state_dict(),  # critical
-                    'optimizer_state_dict': agent.optimizer.state_dict(),
-                    'epsilon': agent.epsilon,  # important
-                }, f"{str(domain_key).upper()}Policy{str(int(success*100))}")
-
-            # bar update
-            pbar.set_postfix(
-                {"Score": f"{eval_reward:7.2f}",
-                    "Eval": f"{eval_success:.3f}",
-                }, refresh=True
-            )          
-            pbar.update(1)
-
-            # increment combined episodes for online training
             combined_episodes += 1
-        
-        # increment combined episodes for offline training
-        combined_episodes += 1
 
+    episodes_left = episodes_num - total_participant_episodes
+
+    # ONLINE TRAINING LOOP
+    for _ in range(0, episodes_left):
+        # set seed
+        if domain_key == "F":
+            state, _ = env.reset(seed=seed) #seed for flappy bird
+        else:
+            state = env.reset(seed=seed) #seed for lunar lander
+
+        seed += 1 #increment seed
+
+        # reset total reward and state action value
+        total_reward, state_action_value = 0, 0
+
+        for step in range(steps):
+            # choose action
+            action, _ = agent.chooseAction(state, epsilon)
+            
+            # take action in env
+            if domain_key == "F":
+                next_state, reward, done, terminated, _ = env.step(action) #flappy bird
+            else:
+                terminated = False
+                next_state, reward, done, _ = env.step(action) #lunar lander
+
+            agent.remember(state=state, action=action, reward=reward, next_state=next_state, done=done, priority=None, q_augmentation=0.0)
+            
+            state = next_state
+            total_reward += reward
+
+            if done or terminated:                    
+                break
+
+        all_average_rewards.append(round(total_reward/step, 2))
+        all_total_rewards.append(round(total_reward, 2))
+        all_episode_steps.append(step)
+        score_avg = np.mean(all_total_rewards[-50:])
+
+        # evaluate agent
+        if combined_episodes % target_update == 0:
+            if domain_key == "F": #flappy bird
+                success = utils_rl.evaluate(env=FlappyBird(score_limit=20), agent=agent, episodes=50, steps=steps, domain_key=domain_key)
+            else: #lunar lander
+                success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=50, steps=steps, domain_key=domain_key)
+            
+            # store success rate
+            all_episode_success.append(success)
+
+        else:
+            all_episode_success.append(success)
+
+        if success >= 0.99:
+            # save agent if above 60% success rate
+            torch.save({
+                'episode': episode,
+                'model_state_dict': agent.policy_net.state_dict(),
+                'optimizer_state_dict': agent.optimizer.state_dict()}, 
+                f"{str(domain_key).upper()}Policy" + str(int(success*100
+            )))
+
+        # bar update
+        pbar.set_postfix(
+            {"Score": f"{total_reward:7.2f}",
+                "Avg50": f"{score_avg:7.2f}",
+                "Eval": f"{success:.3f}",
+            }, refresh=True
+        )          
+        pbar.update(1)
+
+        # increment combined episodes for online training
+        combined_episodes += 1
+    
     # close environment
     env.close()
 

@@ -2,7 +2,6 @@ import gymnasium
 from copy import deepcopy as dc
 from src.networks.DQN import DQN
 from src.networks.DDPG import DDPG
-from src.networks.DDPG_PER import DDPG as DDPG_HER
 from src.envs.lunar_lander import LunarLander
 from src.envs.flappy_bird import FlappyBirdEnv
 import torch
@@ -45,27 +44,27 @@ def load_domain(env: str, steps: int = None):
 
     return env
 
-def load_pretrained_agent(agent: DQN | DDPG | DDPG_HER, pretrained_success_rate: float, algorithm: str, space=(11, 4), filename: str = "/cluster/home/mbrowe02/OfflineNeuroloop/src/policies/", verbose: bool = False):
+def load_pretrained_agent(agent: DQN | DDPG, filename:str,pretrained_success_rate: float, algorithm: str, space=(11, 4), verbose: bool = False):
     
     if algorithm == "DQN":
         if space[0] == 11:
             if verbose:
                 print(filename+"lunar/"+"LPolicy"+str(int(pretrained_success_rate)))
 
-            agent = agent.load_model(filename = filename+"lunar/"+"LPolicy"+str(int(pretrained_success_rate)))
+            agent = agent.load_model(filename = filename+"src/policies/lunar/"+"LPolicy"+str(int(pretrained_success_rate)))
         elif space[0] == 12:
             if verbose:
                 print(filename+"flappy/"+"FPolicy"+str(int(pretrained_success_rate)))
-            agent = agent.load_model(filename = filename+"flappy/"+"FPolicy"+str(int(pretrained_success_rate)))
+            agent = agent.load_model(filename = filename+"src/policies/flappy/"+"FPolicy"+str(int(pretrained_success_rate)))
         
     if algorithm == "DDPG":
         if verbose:
             print(filename+"robot/"+"FetchPolicy"+str(int(pretrained_success_rate)))
-        agent = agent.load_model(filename = filename+"robot/"+"FetchPolicy"+str(int(pretrained_success_rate)) + ".pth")
-        print("Loaded DDPG agent from: " + filename+"robot/"+"FetchPolicy"+str(int(pretrained_success_rate)) + ".pth")
+        agent = agent.load_model(filename = filename+"src/policies/robot/"+"FetchPolicy"+str(int(pretrained_success_rate)) + ".pth")
+        print("Loaded DDPG agent from: " + filename+"src/policies/robot/"+"FetchPolicy"+str(int(pretrained_success_rate)) + ".pth")
     return agent
 
-def load_agent(algorithm: str, buffer_type: str, space=(11, 4), pretrained_success_rate: float = 0.0, verbose: bool = False):
+def load_agent(algorithm: str, buffer_type: str, filename:str, space=(11, 4), pretrained_success_rate: float = 0.0, verbose: bool = False):
     agent = None
 
     if algorithm == "DQN":
@@ -73,6 +72,9 @@ def load_agent(algorithm: str, buffer_type: str, space=(11, 4), pretrained_succe
             hidden_layer_size = 256
         else:
             hidden_layer_size = 192
+
+        if verbose:
+            print(f"Loading DQN agent with {space[0]} observations and {space[1]} actions")
 
         agent = DQN(
             n_observations=space[0],
@@ -93,7 +95,7 @@ def load_agent(algorithm: str, buffer_type: str, space=(11, 4), pretrained_succe
         agent = load_ddpg_agent(inner, buffer_type, verbose = verbose)
 
     if pretrained_success_rate > 0.0:
-        return load_pretrained_agent(agent=agent, pretrained_success_rate=pretrained_success_rate, algorithm=algorithm, space=space, verbose = verbose)
+        return load_pretrained_agent(agent=agent, filename=filename, pretrained_success_rate=pretrained_success_rate, algorithm=algorithm, space=space, verbose = verbose)
 
     return agent
 
@@ -117,7 +119,7 @@ def load_ddpg_agent(env, buffer_type: str, verbose: bool = False, pretrained_suc
 
 
     if buffer_type == "PER":
-        agent = DDPG_HER(n_states=state_shape,
+        agent = DDPG(n_states=state_shape,
                 n_actions=n_actions,
                 n_goals=n_goals,
                 action_bounds=action_bounds,

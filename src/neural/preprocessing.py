@@ -94,16 +94,15 @@ class DatasetProcessor:
                 task_seg = task_part.loc[start:end]
                 labels_seg = labels_part.loc[start:end]
 
-                # Duplicate timestamps break pandas resample (ValueError: cannot reindex...).
+                # remove duplicates
                 if task_seg.index.has_duplicates:
                     task_seg = task_seg.groupby(level=0).last()
                 if labels_seg.index.has_duplicates:
                     labels_seg = labels_seg.groupby(level=0).last()
 
-                # No RL events in this time window; skip to avoid empty/meaningless joins.
                 if task_seg.empty:
                     if self.verbose or verbose:
-                        print(f"Skipping empty task segment for participant {participant_key}, seg {seg}")
+                        print(f"Skipping empty task segment for participant {participant_key}")
                     continue
 
                 fnirs_resampled = fnirs_seg.resample(rule).mean().interpolate()
@@ -150,14 +149,15 @@ class DatasetProcessor:
 
 
     def build_balanced_dataset(self, 
-                            aligned_df: pd.DataFrame,
-                            fnirs_channels: List[str],
-                            label_col: str = 'label_shifted',
-                            window_duration_s: float = 6.0,
-                            resample_rate_hz: float = 5.2,
-                            random_state: int | None = None,
-                            granularity: str = "binary"
-                            ):
+            aligned_df: pd.DataFrame,
+            fnirs_channels: List[str],
+            label_col: str = 'label_shifted',
+            window_duration_s: float = 6.0,
+            resample_rate_hz: float = 5.2,
+            random_state: int | None = None,
+            granularity: str = "binary",
+            return_indices: bool = False,
+            ):
 
         X, y_binary, y_ternary, y_continuous = self.build_supervised_dataset(
             aligned_df=aligned_df,
@@ -177,6 +177,11 @@ class DatasetProcessor:
             rng.shuffle(sel)
             return sel
 
+        def pack(sel_arr: np.ndarray, y_out: np.ndarray):
+            if return_indices:
+                return X[sel_arr], y_out[sel_arr], sel_arr
+            return X[sel_arr], y_out[sel_arr]
+
         if mode == "b":
             y = y_binary
             classes = np.unique(y)
@@ -188,7 +193,7 @@ class DatasetProcessor:
             if n_per <= 0:
                 raise ValueError("No samples in one or both binary classes.")
             sel = balanced([idx0, idx1], n_per)
-            return X[sel], y[sel]
+            return pack(sel, y)
 
         if mode == "t":
             y = y_ternary
@@ -203,7 +208,7 @@ class DatasetProcessor:
             if n_per <= 0:
                 raise ValueError("No samples available for ternary balancing.")
             sel = balanced(class_indices, n_per)
-            return X[sel], y[sel]
+            return pack(sel, y)
 
         if mode == "c":
             y = np.asarray(y_continuous, dtype=float)
@@ -218,13 +223,47 @@ class DatasetProcessor:
             if n_per <= 0:
                 sel = np.arange(n)
                 rng.shuffle(sel)
-                return X[sel], y[sel]
+                return pack(sel, y)
             sel = balanced(class_indices, n_per)
-            return X[sel], y[sel]
+            return pack(sel, y)
 
         raise ValueError(
             f"Unknown granularity {granularity!r}; use 'binary', 'ternary', or 'continuous'."
         )
+
+    def build_supervised_dataset_fnirs(self, 
+                                 aligned_df: pd.DataFrame,
+                                 fnirs_channels: List[str],
+                                 window_duration_s: float = 6.0,
+                                 resample_rate_hz: float = 10.0) -> Tuple[np.ndarray, np.ndarray]:
+
+        df = aligned_df.copy()
+        df = df.dropna(subset=["states"])
+
+        step_period_s = 1.0 / resample_rate_hz
+        window_steps = int(round(window_duration_s / step_period_s))
+
+        fnirs_list: List[np.ndarray] = []
+        s_list = []
+
+        values = df[fnirs_channels].to_numpy()
+        states = df["states"].to_numpy()
+
+        for end_idx in range(window_steps - 1, len(df)):
+            start_idx = end_idx - window_steps + 1
+            fnirs_window = values[start_idx:end_idx + 1]
+            feats = self.compute_window_features(fnirs_window)
+            fnirs_list.append(feats)
+            s_list.append(states[end_idx])
+
+        try:
+            F_list = np.stack(fnirs_list, axis=0)
+        except:
+            print(window_steps)
+
+        S_list = np.array(s_list)
+
+        return S_list, F_list
 
     def shift_labels_for_delay(self, 
                     aligned_df: pd.DataFrame,

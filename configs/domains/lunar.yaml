@@ -1,6 +1,6 @@
 experiment:
   domain: "Lunar Lander"
-  pretrained_success_rate: 10.0
+  pretrained_success_rate: 0.0
 
 mlp:
   binary_hidden_layer_sizes: [75, 50, 5]
@@ -15,7 +15,7 @@ mlp:
   early_stopping: True
   
 rl:
-  n_episodes: 4000
+  n_episodes: 5000
   algorithm: "DQN"
   steps: 600
   action_space: 4

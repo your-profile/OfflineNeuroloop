@@ -45,7 +45,6 @@ class DQN():
         self.policy_net = DeepQNetwork(n_observations, n_actions, hidden_layer_size).to(device)
         self.target_net = DeepQNetwork(n_observations, n_actions, hidden_layer_size).to(device)
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=lr)
-        self.criterion = nn.MSELoss()
 
         if buffer_type == "PER":
             self.memory = PrioritizedReplayBuffer(n_actions, mem_size, batch_size)
@@ -53,6 +52,10 @@ class DQN():
             self.memory = ReplayBuffer(n_actions, mem_size, batch_size)
 
         self.algorithm = "DQN"
+        self.verbose = verbose
+
+        if verbose:
+            print(f"Initialized DQN agent with buffer type: {buffer_type}")
         
 
         self.counter = 0
@@ -75,28 +78,59 @@ class DQN():
 
     def remember(self, state, action, reward, next_state, done, q_augmentation = 0.0, priority = None):
         action = int(action)
-        # if priority is None:
-        #     td_error = reward + self.gamma * self.target_net((torch.from_numpy(next_state).float().unsqueeze(0).to(device))).squeeze()[action]  - self.policy_net(torch.from_numpy(state).float().unsqueeze(0).to(device)).squeeze()[action] 
-        #     priority = td_error.item()
+
+        if priority is None:
+            with torch.no_grad():
+                s = torch.from_numpy(state).float().unsqueeze(0).to(device)
+                ns = torch.from_numpy(next_state).float().unsqueeze(0).to(device)
+                q_eval = self.policy_net(s).squeeze(0)[action]
+                if _as_bool_done(done):
+                    target = torch.as_tensor(reward, dtype=torch.float32, device=device)
+                else:
+                    target = torch.as_tensor(reward, dtype=torch.float32, device=device) + self.gamma * self.target_net(ns).squeeze(0).max()
+                priority = float(torch.abs(target - q_eval).item())
+
+        if self.verbose:
+            print(f"Added priority: {priority} and q_augmentation: {q_augmentation} to memory")
+
+        self.memory.add(state, action, reward, next_state, done, priority, q_augmentation)
 
         self.counter += 1
         if self.counter % self.learn_step == 0:
             if len(self.memory) >= self.batch_size:
-                experiences = self.memory.sample()
-                self.learn(experiences, q_augmentation=q_augmentation)
+                self.learn(self.memory.sample())
 
-        self.memory.add(state, action, reward, next_state, done, priority, q_augmentation)
+    def learn(self, experiences):
+        if len(experiences) == 8:
+            (
+                states,
+                actions,
+                rewards,
+                next_states,
+                dones,
+                q_augs,
+                indices,
+                is_weights,
+            ) = experiences
+            indices = np.asarray(indices, dtype=np.int64).reshape(-1)
+        elif len(experiences) == 6:
+            states, actions, rewards, next_states, dones, q_augs = experiences
+            indices = None
+            is_weights = torch.ones_like(rewards, dtype=torch.float32, device=device)
+        else:
+            raise ValueError(f"Unexpected sample bundle length: {len(experiences)}")
 
-    def learn(self, experiences, q_augmentation: float = 0.0):
-        states, actions, rewards, next_states, dones = experiences
-
-        q_target = self.target_net(next_states).detach().max(axis=1)[0].unsqueeze(1)
-        y_j = rewards + self.gamma * q_target * (1 - dones)  
-        y_j += q_augmentation
+        q_target = self.target_net(next_states).detach().max(dim=1, keepdim=True)[0]
+        y_j = rewards + self.gamma * q_target * (1 - dones) + q_augs
         q_eval = self.policy_net(states).gather(1, actions)
 
-        #backpropogation
-        loss = self.criterion(q_eval, y_j)
+        if indices is not None:
+            td_abs = torch.abs(y_j.detach() - q_eval.detach()).squeeze(1).cpu().numpy()
+            self.memory.update_priorities(indices, td_abs)
+
+        td = q_eval - y_j
+        loss = (is_weights * (td ** 2)).sum() / (is_weights.sum() + 1e-8)
+
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
@@ -108,25 +142,37 @@ class DQN():
         for param_group in self.optimizer.param_groups:
             param_group['lr'] = new_lr
 
-
-
     def softUpdate(self):
         for eval_param, target_param in zip(self.policy_net.parameters(), self.target_net.parameters()):
             target_param.data.copy_(self.tau*eval_param.data + (1.0-self.tau)*target_param.data)
         
     def load_model(self, filename):
         ckpt = torch_load_checkpoint(filename)
+        
         if isinstance(ckpt, dict) and "model_state_dict" in ckpt:
-            state = ckpt["model_state_dict"]
+            self.policy_net.load_state_dict(ckpt["model_state_dict"])
+            
+            if "target_model_state_dict" in ckpt:
+                self.target_net.load_state_dict(ckpt["target_model_state_dict"])
+            else:
+                self.target_net.load_state_dict(ckpt["model_state_dict"])
+            
+            if "optimizer_state_dict" in ckpt:
+                self.optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+                
+            if "epsilon" in ckpt:
+                self.epsilon = ckpt["epsilon"]
+                
         else:
-            state = ckpt
-        self.policy_net.load_state_dict(state)
-        self.target_net.load_state_dict(state)
-
+            self.policy_net.load_state_dict(ckpt)
+            self.target_net.load_state_dict(ckpt)
+    
         return self
 
-
-_Experience = namedtuple("Experience", field_names=["state", "action", "reward", "next_state", "done"])
+_Experience = namedtuple(
+    "Experience",
+    field_names=["state", "action", "reward", "next_state", "done", "q_augmentation"],
+)
 
 
 class ReplayBuffer:
@@ -142,7 +188,8 @@ class ReplayBuffer:
         return len(self.memory)
 
     def add(self, state, action, reward, next_state, done, priority=None, q_augmentation = None):
-        self.memory.append(_Experience(state, action, reward, next_state, done))
+        qa = float(q_augmentation) if q_augmentation is not None else 0.0
+        self.memory.append(_Experience(state, action, reward, next_state, done, qa))
 
     def sample(self):
         current_size = len(self.memory)
@@ -154,16 +201,24 @@ class ReplayBuffer:
         rewards = torch.from_numpy(np.vstack([e.reward for e in experiences])).float().to(device)
         next_states = torch.from_numpy(np.vstack([e.next_state for e in experiences])).float().to(device)
         dones = torch.from_numpy(np.vstack([e.done for e in experiences]).astype(np.uint8)).float().to(device)
+        q_augs = torch.tensor(
+            [e.q_augmentation for e in experiences], dtype=torch.float32, device=device
+        ).unsqueeze(1)
 
-        return (states, actions, rewards, next_states, dones)
+        return (states, actions, rewards, next_states, dones, q_augs)
+
+
+def _as_bool_done(done) -> bool:
+    return bool(np.asarray(done).item())
 
 
 class PrioritizedReplayBuffer():
-    def __init__(self, n_actions, memory_size, batch_size, alpha=0.6, eps=1e-6):
+    def __init__(self, n_actions, memory_size, batch_size, alpha=0.6, beta=0.4, eps=1e-6):
         self.n_actions = n_actions
         self.batch_size = batch_size
         self.capacity = memory_size
         self.alpha = alpha
+        self.beta = beta
         self.eps = eps  
 
         self.memory = []
@@ -175,22 +230,8 @@ class PrioritizedReplayBuffer():
         return len(self.memory)
 
     def add(self, state, action, reward, next_state, done, priority=None, q_augmentation = None):
-        # if priority is None:
-        # #priority is td error
-        #     next_state_tensor = torch.from_numpy(next_state).float().unsqueeze(0).to(self.device)
-        #     state_tensor = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
-        #     next_q = self.target_net(next_state_tensor).squeeze()[action].detach().cpu().numpy()
-        #     current_q = self.policy_net(state_tensor).squeeze()[action].detach().cpu().numpy()
-        #     priority = reward + self.gamma * next_q - current_q
-       
-            
-        #     #if priority is nan, set to 0
-        #     if np.isnan(priority) or priority != priority:
-        #         priority = 0.0
-
-        # if priority is None:
-        #     priority = 
-        e = self.experience(state, action, reward, next_state, done)
+        qa = float(q_augmentation) if q_augmentation is not None else 0.0
+        e = self.experience(state, action, reward, next_state, done, qa)
 
         if len(self.memory) < self.capacity:
             self.memory.append(e)
@@ -201,6 +242,14 @@ class PrioritizedReplayBuffer():
         self.priorities[self.pos] = max(raw, self.eps)
         self.pos = (self.pos + 1) % self.capacity
 
+    def update_priorities(self, indices: np.ndarray, td_errors: np.ndarray) -> None:
+        idx = np.asarray(indices, dtype=np.int64).reshape(-1)
+        err = np.asarray(td_errors, dtype=np.float64).reshape(-1)
+        n = len(self.memory)
+        for i, td in zip(idx, err):
+            if 0 <= int(i) < n:
+                self.priorities[int(i)] = max(float(abs(td)), self.eps)
+
     def sample(self):
         current_size = len(self.memory)
         k = min(self.batch_size, current_size)
@@ -208,11 +257,14 @@ class PrioritizedReplayBuffer():
 
         scaled = np.maximum(priorities, self.eps) ** self.alpha
         total = float(scaled.sum())
+        uniform_p = 1.0 / float(current_size)
 
         if total <= 0 or current_size == 0:
             indices = np.random.choice(current_size, k, replace=False)
+            prob_i = np.full(k, uniform_p, dtype=np.float64)
         elif np.allclose(scaled, scaled[0]):
             indices = np.random.choice(current_size, k, replace=False)
+            prob_i = np.full(k, uniform_p, dtype=np.float64)
         else:
             probs = scaled / total
             nonzero = int(np.count_nonzero(probs))
@@ -221,6 +273,7 @@ class PrioritizedReplayBuffer():
                 indices = np.random.choice(current_size, k, replace=True, p=probs)
             else:
                 indices = np.random.choice(current_size, k, replace=False, p=probs)
+            prob_i = probs[indices].astype(np.float64)
 
         experiences = [self.memory[i] for i in indices]
 
@@ -229,5 +282,22 @@ class PrioritizedReplayBuffer():
         rewards = torch.from_numpy(np.vstack([e.reward for e in experiences])).float().to(device)
         next_states = torch.from_numpy(np.vstack([e.next_state for e in experiences])).float().to(device)
         dones = torch.from_numpy(np.vstack([e.done for e in experiences]).astype(np.uint8)).float().to(device)
+        q_augs = torch.tensor(
+            [e.q_augmentation for e in experiences], dtype=torch.float32, device=device
+        ).unsqueeze(1)
 
-        return (states, actions, rewards, next_states, dones)
+        # Importance-sampling weights (Schaul et al.): (N * P(i))^(-beta), normalized by max.
+        raw_w = (current_size * prob_i) ** (-self.beta)
+        raw_w = raw_w / (np.max(raw_w) + 1e-8)
+        is_weights = torch.from_numpy(raw_w.astype(np.float32)).to(device).unsqueeze(1)
+
+        return (
+            states,
+            actions,
+            rewards,
+            next_states,
+            dones,
+            q_augs,
+            np.asarray(indices, dtype=np.int64),
+            is_weights,
+        )

@@ -3,7 +3,7 @@ experiment:
   pretrained_success_rate: 0.0
 
 mlp:
-  binary_hidden_layer_sizes: [75, 50, 5]
+  binary_hidden_layer_sizes: [30, 15, 5]
   ternary_hidden_layer_sizes: [75, 50, 5]
   regressor_hidden_layer_sizes: [100, 40, 2]
   binary_activation: "relu"
@@ -15,7 +15,7 @@ mlp:
   early_stopping: True
   
 rl:
-  n_episodes: 100
+  n_episodes: 2000
   algorithm: "DQN"
   steps: 800
   action_space: 2

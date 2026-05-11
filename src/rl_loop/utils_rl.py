@@ -115,20 +115,51 @@ def adjust_neural_classification(output: int|None, beta = 1.0, verbose = False) 
     return adjustment*beta #scale value with beta parameter
 
 
-def adjust_reward(reward: float, neural_signal: int|float, environment_reward: bool = False):
-    """
-    adjust_reward(reward: float, 
-        neural_signal: float, 
-        environment_reward: bool = False) -> adjusted_reward: float
-    
-    This function adjusts the neural classification to best augment the environmental reward. 
-    Change 'environment_reward' to True for adjusting the neural classification without the environmental reward.
-    """
+def adjust_reward(
+    reward: float,
+    neural_signal: int | float,
+    clf_probs=None,
+    means: tuple[float, float, float] = (1.0, -0.5, -1.0),
+    stds: tuple[float, float, float] = (0.25, 0.25, 0.25),
+    mix_scale: float = 1.0,
+    sample_bonus: bool = False,
+    clip_bonus: float | None = None,
+):
+    if clf_probs is not None and not np.isscalar(clf_probs):
+        probs = np.asarray(clf_probs, dtype=np.float64).ravel()
+        means_array = np.asarray(means, dtype=np.float64).ravel()
+        std_array = np.asarray(stds, dtype=np.float64).ravel()
 
-    if environment_reward:
-        return neural_signal
+        k = int(min(len(probs), len(means_array), len(std_array)))
+        if k > 0:
+            probs = probs[:k]
+            means_array = means_array[:k]
+            std_array = np.maximum(std_array[:k], 1e-8)
 
-    return reward + neural_signal
+            p_sum = float(probs.sum())
+            if p_sum > 0.0:
+                probs = probs / p_sum
+                mu = float(np.sum(probs * means_array))
+
+                if sample_bonus:
+                    second_moment = float(np.sum(probs * (std_array**2 + means_array**2)))
+                    var = max(second_moment - mu**2, 1e-8)
+                    bonus = float(np.random.normal(loc=mu, scale=np.sqrt(var)))
+                else:
+                    bonus = mu
+
+                bonus *= float(mix_scale)
+                if clip_bonus is not None:
+                    c = float(abs(clip_bonus))
+                    bonus = float(np.clip(bonus, -c, c))
+                # print(f"Probs: {probs}")
+                # print(f"Neural Signal: {neural_signal}")
+                # print(f"Bonus: {bonus}")
+                # print(f"Reward: {reward}")
+                # print(f"Adjusted Reward: {reward + bonus}")
+                return float(reward + bonus)
+    # print("not working")
+    return float(reward + means[neural_signal])
 
 def adjust_epsilon(epsilon: float, neural_signal: float, verbose = False):
     """
@@ -165,18 +196,22 @@ def get_neural_signal(clf, features):
 
         if features is not None:
             classification = clf.predict(features[None, :])[0] #predict with model
+            probs = clf.predict_proba(features[None, :])[0]
             # bonus = adjust_neural_classification(neural_classification)
         else:
             classification = 0.0
+            probs = 0.0
 
-        return classification
+        return classification, probs
 
 def evaluate(env, agent, steps=600, episodes=20, domain_key=None):
     """
     Agent evaluation function
     """
+    rewards = []
     successes = 0
     for i in range(episodes):
+        ep_reward = 0.0
         if domain_key == "F":
             state, _  = env.reset()
         else:
@@ -192,13 +227,16 @@ def evaluate(env, agent, steps=600, episodes=20, domain_key=None):
                     done = True
             else:
                 state, reward, done, win = env.step(action)
+            
+            ep_reward += reward
 
             if done:
                 if win:
                     successes += 1
                 break
-
-    return successes/episodes
+        
+        rewards.append(ep_reward)
+    return np.array(rewards), successes/episodes
 
 def evaluate_fetch(env, agent, steps=50, episodes=20):
     """Evaluate DDPG on a goal-conditioned Fetch env (dict observations)."""
