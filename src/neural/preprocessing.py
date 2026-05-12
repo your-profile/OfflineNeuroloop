@@ -235,13 +235,15 @@ class DatasetProcessor:
                                  aligned_df: pd.DataFrame,
                                  fnirs_channels: List[str],
                                  window_duration_s: float = 6.0,
-                                 resample_rate_hz: float = 10.0) -> Tuple[np.ndarray, np.ndarray]:
+                                 resample_rate_hz: float = 10.0,
+                                 step_size_s: int = 0) -> Tuple[np.ndarray, np.ndarray]:
 
         df = aligned_df.copy()
         df = df.dropna(subset=["states"])
 
         step_period_s = 1.0 / resample_rate_hz
         window_steps = int(round(window_duration_s / step_period_s))
+        step_size = max(1, int(round(step_size_s / step_period_s)))
 
         fnirs_list: List[np.ndarray] = []
         s_list = []
@@ -249,8 +251,10 @@ class DatasetProcessor:
         values = df[fnirs_channels].to_numpy()
         states = df["states"].to_numpy()
 
-        for end_idx in range(window_steps - 1, len(df)):
+        for end_idx in range(window_steps - 1, len(df), step_size):
             start_idx = end_idx - window_steps + 1
+            if start_idx < 0:
+                continue
             fnirs_window = values[start_idx:end_idx + 1]
             feats = self.compute_window_features(fnirs_window)
             fnirs_list.append(feats)
@@ -379,8 +383,9 @@ class DatasetProcessor:
                                  label_col: str = 'label_shifted',
                                  window_duration_s: float = 6.0,
                                  resample_rate_hz: float = 10.0,
-                                 use_shifted_data: bool = True) -> Tuple[np.ndarray, np.ndarray]:
-
+                                 use_shifted_data: bool = True,
+                                 step_size_s: int = 0) -> Tuple[np.ndarray, np.ndarray]:
+      
         if use_shifted_data:
             binary_label_col = 'binary_'+label_col
             ternary_label_col = 'ternary_'+label_col
@@ -395,6 +400,7 @@ class DatasetProcessor:
 
         step_period_s = 1.0 / resample_rate_hz
         window_steps = int(round(window_duration_s / step_period_s))
+        step_size = max(1, int(round(step_size_s / step_period_s)))
 
         X_list: List[np.ndarray] = []
         y_list_binary, y_list_ternary, y_list_continuous = [], [], []
@@ -404,8 +410,11 @@ class DatasetProcessor:
         labels_ternary = df[ternary_label_col].to_numpy()
         labels_continuous = df[continuous_label_col].to_numpy()
 
-        for end_idx in range(window_steps - 1, len(df)):
+        # Sliding window with configurable step_size
+        for end_idx in range(window_steps - 1, len(df), step_size):
             start_idx = end_idx - window_steps + 1
+            if start_idx < 0:
+                continue
             X_window = values[start_idx:end_idx + 1]
             feats = self.compute_window_features(X_window)
             X_list.append(feats)
@@ -415,14 +424,15 @@ class DatasetProcessor:
 
         try:
             X = np.stack(X_list, axis=0)
-        except:
-            print(window_steps)
+        except Exception as e:
+            print(f"Error stacking X_list, window_steps={window_steps}, error: {e}")
 
         y_binary = np.array(y_list_binary)
         y_ternary = np.array(y_list_ternary)
         y_continuous = np.array(y_list_continuous)
 
         return X, y_binary, y_ternary, y_continuous
+ 
 
     def compute_window_features(self, X: np.ndarray) -> np.ndarray:
         from scipy.stats import skew, kurtosis

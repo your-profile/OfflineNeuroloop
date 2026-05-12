@@ -192,19 +192,15 @@ def train(env:gymnasium.Env,
                 
                 # store success rate
                 all_episode_success.append(eval_success)
-
-            else:
-                all_episode_success.append(eval_success)
-
-            all_total_rewards.extend(eval_reward)
-            all_episode_steps.append(offline_step)
-            score_avg = np.mean(all_total_rewards[-50:])
+                all_total_rewards.extend(eval_reward)
+                all_episode_steps.append(offline_step)
+                score_avg = np.mean(all_total_rewards[-200:])
 
             combined_steps += 1
 
         # bar update
         pbar.set_postfix(
-            {"Score": f"{eval_reward:7.2f}",
+            {"Score": f"{score_avg:7.2f}",
                 "Eval": f"{eval_success:.3f}",
             }, refresh=True
         )          
@@ -223,9 +219,9 @@ def train(env:gymnasium.Env,
         seed += 1 #increment seed
 
         # reset total reward and state action value
-        total_reward, state_action_value = 0, 0
+        total_reward = 0
 
-        for step in range(steps):
+        for online_step in range(steps):
             # choose action
             action, _ = agent.chooseAction(state, epsilon)
             
@@ -250,14 +246,9 @@ def train(env:gymnasium.Env,
                 
                 # store success rate
                 all_episode_success.append(eval_success)
-
-            else:
-                all_episode_success.append(eval_success)
-
-            all_average_rewards.append(round(total_reward/step, 2))
-            all_total_rewards.append(round(total_reward, 2))
-            all_episode_steps.append(step)
-            score_avg = np.mean(all_total_rewards[-50:])
+                all_total_rewards.extend(eval_reward)
+                all_episode_steps.append(online_step)
+                score_avg = np.mean(all_total_rewards[-200:])
            
             combined_steps += 1
 
@@ -276,7 +267,7 @@ def train(env:gymnasium.Env,
 
         # bar update
         pbar.set_postfix(
-            {"Score": f"{eval_reward:7.2f}",
+            {"Score": f"{score_avg:7.2f}",
                 "Eval": f"{eval_success:.3f}",
             }, refresh=True
         )          
