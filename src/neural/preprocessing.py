@@ -297,9 +297,25 @@ class DatasetProcessor:
                 df.loc[mask, col_shifted] = seg_labels.shift(-shift_periods).values
 
         self.label_df = df[['binary_label_shifted', 'ternary_label_shifted', 'continuous_label_shifted']].copy()
-
         df = df.dropna(subset=['binary_label_shifted', 'ternary_label_shifted', 'continuous_label_shifted'])
-   
+
+        # Sort the dataframe by episode, from worst to best, based on the highest final reward value per episode
+        # Assume 'episode' and 'reward' columns exist. If not, attempt robust grouping.
+        if 'episode' in df.columns and 'reward' in df.columns:
+            # Find the final index and reward for each episode
+            episode_group = df.groupby('episode')
+            final_idx_per_ep = episode_group.tail(1).index
+            episode_final_rewards = df.loc[final_idx_per_ep].set_index('episode')['reward']
+            # From worst (lowest reward) to best (highest reward)
+            sorted_episodes = episode_final_rewards.sort_values(ascending=True).index.tolist()
+            # Map episode to sort key
+            episode_sorter = {ep: i for i, ep in enumerate(sorted_episodes)}
+            df = df.assign(_ep_sort=df['episode'].map(episode_sorter))
+            df = df.sort_values(['_ep_sort', 'episode', df.index.name if df.index.name else df.index], kind='mergesort').drop(columns=['_ep_sort'])
+        else:
+            # If no episode/reward info exists, keep original order
+            pass
+
         self.fnirs_df = df
 
         return df

@@ -12,8 +12,8 @@ experiment:
 
 neural:
   smoothing_window_size: 1
-  temporal_shift: 4.0
-  window_size_s: 1.0
+  temporal_shift: 0.0
+  window_size_s: 4.0
   fnirs_rate_hz: 5.2
   beta: 1.0
 

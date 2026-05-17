@@ -18,7 +18,7 @@ NEURAL_CONDITION_MAP = {
 
 ABLATIONS = [
     # {"key": ["mlp", "model_noise"], "vals": [0.0]},#, 0.2, 0.5, 1.0]},
-    {"key": ["experiment", "pretrained_success_rate"], "vals": [10.0, 25.0, 40.0, 55.0, 70.0, 85.0]},#, 0.2, 0.5, 1.0]},
+    {"key": ["experiment", "pretrained_success_rate"], "vals": [25.0, 20.0]},#, 0.2, 0.5, 1.0]},
     # {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0]},
     # {"key": ["neural", "beta"], "vals": [1.0]},
     # {"key": ["neural", "window_size_s"], "vals": [4.0, 5.0]},
@@ -26,17 +26,17 @@ ABLATIONS = [
 
 # testing: single condition, binary granularity, no ablation sweeps
 NEURAL_CONDITIONS = [
-    # "Prioritization",
-    # "Baseline-PER",
-    # "Q-Augmentation",
+    "Prioritization",
+    "Baseline-PER",
+    "Q-Augmentation",
     "Reward Augmentation",
-    # "All-PER",
+    "All-PER",
 ]
 
 GRANULARITIES = ["binary", "ternary", "continuous"]
 GRANULARITIES = ["binary"]
 
-SEEDS = [42]#, 44, 45, 46, 47, 48, 49, 50, 51] #, 43, 44, 45, 46, 47, 48, 49, 50, 51] 
+SEEDS = [42, 43, 44, 45, 46, 47, 48, 49, 50, 51] #, 43, 44, 45, 46, 47, 48, 49, 50, 51] 
 
 DOMAINS_TASKS = {
     # "Lunar": ["Passive"], #, "Active", "Pooled"],

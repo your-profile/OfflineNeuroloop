@@ -255,14 +255,14 @@ def train(env:gymnasium.Env,
             if done or terminated:                    
                     break
 
-        if eval_success >= 0.01:
+        if eval_success >= 0.999:
             # save agent if above 60% success rate
             torch.save({
                 'episode': episode,
                 'model_state_dict': agent.policy_net.state_dict(),
                 'target_model_state_dict': agent.target_net.state_dict(),  # critical
                 'optimizer_state_dict': agent.optimizer.state_dict(),
-                'epsilon': agent.epsilon,  # important
+                'epsilon': epsilon,  # important
             }, f"{str(domain_key).upper()}Policy{str(int(success*100))}")
 
         # bar update
