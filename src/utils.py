@@ -2,6 +2,7 @@ import gymnasium
 from copy import deepcopy as dc
 from src.networks.DQN import DQN
 from src.networks.DDPG import DDPG
+# from src.networks.PPO import PPO
 from src.envs.lunar_lander import LunarLander
 from src.envs.flappy_bird import FlappyBirdEnv
 import torch
@@ -31,6 +32,15 @@ def make_fetch_env(max_episode_steps=50, mujoco_version: int = 4, verbose: bool 
         "No FetchPickAndPlace env found (tried v2/v3/v4). Install gymnasium-robotics."
     )
 
+def get_means(domain: str):
+    if domain[0].lower() == "l":
+        return (1.4, -0.95, -2.6)
+    elif domain[0].lower() == "f":
+        return (0.75, -0.1, -0.75)
+    elif domain[0].lower() == "r":
+        return (0.0, -0.5, -0.1)
+    else:
+        raise ValueError(f"Invalid domain: {domain}")
 
 def load_domain(env: str, steps: int = None):
     if env[0].lower() == "l":
@@ -93,6 +103,19 @@ def load_agent(algorithm: str, buffer_type: str, filename:str, space=(11, 4), pr
     elif algorithm == "DDPG":
         inner = make_fetch_env(max_episode_steps=50, mujoco_version=4, verbose = verbose)
         agent = load_ddpg_agent(inner, buffer_type, verbose = verbose)
+
+    # elif algorithm == "PPO":
+    #     agent = PPO(
+    #         state_dim=space[0],
+    #         action_dim=space[1],
+    #         lr_actor=1e-3,
+    #         lr_critic=1e-3,
+    #         gamma=0.99,
+    #         K_epochs=10,
+    #         eps_clip=0.2,
+    #         has_continuous_action_space=False,
+    #         action_std_init=0.6,
+    #     )
 
     if pretrained_success_rate > 0.0:
         return load_pretrained_agent(agent=agent, filename=filename, pretrained_success_rate=pretrained_success_rate, algorithm=algorithm, space=space, verbose = verbose)

@@ -9,17 +9,22 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
 
     env = utils.load_domain(cfg["experiment"]["domain"], cfg["rl"]["steps"])
     agent = utils.load_agent(cfg["rl"]["algorithm"], cfg["rl"]["buffer_type"], filename=RESULTS_PATH, space = (cfg["rl"]["observation_space"], cfg["rl"]["action_space"]), pretrained_success_rate = cfg["experiment"]["pretrained_success_rate"], verbose = verbose)
-    
-    if cfg["experiment"]["integration_type"] == "early":
-        print("Early Integration")
-        from src.training_loop_early import train, train_robot
+    means = utils.get_means(cfg["experiment"]["domain"].lower())
 
-    if cfg["experiment"]["integration_type"] == "interleaved":
-        from src.training_loop import train, train_robot
-
-    if cfg["experiment"]["integration_type"] == "finetune":
+    if cfg["experiment"]["integration_type"] == "irl":
+        print("Inverse RL")
+        from src.training_loop_surrogate import train, train_robot
+    elif cfg["experiment"]["integration_type"] == "interleaved":
+        print("Interleaved")
+        from src.training_loop_interleaving import train, train_robot
+    elif cfg["experiment"]["integration_type"] == "finetune":
+        print("Finetune")
         from src.training_loop_finetuning import train, train_robot
-        agent.lr = 1e-5
+    elif cfg["experiment"]["integration_type"] == "pretrain":
+        print("Pretrain")
+        from src.training_loop_pretraining import train, train_robot
+    else:
+        raise ValueError(f"Invalid integration type: {cfg['experiment']['integration_type']}")
 
     if not os.path.exists(os.path.join(DATA_PATH, 'fNIRS/LabeledData/')):
         try:
@@ -82,6 +87,7 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
             agent = agent, 
             flags = cfg["experiment"]["experiment_list"], 
             granularity = cfg["experiment"]["model_granularity"],
+            means = means,
             episodes_num = cfg["rl"]["n_episodes"],
             clf = classifier, 
             ml = modelTrainer, 
@@ -97,7 +103,11 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
             steps = cfg["rl"]["steps"], 
             save_results = True,
             save_to_csv = False,
-            verbose = verbose)
+            verbose = verbose,
+            eval_success_threshold = cfg["experiment"]["eval_success_threshold"],
+            success_save_threshold = 0.5,
+            save_agent = False,
+        )
     else:
         results_dictionary = train_robot(
             env=env,
@@ -121,7 +131,11 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
             steps=cfg["rl"]["steps"],
             save_results=True,
             save_to_csv=False,
-            verbose=verbose
+            verbose=verbose,
+            eval_success_threshold = cfg["experiment"]["eval_success_threshold"],
+            success_save_threshold = 0.5,
+            save_agent = False,
+            means = means,
         )
 
     trial_dict = {}

@@ -83,9 +83,9 @@ from pygame.transform import flip as img_flip
 
 _BASE_DIR = Path(os.path.dirname(os.path.realpath(__file__))).parent
 
-SPRITES_PATH = str(_BASE_DIR / "games/assets/sprites")
-AUDIO_PATH = str(_BASE_DIR / "games/assets/audio")
-MODEL_PATH = str(_BASE_DIR / "games/assets/model")
+SPRITES_PATH = str(_BASE_DIR / "envs/assets/sprites")
+AUDIO_PATH = str(_BASE_DIR / "envs/assets/audio")
+MODEL_PATH = str(_BASE_DIR / "envs/assets/model")
 
 
 def pixel_collision(
