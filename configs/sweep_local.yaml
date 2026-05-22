@@ -1,0 +1,30 @@
+# Small local runs on MacBook — used by run_local_test.py
+base_config: configs/test.yaml
+
+paths:
+  data_path: "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/"
+  results_path: "/Users/juliasantaniello/Desktop/OfflineNeuroloop/"
+
+integrations:
+  - finetune
+  - interleaved
+  - pretrain
+
+seeds: [42]
+
+conditions:
+  - Baseline-PER
+
+granularities:
+  - binary
+
+# Use per-domain config file (overrides flappy.yaml defaults)
+domains:
+  - domain_config: configs/domains/flappy/1.yaml
+    tasks: [Passive]
+
+ablations:
+  - key: [experiment, eval_success_threshold]
+    vals: [0.0]
+
+n_episodes_override: 10

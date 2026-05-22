@@ -1,61 +1,6 @@
-import itertools, copy, yaml
+import itertools, yaml
 from trial import run
-
-with open("configs/base.yaml") as f:
-    base = yaml.safe_load(f)
-
-NEURAL_CONDITION_MAP = {
-    "Baseline-ER": [0],
-    "Baseline-PER": [0],
-    "Reward Augmentation": [1],
-    "Prioritization": [2],
-    "Q-Augmentation": [3],
-    "All-ER": [0, 1, 3],
-    "All-PER": [0, 1, 2, 3],
-
-}
-# Ablation Studies
-
-ABLATIONS = [
-    # {"key": ["mlp", "model_noise"], "vals": [0.0]},#, 0.2, 0.5, 1.0]},
-    {"key": ["experiment", "eval_success_threshold"], "vals": [0.0]},#, 0.2, 0.5, 1.0]},
-    # {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0]},
-    # {"key": ["neural", "beta"], "vals": [1.0]},
-    # {"key": ["neural", "window_size_s"], "vals": [4.0, 5.0]},
-]
-
-# testing: single condition, binary granularity, no ablation sweeps
-NEURAL_CONDITIONS = [
-    "Baseline-PER",
-    "Prioritization",
-    "Q-Augmentation",
-    "Reward Augmentation",
-    "All-PER",
-]
-
-GRANULARITIES = ["binary", "ternary", "continuous"]
-GRANULARITIES = ["binary"]
-
-SEEDS = [42, 43, 44, 45, 46, 47, 48, 49, 50, 51] #, 43, 44, 45, 46, 47, 48, 49, 50, 51] 
-
-DOMAINS_TASKS = {
-    # "Lunar": ["Passive"], #, "Active", "Pooled"],
-    "Flappy": ["Pooled"]#, "Active", "Pooled"],
-    # "Robot": ["Passive"]#, "Active", "Pooled"],
-}
-
-
-DATA_PATH = '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/' 
-RESULTS_PATH = '/Users/juliasantaniello/Desktop/OfflineNeuroloop/' 
-RESULTS_FILE_NAME = 'trial_results_finetuning.csv'
-#DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/' 
-#RESULTS_PATH = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/' 
-
-# DATA_PATH = '/cluster/home/mbrowe02/fNIRS2RL/Experiment/ParticipantData/'
-# RESULTS_PATH = '/cluster/home/mbrowe02/OfflineNeuroloop/'
-
-def set_nested(cfg, keys, val):
-    cfg[keys[0]][keys[1]] = val
+import argparse
 
 def make_run_name(cfg):
     e = cfg["experiment"]
@@ -69,77 +14,65 @@ def make_run_name(cfg):
         f"__{n['temporal_shift']}"
     )
 
-def print_cfg(cfg):
-    #print the cfg in a readable format
-    for k, v in cfg.items():
-        print(f"{k}: {v}")
-        if isinstance(v, dict):
-            print_cfg(v)
-        else:
-            print(f"{k}: {v}")
+def main(cfg, data_path, results_path):
+    results_file_name = "trial_results_finetuning.csv"
 
-# Ablation sweeps across the full condition grid
-for ablation, (domain, tasks), seed, granularity, condition in itertools.product(
-    ABLATIONS, DOMAINS_TASKS.items(), SEEDS, GRANULARITIES, NEURAL_CONDITIONS
-):
-    # if condition == "Baseline-PER" and granularity != "binary":
-    #     continue
+    NEURAL_CONDITION_MAP = {
+        "Baseline-ER": [0],
+        "Baseline-PER": [0],
+        "Reward Augmentation": [1],
+        "Prioritization": [2],
+        "Q-Augmentation": [3],
+        "All-ER": [0, 1, 3],
+        "All-PER": [0, 1, 2, 3],
 
-    # if condition == "Baseline" and granularity != "binary":
-    #     continue
+    }
 
-    with open(f"configs/domains/{domain}.yaml") as f:
-        domain_base = yaml.safe_load(f)
-        domain_cfg = copy.deepcopy(domain_base)
+    # testing: single condition, binary granularity, no ablation sweeps
+    NEURAL_CONDITIONS_PER = [
+        "Baseline-PER",
+        "Prioritization",
+        "Q-Augmentation",
+        "Reward Augmentation",
+        "All-PER",
+    ]
 
-    if base["rl"]["n_episodes"] == "test":
-        domain_cfg["rl"]["n_episodes"] = 10
+    NEURAL_CONDITIONS_ER = [
+        "Baseline-ER",
+        "Q-Augmentation",
+        "Reward Augmentation",
+        "All-ER",
+    ]
+
+    SEEDS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29]
 
 
-    for task in tasks:
-        for val in ablation["vals"]:
-            
-            cfg = copy.deepcopy(base)
+    if cfg["rl"]["buffer_type"] == "PER":
+        NEURAL_CONDITIONS = NEURAL_CONDITIONS_PER
+    else:
+        NEURAL_CONDITIONS = NEURAL_CONDITIONS_ER
 
-            cfg["experiment"]["integration_type"] = "finetune"
+    # Ablation sweeps across the full condition grid
+    for seed, condition in itertools.product(SEEDS, NEURAL_CONDITIONS):
 
-            cfg["experiment"].update({
-               "domain": domain_cfg["experiment"]["domain"],
-                "task": task,
-                "condition": condition,
-                "experiment_list": NEURAL_CONDITION_MAP[condition],
-                "model_granularity": granularity,
-                "random_state": seed,
-                "pretrained_success_rate": domain_cfg["experiment"]["pretrained_success_rate"],
-            })
+        cfg["experiment"]["seed"] = seed
+        cfg["experiment"]["condition"] = condition
+        cfg["experiment_list"] = NEURAL_CONDITION_MAP[condition]
 
-            cfg["mlp"].update({
-                "binary_hidden_layer_sizes": domain_cfg["mlp"]["binary_hidden_layer_sizes"],
-                "ternary_hidden_layer_sizes": domain_cfg["mlp"]["ternary_hidden_layer_sizes"],
-                "regressor_hidden_layer_sizes": domain_cfg["mlp"]["regressor_hidden_layer_sizes"],
-                "reg_activation": domain_cfg["mlp"]["reg_activation"],
-                "early_stopping": domain_cfg["mlp"]["early_stopping"],
-                "binary_alpha": domain_cfg["mlp"]["binary_alpha"],
-                "ternary_alpha": domain_cfg["mlp"]["ternary_alpha"],
-                "reg_alpha": domain_cfg["mlp"]["reg_alpha"],
-                "binary_activation": domain_cfg["mlp"]["binary_activation"],
-                "ternary_activation": domain_cfg["mlp"]["ternary_activation"],
-                "reg_activation": domain_cfg["mlp"]["reg_activation"],
-            })
+        print(cfg)
+        run(cfg, run_name=make_run_name(cfg), DATA_PATH=data_path, RESULTS_PATH=results_path, RESULTS_FILE_NAME=results_file_name, verbose = cfg["experiment"]["verbose"])
 
-            cfg["rl"].update({
-                "n_episodes": domain_cfg["rl"]["n_episodes"],
-                "algorithm": domain_cfg["rl"]["algorithm"],
-                "steps": domain_cfg["rl"]["steps"],
-                "action_space": domain_cfg["rl"]["action_space"],
-                "observation_space": domain_cfg["rl"]["observation_space"],
-                "buffer_type": cfg["rl"]["buffer_type"]
+if __name__ == "__main__":
+    #add config file as argument
+    parser = argparse.ArgumentParser()
+    parser.add_argument("config", "-c", type=str, help="Path to the config file")
+    parser.add_argument("domain", "-d", type=str, help="Domain")
+    parser.add_argument("data_path", "-dp", type=str, help="Data path", default="/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/")
+    parser.add_argument("results_path", "-rp", type=str, help="Results path", default="/Users/juliasantaniello/Desktop/OfflineNeuroloop/")
 
-            })
-            
-            if condition == "Baseline" and ((ablation["key"][1] == "model_noise" and val != 0.0) or (ablation["key"][1] == "temporal_shift" and val != 0.0)):
-                continue
-            set_nested(cfg, ablation["key"], val)
-            print(cfg)
-            # input("Press Enter to continue... \n")
-            run(cfg, run_name=make_run_name(cfg), DATA_PATH=DATA_PATH, RESULTS_PATH=RESULTS_PATH,RESULTS_FILE_NAME=RESULTS_FILE_NAME, verbose = cfg["experiment"]["verbose"], inverse = False)
+    args = parser.parse_args()
+    domain = args.domain
+    if domain == "flappy":
+        cfg = f"configs/domains/flappy/{args.config}.yaml"
+
+    main(cfg)

@@ -31,6 +31,7 @@ def train(env:gymnasium.Env,
           steps: int, 
           window_duration_s: float, 
           granularity: str,
+          means: tuple,
           fnirs_rate_hz: float = 5.2, 
           shift: float = 0.0, 
           noise = 0.0,
@@ -42,7 +43,9 @@ def train(env:gymnasium.Env,
           save_results: bool = False, 
           save_to_csv: bool = False,
           verbose: bool = False,
-          fnirs_predictor = None,
+          eval_success_threshold = 0.0,
+          success_save_threshold = 1.0,
+          save_agent = False,
     ):
 
     start_time = time.time()
@@ -65,10 +68,10 @@ def train(env:gymnasium.Env,
     if granularity[0] == "t": gr = 1
     if granularity[0] == "c": gr = 2
 
-    if domain_key.lower() == "l":
-        means = (1.4, -0.95, -2.6)
-    if domain_key.lower() == "f":
-        means = (0.75, -0.1, -0.75)
+    # if domain_key.lower() == "l":
+    #     means = (1.4, -0.95, -2.6)
+    # if domain_key.lower() == "f":
+    #     means = (0.75, -0.1, -0.75)
 
     # rewards, timesteps, success rate, optimality predictions
     all_average_rewards, all_total_rewards, all_episode_steps, all_episode_success, classes_truth, classes_pred = [],[],[],[],[],[]

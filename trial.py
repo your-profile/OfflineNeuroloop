@@ -153,8 +153,9 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
 
     flat_trial = flatten_dict(trial_dict)
 
-    csv_path = os.path.join(RESULTS_PATH,'src/results/', RESULTS_FILE_NAME)
-    write_header = not os.path.exists(os.path.join(RESULTS_PATH,'src/results/', RESULTS_FILE_NAME))
+    csv_path = os.path.join(RESULTS_PATH, 'src/results/', RESULTS_FILE_NAME)
+    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+    write_header = not os.path.exists(csv_path)
     with open(csv_path, 'a', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=flat_trial.keys())
         if write_header:

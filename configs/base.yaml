@@ -1,33 +1,9 @@
-experiment: 
-  domain: "Lunar"                         # robot | lunar | flappy 
-  task: "Pooled"                         # Passive | Active | Pooled    
-  condition: "Baseline"                   # Baseline (0) | Reward Augmentation (1) | Prioritization (2) | Epsilon Modulation (3) | LR Modulation (4) | Q-Augmentation (5)      
-  experiment_list: [0]                    # Baseline (0) | Reward Augmentation (1) | Prioritization (2) | Epsilon Modulation (3) | LR Modulation (4) | Q-Augmentation (5)       
-  model_granularity: "binary"             # binary | ternary | continuous
-  participant_list: [2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
-  random_state: 42
-  pretrained_success_rate: 0.0
-  eval_success_threshold: 0.0
-  verbose: False
+experiment:
+  data_path: "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/"
+  results_path: "/Users/juliasantaniello/Desktop/OfflineNeuroloop/"
 
-neural:
-  smoothing_window_size: 1
-  temporal_shift: 0.0
-  window_size_s: 4.0
-  fnirs_rate_hz: 5.2
-  beta: 1.0
+  #data_path = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/' 
+  #results_path = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/' 
 
-mlp:
-  model_noise: 0.0
-  binary_hidden_layer_sizes: [10, 4, 2]
-  ternary_hidden_layer_sizes: [18, 5, 3]
-  regressor_hidden_layer_sizes: [20, 6, 2]
-  clf_activation: "relu"
-  reg_activation: "tanh"
-rl:
-  n_episodes: 1
-  algorithm: "PPO"
-  buffer_type: "PER"
-  learning_rate_init: 0.001
-  observation_space: 11
-  action_space: 4
+  # data_path = '/cluster/home/mbrowe02/fNIRS2RL/Experiment/ParticipantData/'
+  # results_path = '/cluster/home/mbrowe02/OfflineNeuroloop/'
