@@ -104,19 +104,6 @@ def load_agent(algorithm: str, buffer_type: str, filename:str, space=(11, 4), pr
         inner = make_fetch_env(max_episode_steps=50, mujoco_version=4, verbose = verbose)
         agent = load_ddpg_agent(inner, buffer_type, verbose = verbose)
 
-    # elif algorithm == "PPO":
-    #     agent = PPO(
-    #         state_dim=space[0],
-    #         action_dim=space[1],
-    #         lr_actor=1e-3,
-    #         lr_critic=1e-3,
-    #         gamma=0.99,
-    #         K_epochs=10,
-    #         eps_clip=0.2,
-    #         has_continuous_action_space=False,
-    #         action_std_init=0.6,
-    #     )
-
     if pretrained_success_rate > 0.0:
         return load_pretrained_agent(agent=agent, filename=filename, pretrained_success_rate=pretrained_success_rate, algorithm=algorithm, space=space, verbose = verbose)
 
@@ -141,42 +128,24 @@ def load_ddpg_agent(env, buffer_type: str, verbose: bool = False, pretrained_suc
     action_bounds = [test_env.action_space.low[0], test_env.action_space.high[0]]
 
 
-    if buffer_type == "PER":
-        agent = DDPG(n_states=state_shape,
-                n_actions=n_actions,
-                n_goals=n_goals,
-                action_bounds=action_bounds,
-                capacity=memory_size,
-                action_size=n_actions,
-                batch_size=batch_size,
-                actor_lr=actor_lr,
-                critic_lr=critic_lr,
-                gamma=gamma,
-                tau=tau,
-                k_future=k_future,
-                env=dc(env),
-                verbose=verbose)
-        if pretrained_success_rate > 0.0:
-            return load_pretrained_agent(agent=agent, pretrained_success_rate=pretrained_success_rate, algorithm="DDPG", space=(12, 2), verbose = verbose)
-    else:
-
-        agent = DDPG(n_states=state_shape,
-                n_actions=n_actions,
-                n_goals=n_goals,
-                action_bounds=action_bounds,
-                capacity=memory_size,
-                action_size=n_actions,
-                batch_size=batch_size,
-                actor_lr=actor_lr,
-                critic_lr=critic_lr,
-                gamma=gamma,
-                tau=tau,
-                k_future=k_future,
-                env=dc(env),
-                verbose=verbose)
-        if pretrained_success_rate > 0.0:
-            return load_pretrained_agent(agent=agent, pretrained_success_rate=pretrained_success_rate, algorithm="DDPG", space=(12, 2), verbose = verbose)
-
+    agent = DDPG(n_states=state_shape,
+            n_actions=n_actions,
+            n_goals=n_goals,
+            action_bounds=action_bounds,
+            capacity=memory_size,
+            action_size=n_actions,
+            batch_size=batch_size,
+            actor_lr=actor_lr,
+            critic_lr=critic_lr,
+            gamma=gamma,
+            tau=tau,
+            k_future=k_future,
+            env=dc(env),
+            verbose=verbose)
+            
+    if pretrained_success_rate > 0.0:
+        return load_pretrained_agent(agent=agent, pretrained_success_rate=pretrained_success_rate, algorithm="DDPG", space=(12, 2), verbose = verbose)
+    
     return agent
 
 def get_conditions(domain, task: str, verbose = False):

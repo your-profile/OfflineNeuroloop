@@ -36,18 +36,22 @@ def train(env:gymnasium.Env,
           shift: float = 0.0, 
           noise = 0.0,
           smoothing_window_size: int = 0,
-          target_update: int = 20, 
+          target_update: int = 200, 
           buffer_type: str = 'ER', 
           seed: int = 42,
           beta: float = 1.0,
           save_results: bool = False, 
           save_to_csv: bool = False,
           verbose: bool = False,
-          fnirs_predictor = None,
+          eval_success_threshold = 0.0,
+          success_save_threshold = 1.0,
+          save_agent = False,
     ):
 
     start_time = time.time()
     epsilon = 0.1
+
+    fnirs_predictor = FnirsFeaturePredictor(means=means)
 
     # calculate window size + initialize buffer
     sample_period_s = 1.0 / fnirs_rate_hz
@@ -198,8 +202,7 @@ def train(env:gymnasium.Env,
             pred_buffer = None
             base_t = pd.Timestamp("1970-01-01", tz="UTC")
 
-            if fnirs_predictor is not None:
-                pred_buffer = fNIRSBuffer(window_duration_s=window_duration_s, sample_period_s=sample_period_s, neural_channels=fnirs_channel_names)
+            pred_buffer = fNIRSBuffer(window_duration_s=window_duration_s, sample_period_s=sample_period_s, neural_channels=fnirs_channel_names)
 
             online_truth = []
             predicted_truth = []
@@ -218,48 +221,44 @@ def train(env:gymnasium.Env,
                 priority_online = 0.0
                 q_aug_online = 0.0
 
-                if fnirs_predictor is not None and pred_buffer is not None:
-                    # get env state
-                    state_vector = np.asarray(state, dtype=np.float32).ravel()
+                
+                # get env state
+                state_vector = np.asarray(state, dtype=np.float32).ravel()
 
-                    # check if state vector is the correct size
-                    if state_vector.size != fnirs_predictor.state_dim:
-                        raise Exception("State vector is not the correct size")
+                features = pred_buffer.get_features()
+                neural_signal = utils_rl.get_neural_signal(clf, features)
 
-                    features = pred_buffer.get_features()
-                    neural_signal = utils_rl.get_neural_signal(clf, features)
+                predicted_neural_vector = fnirs_predictor.predict_numpy(state_vector)
+                pred_row = pd.Series(predicted_neural_vector, index=list(fnirs_channel_names), name=int(step))
+                ts = base_t + pd.Timedelta(seconds=float(step) * sample_period_s)
+                pred_buffer.add_sample(ts, pred_row, neural_signal)
+                new_neural_signal = pred_buffer.get_neural_credit(granularity=granularity, X=smoothing_window_size)
 
-                    predicted_neural_vector = fnirs_predictor.predict_numpy(state_vector)
-                    pred_row = pd.Series(predicted_neural_vector, index=list(fnirs_channel_names), name=int(step))
-                    ts = base_t + pd.Timedelta(seconds=float(step) * sample_period_s)
-                    pred_buffer.add_sample(ts, pred_row, neural_signal)
-                    new_neural_signal = pred_buffer.get_neural_credit(granularity=granularity, X=smoothing_window_size)
+                if noise > 0.0:
+                    new_neural_signal = ml.noisy_output(clf, new_neural_signal, granularity, flip_rate=noise)
+                adjusted_neural_signal = utils_rl.adjust_neural_classification(new_neural_signal, beta=beta)
 
-                    if noise > 0.0:
-                        new_neural_signal = ml.noisy_output(clf, new_neural_signal, granularity, flip_rate=noise)
-                    adjusted_neural_signal = utils_rl.adjust_neural_classification(new_neural_signal, beta=beta)
+                if 1 in flags:
+                    reward_online = float(utils_rl.adjust_reward(reward_online, adjusted_neural_signal))
+                if 2 in flags:
+                    priority_online = abs(reward_online) + float(adjusted_neural_signal)
+                if 3 in flags:
+                    q_aug_online = float(adjusted_neural_signal)
+                if buffer_type == "ER":
+                    priority_online = 0.0
 
-                    if 1 in flags:
-                        reward_online = float(utils_rl.adjust_reward(reward_online, adjusted_neural_signal))
-                    if 2 in flags:
-                        priority_online = abs(reward_online) + float(adjusted_neural_signal)
-                    if 3 in flags:
-                        q_aug_online = float(adjusted_neural_signal)
-                    if buffer_type == "ER":
-                        priority_online = 0.0
-
-                    if domain_key == "L":
-                        if reward >= 90.0:
-                            online_truth.append(0)
-                        else:
-                            online_truth.append(1)
+                if domain_key == "L":
+                    if reward >= 90.0:
+                        online_truth.append(0)
                     else:
-                        if reward >= 0.0:
-                            online_truth.append(0)
-                        else:
-                            online_truth.append(1)
+                        online_truth.append(1)
+                else:
+                    if reward >= 0.0:
+                        online_truth.append(0)
+                    else:
+                        online_truth.append(1)
 
-                    predicted_truth.append(neural_signal)
+                predicted_truth.append(neural_signal)
 
                 agent.remember(state=state, action=action, reward=reward_online, next_state=next_state, done=done, priority=priority_online, q_augmentation=q_aug_online)
                 
@@ -326,7 +325,6 @@ def train(env:gymnasium.Env,
     if save_results:
         results = utils_rl.Results.save_results(experiment_list = flags, 
                                    episodes = episodes_num, 
-                                   avg_rewards = all_average_rewards, 
                                    total_rewards = all_total_rewards, 
                                    success_rate = all_episode_success,
                                    steps = all_episode_steps,
@@ -672,7 +670,6 @@ def train_robot(env: gymnasium.Env,
         results = utils_rl.Results.save_results(
             experiment_list=experiment_list,
             episodes=episodes_num,
-            avg_rewards=all_average_rewards,
             total_rewards=all_total_rewards,
             success_rate=all_episode_success,
             steps=all_episode_steps,

@@ -374,6 +374,7 @@ class DatasetProcessor:
         temporal_shift: float = 4.0,
         label_types: List[str] = ['binary_label_shifted', 'ternary_label_shifted', 'continuous_label_shifted']
     ):
+        print("Timestamp: ", timestamp, "Temporal Shift: ", temporal_shift)
         # Convert temporal_shift to Timedelta if it isn't already
         if not isinstance(temporal_shift, pd.Timedelta):
             temporal_shift = pd.Timedelta(seconds=temporal_shift)
@@ -387,6 +388,8 @@ class DatasetProcessor:
             closest_idx = self._nearest_iloc_from_datetime_index(self.label_df, "label", target_time)
 
         label_data = self.label_df.iloc[closest_idx][label_types]
+
+        print("Label Data: ", label_data)
 
         if label_data.isna().any() or label_data.isnull().any():
             return label_data.fillna(0.0)

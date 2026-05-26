@@ -40,6 +40,7 @@ def train(env:gymnasium.Env,
           buffer_type: str = 'ER', 
           seed: int = 42,
           beta: float = 1.0,
+          epsilon: float = 0.1,
           save_results: bool = False, 
           save_to_csv: bool = False,
           verbose: bool = False,
@@ -49,7 +50,6 @@ def train(env:gymnasium.Env,
     ):
 
     start_time = time.time()
-    epsilon = 0.1
 
     # calculate window size + initialize buffer
     sample_period_s = 1.0 / fnirs_rate_hz
@@ -68,14 +68,9 @@ def train(env:gymnasium.Env,
     if granularity[0] == "t": gr = 1
     if granularity[0] == "c": gr = 2
 
-    # if domain_key.lower() == "l":
-    #     means = (1.4, -0.95, -2.6)
-    # if domain_key.lower() == "f":
-    #     means = (0.75, -0.1, -0.75)
-
     # rewards, timesteps, success rate, optimality predictions
     all_average_rewards, all_total_rewards, all_episode_steps, all_episode_success, classes_truth, classes_pred = [],[],[],[],[],[]
-    success, combined_steps = (0.0, 0)
+    success, combined_steps, combined_episodes = (0.0, 0, 0)
 
     # training progress bar
     bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} < {remaining}, {rate_fmt} | {postfix}]'
@@ -85,38 +80,46 @@ def train(env:gymnasium.Env,
     online_episode_num = max(0, episodes_num // max(total_participant_episodes, 1))
 
     # OFFLINE DATASET TRAINING LOOP
-    for (participant, episode), episode_df in grouped:  
+    for offline_episode, ((participant, episode), episode_df) in enumerate(grouped):  
         total_reward, eval_success, eval_reward = 0, 0.0, 0.0
         rows = episode_df.reset_index(drop=True)
         n = len(rows)
         done = False
+        seed = int(rows["seed"].iloc[0])
 
-        for t in range(n):
-            action = rows["actions"].iloc[t]
-            action_dist = rows["optimal_actions"].iloc[t]
-            reward = rows["rewards"].iloc[t]
-            state = rows["states"].iloc[t]
-            final_step = rows["steps"].iloc[t]
+        if domain_key == "F":
+            state, _ = env.reset(seed=seed) #seed for flappy bird
+        else:
+            state = env.reset(seed=seed) #seed for lunar lander
+
+        for offline_step in range(1, n):
+            action = rows["actions"].iloc[offline_step]
+            action_dist = rows["optimal_actions"].iloc[offline_step]
+            reward = rows["rewards"].iloc[offline_step]
+            state = rows["states"].iloc[offline_step]
+            final_step = rows["steps"].iloc[offline_step]
             priority = None
             q_augmentation = 0.0
 
-            # if action is Nan, skip
             if action != action or action_dist is None:
-                continue
+                action = 0
+                action_dist = 0
             else:
                 action = int(action)
 
-            # get next state unless episode ends
-            if t + 1 < n:
-                done = False
-                next_state = rows["states"].iloc[t + 1]
+            # take action in env
+            if domain_key == "F":
+                next_state, reward, done, terminated, _ = env.step(action) #flappy bird
             else:
-                done = True
-                next_state = state
+                terminated = False
+                next_state, reward, done, _ = env.step(action) #lunar lander
 
+            # print(f"DATASET: {offline_step}, Next State: {next_state_dataset}, Reward: {reward_dataset}, Done: {done_dataset}")
+            # print(f"ENVIRON: {offline_step}, Next State: {next_state}, Reward: {reward}, Terminated: {terminated}, Done: {done}")
+            
             if 0 not in flags:
                 # get rl task statistic tuple (state, action, reward) timestamp
-                rl_timestamp = rows["time"].iloc[t]
+                rl_timestamp = rows["time"].iloc[offline_step]
 
                 # get associated fNIRS sample given timestep
                 neural_features = buffer.get_features()
@@ -142,8 +145,8 @@ def train(env:gymnasium.Env,
                 # get next action distribution, unless episode ends
                 fs = int(final_step) if pd.notna(final_step) else n
 
-                if t < fs - 1 and t + 1 < n:
-                    next_action_dist = rows["optimal_actions"].iloc[t + 1]
+                if offline_step < fs - 1 and offline_step + 1 < n:
+                    next_action_dist = rows["optimal_actions"].iloc[offline_step + 1]
                 else:
                     next_action_dist = action_dist
 
@@ -177,7 +180,20 @@ def train(env:gymnasium.Env,
                     classes_pred.append(neural_signal) #raw predictions
                 
                 classes_truth.append(class_truth.to_list()[gr]) #truth
+
+            # evaluate agent
+            if combined_steps % target_update == 0:
+                if domain_key == "F": #flappy bird
+                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=50), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
+                else: #lunar lander
+                    eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
                 
+                # store success rate
+                all_episode_success.append(eval_success)
+                all_total_rewards.extend(eval_reward)
+                all_episode_steps.append(offline_step)
+                score_avg = np.mean(all_total_rewards[-200:])
+
             # set priority to 0 for ER buffer functionality
             if buffer_type == "ER":
                 priority = 0.0
@@ -186,8 +202,26 @@ def train(env:gymnasium.Env,
             agent.remember(state, action, reward, next_state, done, priority = priority, q_augmentation = q_augmentation)
             combined_steps += 1
 
+        # bar update
+        pbar.set_postfix(
+            {"Score": f"{score_avg:7.2f}",
+                "Eval": f"{eval_success:.3f}",
+            }, refresh=True
+        )          
+        pbar.update(1)
+
+        if offline_episode >= total_participant_episodes - 1:
+            print("Total Participant Episodes Reached: ", offline_episode, "Total Participant Episodes: ", total_participant_episodes, "Combined Episodes: ", combined_episodes, "Episodes Num: ", episodes_num, "Online Episode Num: ", online_episode_num)
+            online_episode_num = episodes_num - combined_episodes
+
+        if combined_episodes >= episodes_num:
+            break
+
+        combined_episodes += 1
+
         # ONLINE TRAINING LOOP
-        for _ in range(0, online_episode_num):
+        for online_episode in range(0, online_episode_num):
+
             # set seed
             if domain_key == "F":
                 state, _ = env.reset(seed=seed) #seed for flappy bird
@@ -199,8 +233,7 @@ def train(env:gymnasium.Env,
             # reset total reward and state action value
             total_reward, state_action_value = 0, 0
 
-            for step in range(steps):
-                combined_steps += 1
+            for online_step in range(steps):
                 # choose action
                 action, _ = agent.chooseAction(state, epsilon)
                 
@@ -215,30 +248,26 @@ def train(env:gymnasium.Env,
                 
                 state = next_state
                 total_reward += reward
+
+                # evaluate agent
+                if combined_steps % target_update == 0:
+                    if domain_key == "F": #flappy bird
+                        eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=50), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
+                    else: #lunar lander
+                        eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
+                    
+                    # store success rate
+                    all_episode_success.append(eval_success)
+                    all_total_rewards.extend(eval_reward)
+                    all_episode_steps.append(online_step)
+                    score_avg = np.mean(all_total_rewards[-200:])
+
                 combined_steps += 1
 
                 if done or terminated:                    
                     break
 
-            all_average_rewards.append(round(total_reward/step, 2))
-            all_total_rewards.append(round(total_reward, 2))
-            all_episode_steps.append(step)
-            score_avg = np.mean(all_total_rewards[-50:])
-
-            # evaluate agent
-            if combined_steps % target_update == 0:
-                if domain_key == "F": #flappy bird
-                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=30), agent=agent, episodes=20, steps=steps, domain_key=domain_key)
-                else: #lunar lander
-                    eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=20, steps=steps, domain_key=domain_key)
-               
-                # store success rate
-                all_episode_success.append(eval_success)
-
-            else:
-                all_episode_success.append(eval_success)
-
-            if eval_success >= 0.999:
+            if eval_success >= success_save_threshold and save_agent:
                 # save agent if above 60% success rate
                 torch.save({
                     'episode': episode,
@@ -256,7 +285,10 @@ def train(env:gymnasium.Env,
             )          
             pbar.update(1)
 
+            combined_episodes += 1
+
     # close environment
+    pbar.close()
     env.close()
 
     if 0 not in flags:
@@ -266,7 +298,6 @@ def train(env:gymnasium.Env,
     if save_results:
         results = utils_rl.Results.save_results(experiment_list = flags, 
                                    episodes = episodes_num, 
-                                   avg_rewards = all_average_rewards, 
                                    total_rewards = all_total_rewards, 
                                    success_rate = all_episode_success,
                                    steps = all_episode_steps,
@@ -492,8 +523,6 @@ def train_robot(env: gymnasium.Env,
         if combined_episodes%800 == 0:
             agent.save_weights()
 
-        step_count = len(episode_dict["state"]) - 1
-        step_count = max(step_count, 1)
         new_episode_num = max(0, episodes_num // max(total_participant_episodes, 1))
             
         for _ in range(new_episode_num):
@@ -612,7 +641,6 @@ def train_robot(env: gymnasium.Env,
         results = utils_rl.Results.save_results(
             experiment_list=experiment_list,
             episodes=episodes_num,
-            avg_rewards=all_average_rewards,
             total_rewards=all_total_rewards,
             success_rate=all_episode_success,
             steps=all_episode_steps,

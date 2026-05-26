@@ -8,17 +8,16 @@ class Results():
     '''
     Results: Saving hyperparameters and final results for experiments
     '''
-    def save_results(episodes, avg_rewards, total_rewards, success_rate, steps, experiment_list, save_to_csv = False, filepath = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/results"):
+    def save_results(episodes, total_rewards, success_rate, steps, experiment_list, save_to_csv = False, filepath = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/results"):
         import datetime
 
-        print(f"Len Average Rewards: {len(avg_rewards)}, Len Total Rewards: {len(total_rewards)}, Len Success Rate: {len(success_rate)}, Len Steps: {len(steps)}, Episodes: {episodes}")
+        print(f"Len Total Rewards: {len(total_rewards)}, Len Success Rate: {len(success_rate)}, Len Steps: {len(steps)}, Episodes: {episodes}")
 
         row = {
             "date": datetime.date.today(),
             "time": datetime.datetime.now(),
             "experiment_list": experiment_list,
             "episodes": episodes,
-            "average_reward": json.dumps(list(map(float, avg_rewards))),
             "total_reward": json.dumps(list(map(float, total_rewards))),
             "success_rate": json.dumps(list(map(float, success_rate))),
             "steps": json.dumps(list(map(float, steps))),

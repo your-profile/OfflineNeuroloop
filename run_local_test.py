@@ -29,12 +29,12 @@ from experiment_sweep import (
 )
 
 # --- edit these for ad-hoc local tests without changing YAML ---
-QUICK_INTEGRATIONS = ["finetune", "interleaved", "pretrain"]
+QUICK_INTEGRATIONS = ["pretrain", "pretrain", "finetune"]
 QUICK_CONDITIONS = ["Baseline-PER"]
 QUICK_SEEDS = [42]
-QUICK_DOMAIN_CONFIG = "configs/domains/flappy/1.yaml"
+QUICK_DOMAIN_CONFIG = "configs/domains/robot/1.yaml"
 QUICK_TASK = "Passive"
-QUICK_N_EPISODES = 10
+QUICK_N_EPISODES = 45
 QUICK_DATA_PATH = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/"
 QUICK_RESULTS_PATH = str(REPO_ROOT)
 
