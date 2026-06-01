@@ -18,9 +18,9 @@ conditions:
 granularities:
   - binary
 
-# Use per-domain config file (overrides flappy.yaml defaults)
 domains:
-  - domain_config: configs/domains/flappy/1.yaml
+  - domain_config: configs/domains/flappy.yaml
+    domain_key: Flappy
     tasks: [Passive]
 
 ablations:

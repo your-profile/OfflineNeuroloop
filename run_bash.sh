@@ -2,13 +2,19 @@
 #SBATCH --job-name=neuroloop
 #SBATCH --output=logs/neuroloop_%A_%a.log
 #SBATCH --error=logs/neuroloop_%A_%a.log
-#SBATCH --time=4:00:00
 #SBATCH --ntasks=1
 #SBATCH --partition=batch
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
-# Submit: sbatch --array=1-$(tail -n +2 trial_manifest.csv | wc -l | tr -d ' ') run_bash.sh
-# Or cap concurrency: sbatch --array=1-450%50 run_bash.sh
+# Time is set at submit time (domain-specific). Default fallback:
+#SBATCH --time=4:00:00
+#
+# One array task = one trial. Submit via submit_hpc.sh (recommended), e.g.:
+#   ./submit_hpc.sh manifests/flappy__pretrain__mlp_model_noise.csv
+#
+# Manual:
+#   export MANIFEST=manifests/flappy__pretrain__mlp_model_noise.csv
+#   sbatch --time=1:30:00 --array=1-$(($(wc -l < "$MANIFEST") - 1)) run_bash.sh
 
 set -euo pipefail
 
@@ -28,17 +34,26 @@ if [[ -n "${SLURM_CPUS_PER_TASK:-}" ]]; then
   export MKL_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
 fi
 
-MANIFEST="${SCRIPT_DIR}/trial_manifest.csv"
+MANIFEST="${MANIFEST:-${SCRIPT_DIR}/trial_manifest.csv}"
 if [[ ! -f "${MANIFEST}" ]]; then
-  echo "Missing ${MANIFEST}. Generate with: python generate_manifest.py -s configs/sweep_hpc.yaml"
+  echo "Missing ${MANIFEST}."
+  echo "Generate shards: python generate_manifest.py -s configs/sweep_hpc.yaml --shard-by domain_integration_ablation"
   exit 1
 fi
 
 if [[ -z "${SLURM_ARRAY_TASK_ID:-}" ]]; then
-  echo "Set SLURM_ARRAY_TASK_ID or submit with sbatch --array=1-N"
+  echo "Submit with SLURM array, e.g.: ./submit_hpc.sh manifests/<shard>.csv"
   exit 1
 fi
 
-python3 run_trial.py --manifest "${MANIFEST}" --trial-id "${SLURM_ARRAY_TASK_ID}"
+EXTRA_ARGS=()
+if [[ "${SKIP_COMPLETED:-1}" == "1" ]]; then
+  EXTRA_ARGS+=(--skip-if-done)
+fi
+
+python3 run_trial.py \
+  --manifest "${MANIFEST}" \
+  --trial-id "${SLURM_ARRAY_TASK_ID}" \
+  "${EXTRA_ARGS[@]}"
 
 echo "Finished at: $(date)"

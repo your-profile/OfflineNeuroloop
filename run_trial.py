@@ -12,6 +12,7 @@ from experiment_sweep import (
     make_run_name,
     read_manifest_row,
     trial_results_filename,
+    trial_results_path,
 )
 from trial import run
 
@@ -39,10 +40,18 @@ def main() -> None:
     parser.add_argument("--data-path", type=Path)
     parser.add_argument("--results-path", type=Path, default=REPO_ROOT)
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument(
+        "--skip-if-done",
+        action="store_true",
+        help="Exit 0 if this trial's results CSV already exists",
+    )
     args = parser.parse_args()
 
     if args.trial_id is not None:
         spec = read_manifest_row(args.manifest, args.trial_id)
+        if args.skip_if_done and trial_results_path(spec).is_file():
+            print(f"Skip trial_id={args.trial_id}: exists {trial_results_path(spec)}")
+            return
         cfg = cfg_from_spec(spec)
         if cfg is None:
             print(f"Trial {args.trial_id} skipped by ablation rules.", file=sys.stderr)

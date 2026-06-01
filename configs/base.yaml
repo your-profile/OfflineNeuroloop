@@ -1,0 +1,3 @@
+# Minimal shared defaults; domain YAMLs supply experiment/neural/mlp/rl settings.
+experiment:
+  verbose: false

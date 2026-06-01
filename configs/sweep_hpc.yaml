@@ -1,14 +1,28 @@
-# Full HPC sweep — generate manifest: python generate_manifest.py -s configs/sweep_hpc.yaml
-base_config: configs/domains/flappy.yaml
+# Full study definition for HPC.
+# Do NOT submit one job for the whole grid — generate shards and submit each:
+#
+#   python generate_manifest.py -s configs/sweep_hpc.yaml --shard-by domain_integration_ablation_granularity
+#   FILTER_GRANULARITY=binary ./submit_hpc.sh --generate-shards
+#   ./submit_hpc.sh --all
+#
+# Trial count (full grid):
+#   integrations × (sum of ablation vals) × seeds × granularities × conditions
+#   × domains × tasks
+# Example with all dimensions enabled below: 3 × 10 × 15 × 3 × 5 × 3 × 3 = 60,750 trials
+# Shards (domain × integration × ablation study): 27 manifests × ~2,250 trials each
+
+base_config: configs/flappy.yaml
 
 paths:
   data_path: "/cluster/home/mbrowe02/fNIRS2RL/Experiment/ParticipantData/"
   results_path: "/cluster/home/mbrowe02/OfflineNeuroloop/"
 
 integrations:
-  - pretrain # finetune | interleaved | pretrain
+  - pretrain
+  - finetune
+  - interleaved
 
-seeds: [1, 2, 3, 4, 5]
+seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 
 conditions:
   - Baseline-PER
@@ -18,21 +32,38 @@ conditions:
   - All-PER
 
 granularities:
-  - binary #ternary | continuous
+  - binary
+  - ternary
+  - continuous
 
 domains:
-  - domain_key: [Flappy, Lunar, Robot]
-    tasks: [Passive, Active, Pooled] #Active | Pooled
+  - domain_config: configs/domains/flappy.yaml
+    domain_key: Flappy
+    tasks: [Passive, Active, Pooled]
+  - domain_config: configs/domains/lunar.yaml
+    domain_key: Lunar
+    tasks: [Passive, Active, Pooled]
+  - domain_config: configs/domains/robot.yaml
+    domain_key: Robot
+    tasks: [Passive, Active, Pooled]
 
+# Each ablation block is a separate study (not crossed with the other).
 ablations:
-  - key: [experiment, model_noise]
-    vals: [0.0, 0.1, 0.3, 0.5, 0.7]
-  - key: [experiment, beta]
-    vals: [1.0, 2.0, 3.0, 4.0, 5.0]
+  - key: [mlp, model_noise]
+    vals: [0.0, 0.1, 0.5, 1.0]
+  - key: [neural, beta]
+    vals: [0.5, 1.0, 5.0, 10.0]
 
 profiles:
-  macbook:
-    seeds: [42]
-    conditions: [Baseline-PER]
+  smoke:
     integrations: [pretrain]
-    n_episodes_override: 10
+    seeds: [1]
+    conditions: [Baseline-PER]
+    granularities: [binary]
+    domains:
+      - domain_config: configs/domains/flappy.yaml
+        domain_key: Flappy
+        tasks: [Passive]
+    ablations:
+      - key: [mlp, model_noise]
+        vals: [0.0]

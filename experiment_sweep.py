@@ -3,13 +3,14 @@ from __future__ import annotations
 
 import copy
 import csv
-import itertools
+import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent
+MANIFESTS_DIR = REPO_ROOT / "manifests"
 
 NEURAL_CONDITION_MAP = {
     "Baseline-ER": [0],
@@ -27,18 +28,70 @@ INTEGRATION_RESULTS_SUFFIX = {
     "pretrain": "pretraining",
 }
 
+# Wall-clock hints for SLURM --time (one trial per array task).
+DOMAIN_SLURM_TIME = {
+    "flappy": "1:30:00",
+    "lunar": "3:00:00",
+    "robot": "8:00:00",
+}
+
 
 def load_yaml(path: str | Path) -> dict:
     with open(path) as f:
-        return yaml.safe_load(f)
+        return yaml.safe_load(f) or {}
+
+
+def deep_merge(base: dict, override: dict) -> dict:
+    """Recursively merge override into a copy of base."""
+    out = copy.deepcopy(base)
+    for key, val in override.items():
+        if key in out and isinstance(out[key], dict) and isinstance(val, dict):
+            out[key] = deep_merge(out[key], val)
+        else:
+            out[key] = copy.deepcopy(val)
+    return out
+
+
+def expand_list(val: Any) -> list[Any]:
+    if val is None:
+        return [None]
+    if isinstance(val, (list, tuple)):
+        return list(val)
+    return [val]
 
 
 def set_nested(cfg: dict, keys: list[str], val: Any) -> None:
-    cfg[keys[0]][keys[1]] = val
+    node = cfg
+    for key in keys[:-1]:
+        node = node.setdefault(key, {})
+    node[keys[-1]] = val
 
 
 def domain_yaml_path(domain_key: str) -> Path:
     return REPO_ROOT / "configs" / "domains" / f"{domain_key.lower()}.yaml"
+
+
+def domain_label_from_cfg(cfg: dict, domain_config: Path | None = None) -> str:
+    """Short label for sharding (Flappy, Lunar, Robot)."""
+    if domain_config is not None:
+        stem = domain_config.stem.lower()
+        if stem in ("flappy", "lunar", "robot"):
+            return stem.capitalize()
+        parent = domain_config.parent.name.lower()
+        if parent in ("flappy", "lunar", "robot"):
+            return parent.capitalize()
+    domain = str(cfg.get("experiment", {}).get("domain", ""))
+    if domain:
+        return domain.split()[0]
+    return "Unknown"
+
+
+def normalize_domain_filter(label: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", label.lower())
+
+
+def domain_config_path(domain_key: str) -> Path:
+    return domain_yaml_path(domain_key)
 
 
 def make_run_name(cfg: dict) -> str:
@@ -49,7 +102,8 @@ def make_run_name(cfg: dict) -> str:
         f"{e['domain']}__{e['task']}__{e['condition']}"
         f"__{e['integration_type']}"
         f"__{e['model_granularity']}"
-        f"__noise{m['model_noise']}__"
+        f"__seed{e['random_state']}"
+        f"__noise{m['model_noise']}"
         f"__beta{n['beta']}"
     )
 
@@ -132,9 +186,7 @@ def build_cfg(
                 "observation_space": domain_cfg["rl"]["observation_space"],
             }
         )
-        if "buffer_type" in cfg["rl"]:
-            pass
-        elif "buffer_type" in domain_cfg.get("rl", {}):
+        if "buffer_type" not in cfg["rl"] and "buffer_type" in domain_cfg.get("rl", {}):
             cfg["rl"]["buffer_type"] = domain_cfg["rl"]["buffer_type"]
     else:
         cfg["experiment"].update(
@@ -149,9 +201,9 @@ def build_cfg(
 
     cfg["experiment"]["integration_type"] = integration
 
-    if condition == "Baseline" and (
-        (ablation["key"][1] == "model_noise" and ablation_val != 0.0)
-        or (ablation["key"][1] == "temporal_shift" and ablation_val != 0.0)
+    if condition.startswith("Baseline") and (
+        (ablation["key"] == ["mlp", "model_noise"] and ablation_val != 0.0)
+        or (ablation["key"] == ["neural", "temporal_shift"] and ablation_val != 0.0)
     ):
         return None
 
@@ -163,9 +215,33 @@ def build_cfg(
     return cfg
 
 
+def _resolve_domain_entry(domain_entry: dict) -> list[tuple[str | None, Path | None]]:
+    """Return list of (domain_key label, domain_config path) pairs."""
+    pairs: list[tuple[str | None, Path | None]] = []
+    domain_configs = expand_list(domain_entry.get("domain_config"))
+    domain_keys = expand_list(domain_entry.get("domain_key"))
+
+    if domain_configs != [None]:
+        for dc in domain_configs:
+            path = REPO_ROOT / dc if not Path(str(dc)).is_absolute() else Path(dc)
+            label = domain_entry.get("domain_key")
+            if isinstance(label, list):
+                label = None
+            if label is None:
+                label = domain_label_from_cfg(load_yaml(path), path)
+            pairs.append((str(label), path))
+        return pairs
+
+    for dk in domain_keys:
+        if dk is None:
+            continue
+        pairs.append((str(dk), domain_config_path(str(dk))))
+    return pairs
+
+
 def iter_trial_specs(sweep: dict) -> list[dict]:
     """Expand sweep config into a list of trial specification dicts."""
-    base_config = REPO_ROOT / sweep.get("base_config", "configs/test.yaml")
+    base_config = REPO_ROOT / sweep.get("base_config", "configs/base.yaml")
     paths = sweep.get("paths", {})
     data_path = paths.get("data_path", "")
     results_path = paths.get("results_path", str(REPO_ROOT))
@@ -182,37 +258,100 @@ def iter_trial_specs(sweep: dict) -> list[dict]:
 
     for integration in integrations:
         for ablation in ablations:
+            ablation_key_str = ".".join(ablation["key"])
             for seed in seeds:
                 for granularity in granularities:
                     for condition in conditions:
                         for domain_entry in domains:
-                            domain_key = domain_entry.get("domain_key")
-                            domain_config = domain_entry.get("domain_config")
-                            tasks = domain_entry.get("tasks", ["Pooled"])
-                            if domain_config:
-                                domain_config = REPO_ROOT / domain_config
-                            for task in tasks:
-                                for val in ablation["vals"]:
-                                    trial_id += 1
-                                    specs.append(
-                                        {
-                                            "trial_id": trial_id,
-                                            "integration": integration,
-                                            "domain_key": domain_key or "",
-                                            "domain_config": str(domain_config) if domain_config else "",
-                                            "task": task,
-                                            "condition": condition,
-                                            "seed": seed,
-                                            "granularity": granularity,
-                                            "ablation_key": ".".join(ablation["key"]),
-                                            "ablation_val": val,
-                                            "base_config": str(base_config),
-                                            "n_episodes_override": n_episodes_override or "",
-                                            "data_path": data_path,
-                                            "results_path": results_path,
-                                        }
-                                    )
+                            tasks = expand_list(domain_entry.get("tasks", ["Pooled"]))
+                            for domain_key, domain_config in _resolve_domain_entry(domain_entry):
+                                for task in tasks:
+                                    for val in ablation["vals"]:
+                                        trial_id += 1
+                                        specs.append(
+                                            {
+                                                "trial_id": trial_id,
+                                                "integration": integration,
+                                                "domain_key": domain_key or "",
+                                                "domain_config": str(domain_config) if domain_config else "",
+                                                "task": task,
+                                                "condition": condition,
+                                                "seed": seed,
+                                                "granularity": granularity,
+                                                "ablation_key": ablation_key_str,
+                                                "ablation_val": val,
+                                                "base_config": str(base_config),
+                                                "n_episodes_override": n_episodes_override or "",
+                                                "data_path": data_path,
+                                                "results_path": results_path,
+                                            }
+                                        )
     return specs
+
+
+def filter_specs(
+    specs: list[dict],
+    *,
+    domains: Iterable[str] | None = None,
+    integrations: Iterable[str] | None = None,
+    ablation_keys: Iterable[str] | None = None,
+    conditions: Iterable[str] | None = None,
+    tasks: Iterable[str] | None = None,
+    granularities: Iterable[str] | None = None,
+) -> list[dict]:
+    domain_norm = {normalize_domain_filter(d) for d in domains} if domains else None
+    integ_set = set(integrations) if integrations else None
+    abl_set = set(ablation_keys) if ablation_keys else None
+    cond_set = set(conditions) if conditions else None
+    task_set = set(tasks) if tasks else None
+    gran_set = {g.strip().lower() for g in granularities} if granularities else None
+
+    out: list[dict] = []
+    for spec in specs:
+        if domain_norm is not None:
+            if normalize_domain_filter(spec["domain_key"]) not in domain_norm:
+                continue
+        if integ_set is not None and spec["integration"] not in integ_set:
+            continue
+        if abl_set is not None and spec["ablation_key"] not in abl_set:
+            continue
+        if cond_set is not None and spec["condition"] not in cond_set:
+            continue
+        if task_set is not None and spec["task"] not in task_set:
+            continue
+        if gran_set is not None and spec["granularity"].strip().lower() not in gran_set:
+            continue
+        out.append(spec)
+    return out
+
+
+def shard_specs(specs: list[dict], by: str) -> dict[str, list[dict]]:
+    """Group specs by domain, integration, or ablation_key for separate manifests."""
+    groups: dict[str, list[dict]] = {}
+    for spec in specs:
+        if by == "domain":
+            key = normalize_domain_filter(spec["domain_key"]) or "unknown"
+        elif by == "integration":
+            key = spec["integration"]
+        elif by == "ablation":
+            key = spec["ablation_key"].replace(".", "_")
+        elif by == "domain_integration":
+            key = f"{normalize_domain_filter(spec['domain_key'])}__{spec['integration']}"
+        elif by == "domain_integration_ablation":
+            key = (
+                f"{normalize_domain_filter(spec['domain_key'])}__"
+                f"{spec['integration']}__{spec['ablation_key'].replace('.', '_')}"
+            )
+        elif by == "domain_integration_ablation_granularity":
+            key = (
+                f"{normalize_domain_filter(spec['domain_key'])}__"
+                f"{spec['integration']}__{spec['ablation_key'].replace('.', '_')}__"
+                f"{spec['granularity']}"
+            )
+        else:
+            raise ValueError(f"Unknown shard mode: {by}")
+        groups.setdefault(key, []).append(spec)
+    return groups
 
 
 def should_skip_spec(spec: dict) -> bool:
@@ -276,6 +415,11 @@ def trial_results_filename(trial_id: int, integration: str) -> str:
     return f"runs/trial_{trial_id:05d}_{suffix}.csv"
 
 
+def trial_results_path(spec: dict) -> Path:
+    results_root = Path(spec["results_path"] or REPO_ROOT)
+    return results_root / "src/results" / trial_results_filename(int(spec["trial_id"]), spec["integration"])
+
+
 def write_manifest(specs: list[dict], path: Path) -> None:
     if not specs:
         raise ValueError("No trials to write (empty sweep?)")
@@ -301,10 +445,8 @@ def load_sweep(path: Path, profile: str | None = None) -> dict:
     return apply_profile(sweep, profile)
 
 
-def generate_manifest(sweep_path: Path, output_path: Path, profile: str | None = None) -> int:
-    sweep = load_sweep(sweep_path, profile=profile)
-    specs = iter_trial_specs(sweep)
-    valid = []
+def finalize_specs(specs: list[dict]) -> list[dict]:
+    valid: list[dict] = []
     for spec in specs:
         if should_skip_spec(spec):
             continue
@@ -312,5 +454,72 @@ def generate_manifest(sweep_path: Path, output_path: Path, profile: str | None =
         valid.append(spec)
     for i, spec in enumerate(valid, start=1):
         spec["trial_id"] = i
+    return valid
+
+
+def generate_manifest(
+    sweep_path: Path,
+    output_path: Path,
+    profile: str | None = None,
+    *,
+    domains: list[str] | None = None,
+    integrations: list[str] | None = None,
+    ablation_keys: list[str] | None = None,
+    conditions: list[str] | None = None,
+    tasks: list[str] | None = None,
+    granularities: list[str] | None = None,
+) -> int:
+    sweep = load_sweep(sweep_path, profile=profile)
+    specs = iter_trial_specs(sweep)
+    specs = filter_specs(
+        specs,
+        domains=domains,
+        integrations=integrations,
+        ablation_keys=ablation_keys,
+        conditions=conditions,
+        tasks=tasks,
+        granularities=granularities,
+    )
+    valid = finalize_specs(specs)
     write_manifest(valid, output_path)
     return len(valid)
+
+
+def generate_manifest_shards(
+    sweep_path: Path,
+    output_dir: Path,
+    shard_by: str = "domain_integration_ablation_granularity",
+    profile: str | None = None,
+    *,
+    domains: list[str] | None = None,
+    integrations: list[str] | None = None,
+    ablation_keys: list[str] | None = None,
+    conditions: list[str] | None = None,
+    tasks: list[str] | None = None,
+    granularities: list[str] | None = None,
+) -> dict[str, int]:
+    """Write one manifest CSV per shard; return {shard_name: n_trials}."""
+    sweep = load_sweep(sweep_path, profile=profile)
+    specs = filter_specs(
+        iter_trial_specs(sweep),
+        domains=domains,
+        integrations=integrations,
+        ablation_keys=ablation_keys,
+        conditions=conditions,
+        tasks=tasks,
+        granularities=granularities,
+    )
+    specs = finalize_specs(specs)
+    groups = shard_specs(specs, shard_by)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    counts: dict[str, int] = {}
+    for name, group in sorted(groups.items()):
+        path = output_dir / f"{name}.csv"
+        write_manifest(group, path)
+        counts[name] = len(group)
+    return counts
+
+
+def slurm_time_for_domain(domain_key: str) -> str:
+    norm = normalize_domain_filter(domain_key)
+    return DOMAIN_SLURM_TIME.get(norm, "4:00:00")
