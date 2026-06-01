@@ -37,7 +37,7 @@ Use coarser sharding if you prefer: `SHARD_BY=domain_integration_ablation ./subm
 ./submit_hpc.sh --all
 
 # Or submit a single shard
-./submit_hpc.sh manifests/lunar__pretrain__mlp_model_noise.csv
+./submit_hpc.sh manifests/flappy_pretrain_binary.csv
 ```
 
 ## Time limits (per array task)
