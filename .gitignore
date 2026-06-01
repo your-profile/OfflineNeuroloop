@@ -1,7 +1,3 @@
 **/__pycache__/
 *.pyc
 *.pyo
-manifests/*.csv
-trial_manifest.csv
-_local_test_manifest.csv
-logs/
