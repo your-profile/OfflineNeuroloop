@@ -79,6 +79,7 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
     classifier, report = modelTrainer.train_classifier(X, y, granularity = cfg["experiment"]["model_granularity"], random_state =  cfg["experiment"]["random_state"])
     
     print("MLP Report: \n", report)
+    print(cfg)
 
     if cfg["experiment"]["domain"][0].lower() == "l" or cfg["experiment"]["domain"][0].lower() == "f":        
         results_dictionary = train(env=env, 
@@ -107,6 +108,7 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
             eval_success_threshold = cfg["experiment"]["eval_success_threshold"],
             success_save_threshold = 0.5,
             save_agent = False,
+            target_update = cfg["experiment"]["target_update"],
         )
     else:
         results_dictionary = train_robot(env=env, 
@@ -135,6 +137,7 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
             eval_success_threshold = cfg["experiment"]["eval_success_threshold"],
             success_save_threshold = 0.5,
             save_agent = False,
+            target_update = cfg["experiment"]["target_update"],
         )
 
     trial_dict = {}

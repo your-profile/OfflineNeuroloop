@@ -192,9 +192,9 @@ def train(env:gymnasium.Env,
             # evaluate agent
             if combined_steps % target_update == 0:
                 if domain_key == "F": #flappy bird
-                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=30), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
+                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=50), agent=agent, episodes=10, steps=steps, domain_key=domain_key)
                 else: #lunar lander
-                    eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
+                    eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=10, steps=steps, domain_key=domain_key)
                 
                 # store success rate
                 all_episode_success.append(eval_success)
@@ -244,9 +244,9 @@ def train(env:gymnasium.Env,
             # evaluate agent
             if combined_steps % target_update == 0:
                 if domain_key == "F": #flappy bird
-                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=50), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
+                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=50), agent=agent, episodes=10, steps=steps, domain_key=domain_key)
                 else: #lunar lander
-                    eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
+                    eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=10, steps=steps, domain_key=domain_key)
                 
                 # store success rate
                 all_episode_success.append(eval_success)
@@ -459,8 +459,6 @@ def train_robot(env:gymnasium.Env,
 
                 # get true sample label
                 class_truth = processor.get_label_sample(timestamp = rl_timestamp, temporal_shift = -shift)
-                print("Class Truth: ", class_truth)
-                print("Class Truth Type: ", type(class_truth))
                 priority = ddpg_priority(reward, action, action_dist, next_action_dist)
                 
                 # Reward Augmentation Experiment
@@ -509,7 +507,7 @@ def train_robot(env:gymnasium.Env,
             episode_dict["done"].append(float(done))
 
             if combined_steps % target_update == 0 and save_agent:
-                eval_success, eval_reward = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=25)
+                eval_success, eval_reward = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=10)
                 all_episode_success.append(eval_success)
                 all_total_rewards.append(eval_reward)
                 all_episode_steps.append(online_step)
@@ -588,7 +586,7 @@ def train_robot(env:gymnasium.Env,
             total_reward += float(reward)
 
             if combined_steps % target_update == 0 and save_agent:
-                eval_success, eval_reward = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=25)
+                eval_success, eval_reward = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=10)
                 all_episode_success.append(eval_success)
                 all_total_rewards.append(eval_reward)
                 all_episode_steps.append(online_step)

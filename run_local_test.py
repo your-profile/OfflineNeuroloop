@@ -29,12 +29,12 @@ from experiment_sweep import (
 )
 
 # --- edit these for ad-hoc local tests without changing YAML ---
-QUICK_INTEGRATIONS = ["pretrain", "pretrain", "finetune"]
-QUICK_CONDITIONS = ["Baseline-PER"]
-QUICK_SEEDS = [42]
-QUICK_DOMAIN_CONFIG = "configs/domains/robot/1.yaml"
+QUICK_INTEGRATIONS = ["pretrain"]
+QUICK_CONDITIONS = ["Prioritization", "Reward Augmentation"]
+QUICK_SEEDS = [42, 43, 44, 45, 46, 47, 48, 49, 50, 51]
+QUICK_DOMAIN_CONFIG = "configs/domains/lunar/1.yaml"
 QUICK_TASK = "Passive"
-QUICK_N_EPISODES = 45
+QUICK_N_EPISODES = 5000
 QUICK_DATA_PATH = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/"
 QUICK_RESULTS_PATH = str(REPO_ROOT)
 

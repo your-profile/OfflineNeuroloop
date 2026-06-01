@@ -47,10 +47,10 @@ def make_run_name(cfg: dict) -> str:
     m = cfg["mlp"]
     return (
         f"{e['domain']}__{e['task']}__{e['condition']}"
+        f"__{e['integration_type']}"
         f"__{e['model_granularity']}"
-        f"__{e['pretrained_success_rate']}"
-        f"__noise{m['model_noise']}__{n['smoothing_window_size']}"
-        f"__{n['temporal_shift']}"
+        f"__noise{m['model_noise']}__"
+        f"__beta{n['beta']}"
     )
 
 

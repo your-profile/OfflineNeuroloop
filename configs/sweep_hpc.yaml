@@ -1,16 +1,14 @@
 # Full HPC sweep — generate manifest: python generate_manifest.py -s configs/sweep_hpc.yaml
-base_config: configs/test.yaml
+base_config: configs/domains/flappy.yaml
 
 paths:
   data_path: "/cluster/home/mbrowe02/fNIRS2RL/Experiment/ParticipantData/"
   results_path: "/cluster/home/mbrowe02/OfflineNeuroloop/"
 
 integrations:
-  - finetune
-  - interleaved
-  - pretrain
+  - pretrain # finetune | interleaved | pretrain
 
-seeds: [42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71]
+seeds: [1, 2, 3, 4, 5]
 
 conditions:
   - Baseline-PER
@@ -20,19 +18,21 @@ conditions:
   - All-PER
 
 granularities:
-  - binary
+  - binary #ternary | continuous
 
 domains:
-  - domain_key: Flappy
-    tasks: [Pooled]
+  - domain_key: [Flappy, Lunar, Robot]
+    tasks: [Passive, Active, Pooled] #Active | Pooled
 
 ablations:
-  - key: [experiment, eval_success_threshold]
-    vals: [0.0]
+  - key: [experiment, model_noise]
+    vals: [0.0, 0.1, 0.3, 0.5, 0.7]
+  - key: [experiment, beta]
+    vals: [1.0, 2.0, 3.0, 4.0, 5.0]
 
 profiles:
   macbook:
     seeds: [42]
     conditions: [Baseline-PER]
-    integrations: [finetune]
+    integrations: [pretrain]
     n_episodes_override: 10

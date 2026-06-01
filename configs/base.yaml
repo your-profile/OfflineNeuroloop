@@ -1,9 +1,0 @@
-experiment:
-  data_path: "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/"
-  results_path: "/Users/juliasantaniello/Desktop/OfflineNeuroloop/"
-
-  #data_path = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/' 
-  #results_path = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/' 
-
-  # data_path = '/cluster/home/mbrowe02/fNIRS2RL/Experiment/ParticipantData/'
-  # results_path = '/cluster/home/mbrowe02/OfflineNeuroloop/'
