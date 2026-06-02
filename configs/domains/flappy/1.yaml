@@ -2,8 +2,10 @@
 base_config: configs/domains/flappy.yaml
 
 paths:
-  data_path: "/cluster/home/mbrowe02/fNIRS2RL/Experiment/ParticipantData/"
-  results_path: "/cluster/home/mbrowe02/OfflineNeuroloop/"
+  data_path: "/cluster/home/jsanta07/fNIRS2RL/Experiment/ParticipantData/"
+  results_path: "/cluster/home/jsanta07/OfflineNeuroloop/"
+  # data_path: "/cluster/home/mbrowe02/fNIRS2RL/Experiment/ParticipantData/"
+  # results_path: "/cluster/home/mbrowe02/OfflineNeuroloop/"
 
 integrations:
   - pretrain # finetune | interleaved | pretrain
