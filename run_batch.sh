@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 #SBATCH --job-name=neuroloop_batch
 #SBATCH --output=logs/batch_%j.log
 #SBATCH --error=logs/batch_%j.log
@@ -41,8 +41,7 @@ else
   BATCH_LOG="${LOG_DIR}/batch_${SLURM_JOB_ID:-local}.log"
 fi
 
-module load miniforge/24.11.2-py312 2>/dev/null || true
-# source activate <your-env>
+source "${REPO_DIR}/scripts/hpc_setup_env.sh"
 
 if [[ -n "${SLURM_CPUS_PER_TASK:-}" ]]; then
   export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK}"

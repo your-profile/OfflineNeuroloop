@@ -5,12 +5,16 @@ Non-interactive **batch** jobs via `sbatch` (not `salloc` / interactive). Defaul
 ## Recommended workflow
 
 ```bash
-# On the cluster — point results at scratch (edit sweep_hpc.yaml, then regenerate manifests)
+# On the cluster — conda env with pandas/torch (see environment.yml)
+module purge && module load miniforge/25.3.0
+conda env create -f environment.yml   # once; env name: offline-neuroloop
+export NEUROLOOP_CONDA_ENV=offline-neuroloop
+
 export SCRATCH=/cluster/scratch/$USER   # your site may use $WORK instead
 export NEUROLOOP_RESULTS_ROOT=$SCRATCH/OfflineNeuroloop_results
 export NEUROLOOP_LOG_DIR=$SCRATCH/neuroloop_logs
 
-cd $SCRATCH/OfflineNeuroloop    # writable clone of the repo
+cd ~/OfflineNeuroloop    # submit from repo (sets NEUROLOOP_REPO)
 
 # 1) Generate one CSV per shard (domain × integration × ablation × granularity)
 ./submit_hpc.sh --generate-shards
@@ -43,6 +47,8 @@ So **1665 trials** → `1-1665%50` → about **34 waves × ~40 min ≈ 23 h** wa
 | `NEUROLOOP_DATA_ROOT` | (from manifest) | Override fNIRS data root |
 | `NEUROLOOP_LOG_DIR` | `$SCRATCH/neuroloop_logs` | SLURM log files |
 | `NEUROLOOP_REPO` | (set by `submit_hpc.sh`) | Project root; avoids `/var/spool/slurm/...` path bug |
+| `NEUROLOOP_CONDA_ENV` | `offline-neuroloop` | Conda env activated on compute nodes |
+| `MINIFORGE_MODULE` | `miniforge/25.3.0` | Tufts module name (`module avail miniforge`) |
 | `SCRATCH` | — | Used for logs/work dirs if set |
 
 Always submit from the repo directory: `cd /path/to/OfflineNeuroloop && ./submit_hpc.sh ...`

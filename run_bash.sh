@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -l
 #SBATCH --job-name=neuroloop
 #SBATCH --ntasks=1
 #SBATCH --partition=batch
@@ -44,8 +44,8 @@ else
   echo "WARNING: could not create logs under repo; set NEUROLOOP_LOG_DIR or SCRATCH." >&2
 fi
 
-module load miniforge/24.11.2-py312 2>/dev/null || true
-# source activate <your-env>
+# shellcheck source=scripts/hpc_setup_env.sh
+source "${REPO_DIR}/scripts/hpc_setup_env.sh"
 
 if [[ -n "${SLURM_CPUS_PER_TASK:-}" ]]; then
   export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
