@@ -49,6 +49,7 @@ export_exports() {
   parts+=("MANIFEST=${manifest_abs}")
   parts+=("SKIP_COMPLETED=${SKIP_COMPLETED:-1}")
   parts+=("NEUROLOOP_LOG_DIR=${LOG_DIR}")
+  parts+=("NEUROLOOP_REPO=${SCRIPT_DIR}")
   [[ -n "${NEUROLOOP_RESULTS_ROOT:-}" ]] && parts+=("NEUROLOOP_RESULTS_ROOT=${NEUROLOOP_RESULTS_ROOT}")
   [[ -n "${NEUROLOOP_DATA_ROOT:-}" ]] && parts+=("NEUROLOOP_DATA_ROOT=${NEUROLOOP_DATA_ROOT}")
   [[ -n "${SCRATCH:-}" ]] && parts+=("SCRATCH=${SCRATCH}")

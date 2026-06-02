@@ -18,18 +18,25 @@ echo "Batch job ID: ${SLURM_JOB_ID:-local}"
 echo "Running on node: $(hostname)"
 echo "Started at: $(date)"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "${SCRIPT_DIR}"
+if [[ -n "${NEUROLOOP_REPO:-}" ]]; then
+  REPO_DIR="${NEUROLOOP_REPO}"
+elif [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then
+  REPO_DIR="${SLURM_SUBMIT_DIR}"
+else
+  REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+cd "${REPO_DIR}"
+echo "REPO_DIR=${REPO_DIR}"
 
 # Writable work root on compute nodes (home/repo may be read-only).
-WORK_ROOT="${NEUROLOOP_WORK_ROOT:-${SCRATCH:-${SLURM_TMPDIR:-${SCRIPT_DIR}}}/neuroloop_${SLURM_JOB_ID:-local}}"
+WORK_ROOT="${NEUROLOOP_WORK_ROOT:-${SCRATCH:-${SLURM_TMPDIR:-${REPO_DIR}}}/neuroloop_${SLURM_JOB_ID:-local}}"
 export NEUROLOOP_WORK_ROOT="${WORK_ROOT}"
 mkdir -p "${WORK_ROOT}/logs" "${WORK_ROOT}/src/results/runs"
 
 # Prefer scratch logs; fall back to repo logs/ if writable.
 LOG_DIR="${NEUROLOOP_LOG_DIR:-${WORK_ROOT}/logs}"
-if mkdir -p "${SCRIPT_DIR}/logs" 2>/dev/null; then
-  BATCH_LOG="${SCRIPT_DIR}/logs/batch_${SLURM_JOB_ID:-local}.log"
+if mkdir -p "${REPO_DIR}/logs" 2>/dev/null; then
+  BATCH_LOG="${REPO_DIR}/logs/batch_${SLURM_JOB_ID:-local}.log"
 else
   BATCH_LOG="${LOG_DIR}/batch_${SLURM_JOB_ID:-local}.log"
 fi
@@ -42,7 +49,7 @@ if [[ -n "${SLURM_CPUS_PER_TASK:-}" ]]; then
   export MKL_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
 fi
 
-MANIFEST="${MANIFEST:-${SCRIPT_DIR}/trial_manifest.csv}"
+MANIFEST="${MANIFEST:-${REPO_DIR}/trial_manifest.csv}"
 if [[ ! -f "${MANIFEST}" ]]; then
   echo "Missing MANIFEST: ${MANIFEST}" | tee -a "${BATCH_LOG}"
   exit 1
@@ -67,7 +74,7 @@ FAILURES=0
 for TRIAL_ID in $(seq 1 "${N_TRIALS}"); do
   echo "" | tee -a "${BATCH_LOG}"
   echo "=== Trial ${TRIAL_ID} / ${N_TRIALS} at $(date) ===" | tee -a "${BATCH_LOG}"
-  if ! python3 run_trial.py \
+  if ! python3 "${REPO_DIR}/run_trial.py" \
     --manifest "${MANIFEST}" \
     --trial-id "${TRIAL_ID}" \
     "${EXTRA_ARGS[@]}" 2>&1 | tee -a "${BATCH_LOG}"; then

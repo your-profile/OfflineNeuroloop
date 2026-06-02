@@ -42,7 +42,10 @@ So **1665 trials** → `1-1665%50` → about **34 waves × ~40 min ≈ 23 h** wa
 | `NEUROLOOP_RESULTS_ROOT` | (from manifest) | Override where `trial_*.csv` are written |
 | `NEUROLOOP_DATA_ROOT` | (from manifest) | Override fNIRS data root |
 | `NEUROLOOP_LOG_DIR` | `$SCRATCH/neuroloop_logs` | SLURM log files |
+| `NEUROLOOP_REPO` | (set by `submit_hpc.sh`) | Project root; avoids `/var/spool/slurm/...` path bug |
 | `SCRATCH` | — | Used for logs/work dirs if set |
+
+Always submit from the repo directory: `cd /path/to/OfflineNeuroloop && ./submit_hpc.sh ...`
 
 Set `paths.results_path` in `configs/sweep_hpc.yaml` to scratch **before** `generate_manifest.py`, or use `NEUROLOOP_RESULTS_ROOT` at submit time.
 

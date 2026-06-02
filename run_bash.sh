@@ -16,8 +16,16 @@ echo "Job Array ID: ${SLURM_ARRAY_JOB_ID:-local}, Task ID: ${SLURM_ARRAY_TASK_ID
 echo "Running on node: $(hostname)"
 echo "Started at: $(date)"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "${SCRIPT_DIR}"
+# SLURM may execute a copy of this script under /var/spool/slurm/job<id>/.
+if [[ -n "${NEUROLOOP_REPO:-}" ]]; then
+  REPO_DIR="${NEUROLOOP_REPO}"
+elif [[ -n "${SLURM_SUBMIT_DIR:-}" ]]; then
+  REPO_DIR="${SLURM_SUBMIT_DIR}"
+else
+  REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+cd "${REPO_DIR}"
+echo "REPO_DIR=${REPO_DIR}"
 
 # Writable work root on compute nodes (project dir may be read-only on workers).
 WORK_ROOT="${NEUROLOOP_WORK_ROOT:-${SCRATCH:-${SLURM_TMPDIR:-}}}"
@@ -30,7 +38,7 @@ fi
 # Logs/results under scratch when set; else try repo (login node / writable clones).
 if [[ -n "${NEUROLOOP_LOG_DIR:-}" ]]; then
   mkdir -p "${NEUROLOOP_LOG_DIR}"
-elif mkdir -p "${SCRIPT_DIR}/logs" 2>/dev/null; then
+elif mkdir -p "${REPO_DIR}/logs" 2>/dev/null; then
   :
 else
   echo "WARNING: could not create logs under repo; set NEUROLOOP_LOG_DIR or SCRATCH." >&2
@@ -44,7 +52,7 @@ if [[ -n "${SLURM_CPUS_PER_TASK:-}" ]]; then
   export MKL_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
 fi
 
-MANIFEST="${MANIFEST:-${SCRIPT_DIR}/trial_manifest.csv}"
+MANIFEST="${MANIFEST:-${REPO_DIR}/trial_manifest.csv}"
 if [[ ! -f "${MANIFEST}" ]]; then
   echo "Missing ${MANIFEST}."
   exit 1
@@ -60,7 +68,7 @@ if [[ "${SKIP_COMPLETED:-1}" == "1" ]]; then
   EXTRA_ARGS+=(--skip-if-done)
 fi
 
-python3 run_trial.py \
+python3 "${REPO_DIR}/run_trial.py" \
   --manifest "${MANIFEST}" \
   --trial-id "${SLURM_ARRAY_TASK_ID}" \
   "${EXTRA_ARGS[@]}"
