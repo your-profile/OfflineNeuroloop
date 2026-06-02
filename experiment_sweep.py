@@ -10,7 +10,35 @@ from typing import Any, Iterable
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent
+REPO_DIRNAME = REPO_ROOT.name
 MANIFESTS_DIR = REPO_ROOT / "manifests"
+
+
+def path_for_manifest(path: Path) -> str:
+    """Store paths relative to the repo so manifests work on HPC after local generation."""
+    resolved = path.resolve()
+    try:
+        return str(resolved.relative_to(REPO_ROOT))
+    except ValueError:
+        return str(resolved)
+
+
+def resolve_repo_path(path: str | Path | None) -> Path | None:
+    """Map manifest paths to files under this checkout (handles Mac → cluster manifests)."""
+    if path is None or path == "":
+        return None
+    p = Path(path)
+    if p.is_file():
+        return p.resolve()
+    if REPO_DIRNAME in p.parts:
+        idx = p.parts.index(REPO_DIRNAME)
+        candidate = REPO_ROOT.joinpath(*p.parts[idx + 1 :])
+        if candidate.is_file():
+            return candidate.resolve()
+    candidate = REPO_ROOT / p
+    if candidate.is_file():
+        return candidate.resolve()
+    return p
 
 NEURAL_CONDITION_MAP = {
     "Baseline-ER": [0],
@@ -273,14 +301,16 @@ def iter_trial_specs(sweep: dict) -> list[dict]:
                                                 "trial_id": trial_id,
                                                 "integration": integration,
                                                 "domain_key": domain_key or "",
-                                                "domain_config": str(domain_config) if domain_config else "",
+                                                "domain_config": path_for_manifest(domain_config)
+                                                if domain_config
+                                                else "",
                                                 "task": task,
                                                 "condition": condition,
                                                 "seed": seed,
                                                 "granularity": granularity,
                                                 "ablation_key": ablation_key_str,
                                                 "ablation_val": val,
-                                                "base_config": str(base_config),
+                                                "base_config": path_for_manifest(base_config),
                                                 "n_episodes_override": n_episodes_override or "",
                                                 "data_path": data_path,
                                                 "results_path": results_path,
@@ -365,9 +395,9 @@ def should_skip_spec(spec: dict) -> bool:
         task=spec["task"],
         ablation=ablation,
         ablation_val=_parse_ablation_val(spec["ablation_val"]),
-        base_config=Path(spec["base_config"]),
+        base_config=resolve_repo_path(spec["base_config"]),
         domain_key=spec["domain_key"] or None,
-        domain_config=Path(spec["domain_config"]) if spec["domain_config"] else None,
+        domain_config=resolve_repo_path(spec["domain_config"]),
         n_episodes_override=_optional_int(spec.get("n_episodes_override")),
     )
     return cfg is None
@@ -403,9 +433,9 @@ def cfg_from_spec(spec: dict) -> dict:
         task=spec["task"],
         ablation={"key": ablation_key},
         ablation_val=_parse_ablation_val(spec["ablation_val"]),
-        base_config=Path(spec["base_config"]),
+        base_config=resolve_repo_path(spec["base_config"]),
         domain_key=spec["domain_key"] or None,
-        domain_config=Path(spec["domain_config"]) if spec["domain_config"] else None,
+        domain_config=resolve_repo_path(spec["domain_config"]),
         n_episodes_override=_optional_int(spec.get("n_episodes_override")),
     )
 

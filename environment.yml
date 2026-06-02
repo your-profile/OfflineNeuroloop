@@ -12,6 +12,7 @@ dependencies:
   - scikit-learn
   - ipykernel
   - matplotlib
+  - mpi4py
   - seaborn
   - swig
   - gymnasium
