@@ -1,81 +1,86 @@
-# HPC parallel runs
+# HPC parallel job arrays
 
-## How jobs are structured
+Non-interactive **batch** jobs via `sbatch` (not `salloc` / interactive). Default: **one job array per manifest CSV**, with up to **50 trials running in parallel** (`ARRAY_CAP=50`).
 
-- **One SLURM array task = one trial** (`run_trial.py --trial-id N`).
-- **`run_bash.sh` does not run the full grid** in a single task; it only works with `SLURM_ARRAY_TASK_ID`.
-- Large studies are split into **manifest shards** (CSV files), each submitted as its own array job with a **domain-appropriate time limit**.
-
-## Trial count
-
-For `configs/sweep_hpc.yaml`:
-
-```
-trials = |integrations| × Σ|ablation vals| × |seeds| × |granularities| × |conditions| × |domains| × |tasks|
-```
-
-With all dimensions enabled (3 integrations, 2 ablation studies × 5 values, 15 seeds, 3 granularities, 5 conditions, 3 domains, 3 tasks):
-
-**60,750 trials** total.
-
-Default sharding (`domain_integration_ablation_granularity`) yields **81 manifests** (~750 trials each):
-
-- 3 domains × 3 integrations × 2 ablation studies × 3 granularities
-
-Use coarser sharding if you prefer: `SHARD_BY=domain_integration_ablation ./submit_hpc.sh --generate-shards` (27 manifests).
-
-## Quick start
+## Recommended workflow
 
 ```bash
-# 1) Generate shard manifests (manifests/*.csv)
+# On the cluster — point results at scratch (edit sweep_hpc.yaml, then regenerate manifests)
+export SCRATCH=/cluster/scratch/$USER   # your site may use $WORK instead
+export NEUROLOOP_RESULTS_ROOT=$SCRATCH/OfflineNeuroloop_results
+export NEUROLOOP_LOG_DIR=$SCRATCH/neuroloop_logs
+
+cd $SCRATCH/OfflineNeuroloop    # writable clone of the repo
+
+# 1) Generate one CSV per shard (domain × integration × ablation × granularity)
 ./submit_hpc.sh --generate-shards
 
-# 2) Preview submissions
+# 2) Preview (~wall time per manifest at ARRAY_CAP=50)
 ./submit_hpc.sh --dry-run --all
 
-# 3) Submit all shards (one sbatch per CSV)
+# 3) Submit one array job per CSV (9+ jobs for a large study)
 ./submit_hpc.sh --all
 
-# Or submit a single shard
+# Or a single filtered manifest (e.g. 1665 Flappy binary pretrain trials)
 ./submit_hpc.sh manifests/flappy_pretrain_binary.csv
 ```
 
-## Time limits (per array task)
+Each submission is:
 
-| Domain | `--time`   | ~trial duration |
-|--------|------------|-----------------|
-| Flappy | `1:30:00`  | ~40 min         |
-| Lunar  | `3:00:00`  | ~2 h            |
-| Robot  | `8:00:00`  | ~5+ h           |
-
-Each shard job can use up to **3 days of wall clock** on the cluster while many tasks run in parallel (`ARRAY_CAP`, default 80).
-
-## Single shard or custom filter
-
-```bash
-python generate_manifest.py -s configs/sweep_hpc.yaml \
-  --filter-domain Flappy \
-  --filter-integration pretrain \
-  --filter-ablation-key mlp.model_noise \
-  --filter-granularity binary \
-  -o manifests/flappy_pretrain_noise_binary.csv
-
-# Or generate all shards for one granularity
-FILTER_GRANULARITY=binary ./submit_hpc.sh --generate-shards
-
-export MANIFEST=manifests/flappy_pretrain_binary.csv
-sbatch --time=3:00:00 --array=1-$(($(wc -l < "$MANIFEST") - 1))%50 \
-  --export=ALL,MANIFEST="$(pwd)/$MANIFEST" run_bash.sh
+```text
+sbatch --array=1-N%50 --time=<per-trial> run_bash.sh
 ```
 
-## Smoke test on cluster
+So **1665 trials** → `1-1665%50` → about **34 waves × ~40 min ≈ 23 h** wall clock for Flappy (if the queue keeps 50 slots full).
+
+## Environment variables
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `SUBMIT_MODE` | `array` | `array` = parallel; `batch` = sequential one job |
+| `ARRAY_CAP` | `50` | Max concurrent array tasks (`%50`) |
+| `NEUROLOOP_RESULTS_ROOT` | (from manifest) | Override where `trial_*.csv` are written |
+| `NEUROLOOP_DATA_ROOT` | (from manifest) | Override fNIRS data root |
+| `NEUROLOOP_LOG_DIR` | `$SCRATCH/neuroloop_logs` | SLURM log files |
+| `SCRATCH` | — | Used for logs/work dirs if set |
+
+Set `paths.results_path` in `configs/sweep_hpc.yaml` to scratch **before** `generate_manifest.py`, or use `NEUROLOOP_RESULTS_ROOT` at submit time.
+
+## Per-domain SLURM time (per array task)
+
+| Domain | `--time` / task | ~min / trial |
+|--------|-----------------|--------------|
+| Flappy | 1:30:00 | 40 |
+| Lunar  | 3:00:00 | 120 |
+| Robot  | 8:00:00 | 300 |
+
+## Many manifests (domains × granularities × integrations)
+
+Default shard name pattern: `manifests/<domain>__<integration>__<ablation>__<granularity>.csv`
+
+Submitting `--all` launches **one array job per CSV**. Total cluster load ≈ `ARRAY_CAP × (number of concurrent array jobs)`. If jobs stay pending, lower `ARRAY_CAP` or submit in waves:
+
+```bash
+ARRAY_CAP=30 ./submit_hpc.sh manifests/flappy_*.csv
+# later
+ARRAY_CAP=30 ./submit_hpc.sh manifests/lunar_*.csv
+```
+
+## Sequential mode (not recommended for 1000+ trials)
+
+```bash
+SUBMIT_MODE=batch ./submit_hpc.sh manifests/foo.csv
+```
+
+## Logs and results
+
+- SLURM logs: `${NEUROLOOP_LOG_DIR}/neuroloop_<jobid>_<taskid>.log`
+- Trial CSVs: `${results_path}/src/results/runs/trial_XXXXX_<integration>.csv`
+- `SKIP_COMPLETED=1` skips trials that already produced a CSV
+
+## Smoke test
 
 ```bash
 python generate_manifest.py -s configs/sweep_hpc.yaml -p smoke -o manifests/smoke.csv
 ./submit_hpc.sh manifests/smoke.csv
 ```
-
-## Resuming
-
-Completed trials write `src/results/runs/trial_XXXXX_<integration>.csv`.  
-Arrays default to `SKIP_COMPLETED=1` so reruns skip existing outputs.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -49,6 +50,12 @@ def main() -> None:
 
     if args.trial_id is not None:
         spec = read_manifest_row(args.manifest, args.trial_id)
+
+        if os.environ.get("NEUROLOOP_DATA_ROOT"):
+            spec = {**spec, "data_path": os.environ["NEUROLOOP_DATA_ROOT"]}
+        if os.environ.get("NEUROLOOP_RESULTS_ROOT"):
+            spec = {**spec, "results_path": os.environ["NEUROLOOP_RESULTS_ROOT"]}
+
         if args.skip_if_done and trial_results_path(spec).is_file():
             print(f"Skip trial_id={args.trial_id}: exists {trial_results_path(spec)}")
             return

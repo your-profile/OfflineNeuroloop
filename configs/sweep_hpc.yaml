@@ -1,9 +1,10 @@
 # Full study definition for HPC.
-# Do NOT submit one job for the whole grid — generate shards and submit each:
+# Set paths.results_path to YOUR scratch before generating manifests, e.g.:
+#   /cluster/scratch/$USER/OfflineNeuroloop_results
 #
-#   python generate_manifest.py -s configs/sweep_hpc.yaml --shard-by domain_integration_ablation_granularity
-#   FILTER_GRANULARITY=binary ./submit_hpc.sh --generate-shards
-#   ./submit_hpc.sh --all
+#   ./submit_hpc.sh --generate-shards
+#   ./submit_hpc.sh --dry-run --all
+#   ./submit_hpc.sh --all          # one parallel array job per manifests/*.csv
 #
 # Trial count (full grid):
 #   integrations × (sum of ablation vals) × seeds × granularities × conditions
@@ -14,8 +15,10 @@
 base_config: configs/flappy.yaml
 
 paths:
-  data_path: "/cluster/home/mbrowe02/fNIRS2RL/Experiment/ParticipantData/"
-  results_path: "/cluster/home/mbrowe02/OfflineNeuroloop/"
+  data_path: "/cluster/home/jsanta07/fNIRS2RL/Experiment/ParticipantData/"
+  results_path: "/cluster/home/jsanta07/offlineNeuroloop"
+  # data_path: "/cluster/home/mbrowe02/fNIRS2RL/Experiment/ParticipantData/"
+  # results_path: "/cluster/home/mbrowe02/OfflineNeuroloop/"
 
 integrations:
   - pretrain

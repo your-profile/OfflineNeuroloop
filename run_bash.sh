@@ -1,20 +1,14 @@
 #!/bin/bash
 #SBATCH --job-name=neuroloop
-#SBATCH --output=logs/neuroloop_%A_%a.log
-#SBATCH --error=logs/neuroloop_%A_%a.log
 #SBATCH --ntasks=1
 #SBATCH --partition=batch
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
-# Time is set at submit time (domain-specific). Default fallback:
+# Time and log paths are set by submit_hpc.sh at sbatch time.
 #SBATCH --time=4:00:00
 #
-# One array task = one trial. Submit via submit_hpc.sh (recommended), e.g.:
-#   ./submit_hpc.sh manifests/flappy__pretrain__mlp_model_noise.csv
-#
-# Manual:
-#   export MANIFEST=manifests/flappy__pretrain__mlp_model_noise.csv
-#   sbatch --time=1:30:00 --array=1-$(($(wc -l < "$MANIFEST") - 1)) run_bash.sh
+# One array task = one trial. Submit via submit_hpc.sh (default: parallel array).
+#   ./submit_hpc.sh manifests/flappy_pretrain_binary.csv
 
 set -euo pipefail
 
@@ -24,7 +18,23 @@ echo "Started at: $(date)"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}"
-mkdir -p logs src/results/runs
+
+# Writable work root on compute nodes (project dir may be read-only on workers).
+WORK_ROOT="${NEUROLOOP_WORK_ROOT:-${SCRATCH:-${SLURM_TMPDIR:-}}}"
+if [[ -n "${WORK_ROOT}" ]]; then
+  export NEUROLOOP_WORK_ROOT="${WORK_ROOT}/neuroloop_${SLURM_JOB_ID:-local}"
+  mkdir -p "${NEUROLOOP_WORK_ROOT}/src/results/runs"
+  export NEUROLOOP_RESULTS_ROOT="${NEUROLOOP_RESULTS_ROOT:-${NEUROLOOP_WORK_ROOT}}"
+fi
+
+# Logs/results under scratch when set; else try repo (login node / writable clones).
+if [[ -n "${NEUROLOOP_LOG_DIR:-}" ]]; then
+  mkdir -p "${NEUROLOOP_LOG_DIR}"
+elif mkdir -p "${SCRIPT_DIR}/logs" 2>/dev/null; then
+  :
+else
+  echo "WARNING: could not create logs under repo; set NEUROLOOP_LOG_DIR or SCRATCH." >&2
+fi
 
 module load miniforge/24.11.2-py312 2>/dev/null || true
 # source activate <your-env>
@@ -37,7 +47,6 @@ fi
 MANIFEST="${MANIFEST:-${SCRIPT_DIR}/trial_manifest.csv}"
 if [[ ! -f "${MANIFEST}" ]]; then
   echo "Missing ${MANIFEST}."
-  echo "Generate shards: python generate_manifest.py -s configs/sweep_hpc.yaml --shard-by domain_integration_ablation"
   exit 1
 fi
 
