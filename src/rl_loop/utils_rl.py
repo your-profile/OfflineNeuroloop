@@ -221,7 +221,7 @@ def evaluate(env, agent, steps=600, episodes=20, domain_key=None):
 
             if domain_key == "F":
                 state, reward, done, win, info = env.step(action)
-                if info['score'] > 10:
+                if info['score'] >= 10:
                     win = True
                     done = True
             else:
