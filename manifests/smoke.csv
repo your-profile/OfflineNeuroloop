@@ -1,2 +1,0 @@
-trial_id,integration,domain_key,domain_config,task,condition,seed,granularity,ablation_key,ablation_val,base_config,n_episodes_override,data_path,results_path,run_name
-1,pretrain,Flappy,/cluster/home/jsanta07/OfflineNeuroloop/configs/domains/flappy.yaml,Passive,Baseline-PER,1,binary,mlp.model_noise,0.0,/cluster/home/jsanta07/OfflineNeuroloop/configs/flappy.yaml,,/cluster/home/jsanta07/fNIRS2RL/Experiment/ParticipantData/,/cluster/home/jsanta07/OfflineNeuroloop,Flappy__Passive__Baseline-PER__pretrain__binary__seed1__noise0.0__beta1.0

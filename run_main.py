@@ -26,7 +26,7 @@ ABLATIONS = [
 
 # testing: single condition, binary granularity, no ablation sweeps
 NEURAL_CONDITIONS = [
-    "Baseline-PER",
+    # "Baseline-PER",
     "Prioritization",
     "Q-Augmentation",
     "Reward Augmentation",
@@ -40,7 +40,7 @@ SEEDS = [42, 43, 44, 45, 46, 47, 48, 49, 50, 51] #, 43, 44, 45, 46, 47, 48, 49, 
 
 DOMAINS_TASKS = {
     # "Lunar": ["Passive"], #, "Active", "Pooled"],
-    "Flappy": ["Pooled"]#, "Active", "Pooled"],
+    "Flappy": ["Active"]#, "Active", "Pooled"],
     # "Robot": ["Passive"]#, "Active", "Pooled"],
 }
 
@@ -100,9 +100,6 @@ for ablation, (domain, tasks), seed, granularity, condition in itertools.product
         for val in ablation["vals"]:
             
             cfg = copy.deepcopy(base)
-
-            cfg["experiment"]["integration_type"] = "finetune"
-            cfg["experiment"]["rl"]["learning_rate_init"] = 0.0001
 
             cfg["experiment"].update({
                "domain": domain_cfg["experiment"]["domain"],

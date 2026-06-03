@@ -32,7 +32,7 @@ from experiment_sweep import (
 QUICK_INTEGRATIONS = ["pretrain"]
 QUICK_CONDITIONS = ["Prioritization", "Reward Augmentation"]
 QUICK_SEEDS = [42, 43, 44, 45, 46, 47, 48, 49, 50, 51]
-QUICK_DOMAIN_CONFIG = "configs/domains/lunar/1.yaml"
+QUICK_DOMAIN_CONFIG = "configs/domains/lunar.yaml"
 QUICK_TASK = "Passive"
 QUICK_N_EPISODES = 5000
 QUICK_DATA_PATH = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/"

@@ -9,7 +9,7 @@ from pathlib import Path
 """
 Example:
 
-python generate_manifest.py -s configs/sweep_hpc.yaml --filter-domain Flappy --filter-integration pretrain --filter-task Passive --filter-granularity binary
+python generate_manifest.py -s configs/sweep_hpc_PER.yaml --filter-domain Flappy --filter-integration pretrain --filter-task Passive --filter-granularity binary
 
 """
 
@@ -32,14 +32,14 @@ def main() -> None:
         "-s",
         "--sweep",
         type=Path,
-        default=REPO_ROOT / "configs/sweep_hpc.yaml",
+        default=REPO_ROOT / "configs/sweep_hpc_PER.yaml",
         help="Sweep definition YAML",
     )
     parser.add_argument(
         "-o",
         "--output",
         type=Path,
-        default=REPO_ROOT / "trial_manifest.csv",
+        default=REPO_ROOT / "configs/manifests/trial_manifest.csv",
         help="Output manifest for a single filtered sweep",
     )
     parser.add_argument(

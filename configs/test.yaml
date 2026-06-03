@@ -9,6 +9,8 @@ experiment:
   pretrained_success_rate: 0.0
   eval_success_threshold: 0.0
   verbose: False
+  integration_type: "pretrain"
+  target_update: 200
 
 neural:
   smoothing_window_size: 1
