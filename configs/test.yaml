@@ -28,7 +28,7 @@ mlp:
   reg_activation: "tanh"
 rl:
   n_episodes: 1
-  algorithm: "PPO"
+  algorithm: "DQN"
   buffer_type: "PER"
   learning_rate_init: 0.001
   observation_space: 11

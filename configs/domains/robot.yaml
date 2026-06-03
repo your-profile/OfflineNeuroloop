@@ -33,6 +33,7 @@ mlp:
 rl:
   n_episodes: 50000 # CONSTANT
   algorithm: "DDPG"
+  buffer_type: "PER"
   learning_rate_init: 0.001
   steps: 50 # CONSTANT
   action_space: None # CONSTANT
