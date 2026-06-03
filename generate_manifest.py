@@ -5,6 +5,14 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+
+"""
+Example:
+
+python generate_manifest.py -s configs/sweep_hpc.yaml --filter-domain Flappy --filter-integration pretrain --filter-task Passive --filter-granularity binary
+
+"""
+
 from experiment_sweep import (
     REPO_ROOT,
     generate_manifest,
