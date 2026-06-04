@@ -10,6 +10,13 @@ import pandas as pd
 from experiment_sweep import INTEGRATION_RESULTS_SUFFIX, REPO_ROOT
 
 
+"""
+Example:
+
+python merge_results.py --runs-dir src/results/runs --output-dir src/results
+"""
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(

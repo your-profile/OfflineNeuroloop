@@ -7,9 +7,12 @@ with open("configs/test.yaml") as f:
 NEURAL_CONDITION_MAP = {
     "Baseline-ER": [0],
     "Baseline-PER": [0],
-    "Reward Augmentation": [1],
-    "Prioritization": [2],
-    "Q-Augmentation": [3],
+    "Reward Augmentation-ER": [1],
+    "Reward Augmentation-PER": [1],
+    "Prioritization-ER": [2],
+    "Prioritization-PER": [2],
+    "Q-Augmentation-ER": [3],
+    "Q-Augmentation-PER": [3],
     "All-ER": [0, 1, 3],
     "All-PER": [0, 1, 2, 3],
 
@@ -27,9 +30,9 @@ ABLATIONS = [
 # testing: single condition, binary granularity, no ablation sweeps
 NEURAL_CONDITIONS = [
     # "Baseline-PER",
-    "Prioritization",
-    "Q-Augmentation",
-    "Reward Augmentation",
+    "Prioritization-PER",
+    "Q-Augmentation-PER",
+    "Reward Augmentation-PER",
     "All-PER",
 ]
 
