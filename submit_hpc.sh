@@ -2,7 +2,7 @@
 # Submit SLURM job arrays: one batch (non-interactive) job per manifest, many trials in parallel.
 #
 # Typical workflow (9+ manifest CSVs, 1000+ trials each):
-#   # 1) Edit configs/sweep_hpc.yaml paths.results_path -> your $SCRATCH (then regenerate manifests)
+#   # 1) Edit configs/sweep_hpc.yaml paths.results_path -> $SCRATCH (then regenerate manifests)
 #   export NEUROLOOP_RESULTS_ROOT=$SCRATCH/OfflineNeuroloop_results   # optional override at submit
 #   ./submit_hpc.sh --generate-shards
 #   ./submit_hpc.sh --dry-run --all
