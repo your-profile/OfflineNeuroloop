@@ -29,7 +29,7 @@ ABLATIONS = [
 
 # testing: single condition, binary granularity, no ablation sweeps
 NEURAL_CONDITIONS = [
-    # "Baseline-PER",
+    "Baseline-PER",
     "Prioritization-PER",
     "Q-Augmentation-PER",
     "Reward Augmentation-PER",
@@ -39,11 +39,11 @@ NEURAL_CONDITIONS = [
 GRANULARITIES = ["binary", "ternary", "continuous"]
 GRANULARITIES = ["binary"]
 
-SEEDS = [42, 43, 44, 45, 46, 47, 48, 49, 50, 51] #, 43, 44, 45, 46, 47, 48, 49, 50, 51] 
+SEEDS = [42] #, 43, 44, 45, 46, 47, 48, 49, 50, 51] 
 
 DOMAINS_TASKS = {
-    # "Lunar": ["Passive"], #, "Active", "Pooled"],
-    "Flappy": ["Active"]#, "Active", "Pooled"],
+    "Lunar": ["Passive"], #, "Active", "Pooled"],
+    # "Flappy": ["Passive"]#, "Active", "Pooled"],
     # "Robot": ["Passive"]#, "Active", "Pooled"],
 }
 

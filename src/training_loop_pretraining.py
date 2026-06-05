@@ -192,9 +192,9 @@ def train(env:gymnasium.Env,
             # evaluate agent
             if combined_steps % target_update == 0:
                 if domain_key == "F": #flappy bird
-                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=30), agent=agent, episodes=10, steps=steps, domain_key=domain_key)
+                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=50), agent=agent, episodes=15, steps=steps, domain_key=domain_key)
                 else: #lunar lander
-                    eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=10, steps=steps, domain_key=domain_key)
+                    eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=15, steps=steps, domain_key=domain_key)
                 
                 # store success rate
                 all_episode_success.append(eval_success)
@@ -244,9 +244,9 @@ def train(env:gymnasium.Env,
             # evaluate agent
             if combined_steps % target_update == 0:
                 if domain_key == "F": #flappy bird
-                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=50), agent=agent, episodes=10, steps=steps, domain_key=domain_key)
+                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=10), agent=agent, episodes=15, steps=steps, domain_key=domain_key)
                 else: #lunar lander
-                    eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=10, steps=steps, domain_key=domain_key)
+                    eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=15, steps=steps, domain_key=domain_key)
                 
                 # store success rate
                 all_episode_success.append(eval_success)

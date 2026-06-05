@@ -23,6 +23,9 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
     elif cfg["experiment"]["integration_type"] == "pretrain":
         print("Pretrain")
         from src.training_loop_pretraining import train, train_robot
+    elif cfg["experiment"]["integration_type"] == "baseline":
+        print("Baseline")
+        from src.training_loop_baseline import train, train_robot
     else:
         raise ValueError(f"Invalid integration type: {cfg['experiment']['integration_type']}")
 
