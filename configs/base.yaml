@@ -1,3 +1,18 @@
-# Minimal shared defaults; domain YAMLs supply experiment/neural/mlp/rl settings.
-experiment:
-  verbose: false
+experiment: 
+  participant_list: [2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
+  verbose: False
+
+neural:
+  smoothing_window_size: 1      # 1 for no smoothing, 2 for 2-point smoothing, etc.
+  temporal_shift: 0.0          # 0.0 for no temporal shift, 0.1 for 0.1 second temporal shift, etc.
+  window_size_s: 4.0          # 4.0 seconds for 4-second window, 5.0 seconds for 5-second window, etc.
+  sliding_window_size: 1      # 1 for no sliding window, 2 for 2-point sliding window, etc.
+  beta: 1.0                  # 1.0 for no beta, 2.0 for 2.0 beta, etc.
+  fnirs_rate_hz: 5.2        # CONSTANT
+
+mlp:
+  model_noise: 0.0
+  early_stopping: True # CONSTANT
+
+rl:
+  algorithm: "DQN"
