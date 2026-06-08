@@ -212,6 +212,8 @@ def train(env:gymnasium.Env,
         )          
         pbar.update(1)
 
+    seed = 0
+
     # ONLINE POST-TRAINING LOOP
     for online_episode in range(total_participant_episodes, episodes_num):
         # set seed

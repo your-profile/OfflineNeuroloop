@@ -20,10 +20,10 @@ NEURAL_CONDITION_MAP = {
 # Ablation Studies
 
 ABLATIONS = [
-    # {"key": ["mlp", "model_noise"], "vals": [0.0]},#, 0.2, 0.5, 1.0]},
-    {"key": ["experiment", "eval_success_threshold"], "vals": [0.0]},#, 0.2, 0.5, 1.0]},
+    {"key": ["mlp", "model_noise"], "vals": [0.1]},#, 0.2, 0.5, 1.0]},
+    # {"key": ["experiment", "eval_success_threshold"], "vals": [0.0]},#, 0.2, 0.5, 1.0]},
     # {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0]},
-    # {"key": ["neural", "beta"], "vals": [1.0]},
+    {"key": ["neural", "beta"], "vals": [1.0]},
     # {"key": ["neural", "window_size_s"], "vals": [4.0, 5.0]},
 ]
 
@@ -42,7 +42,7 @@ GRANULARITIES = ["binary"]
 SEEDS = [42] #, 43, 44, 45, 46, 47, 48, 49, 50, 51] 
 
 DOMAINS_TASKS = {
-    "Lunar": ["Passive"], #, "Active", "Pooled"],
+    "Lunar": ["Active"], #, "Active", "Pooled"],
     # "Flappy": ["Passive"]#, "Active", "Pooled"],
     # "Robot": ["Passive"]#, "Active", "Pooled"],
 }
