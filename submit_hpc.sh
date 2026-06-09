@@ -21,7 +21,7 @@ cd "${SCRIPT_DIR}"
 SWEEP="${SWEEP:-configs/sweep_hpc.yaml}"
 SHARD_BY="${SHARD_BY:-domain_integration_ablation_granularity}"
 SUBMIT_MODE="${SUBMIT_MODE:-array}"
-ARRAY_CAP="${ARRAY_CAP:-80}"
+ARRAY_CAP="${ARRAY_CAP:-50}"
 PARTITION="${PARTITION:-batch}"
 MAX_BATCH_HOURS="${MAX_BATCH_HOURS:-72}"
 
@@ -110,7 +110,7 @@ estimate_array_wall_hours() {
   local n mins cap waves
   n="$(count_trials "${manifest}")"
   mins="$(minutes_per_trial "${manifest}")"
-  cap="${ARRAY_CAP:-80}"
+  cap="${ARRAY_CAP:50}"
   if [[ "${cap}" -lt 1 ]]; then
     cap=1
   fi
