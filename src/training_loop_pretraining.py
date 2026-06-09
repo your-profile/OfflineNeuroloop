@@ -128,7 +128,7 @@ def train(env:gymnasium.Env,
                 neural_signal, clf_probs = utils_rl.get_neural_signal(features = neural_features, clf = clf)
 
                 # update neural buffer
-                fnirs_sample = processor.get_fnirs_sample(timestamp = rl_timestamp, temporal_shift = -shift, fnirs_channels = fnirs_channel_names)
+                fnirs_sample = processor.get_fnirs_sample(timestamp = rl_timestamp, temporal_shift = -0.0, fnirs_channels = fnirs_channel_names)
                 buffer.add_sample(timestamp = rl_timestamp, x = fnirs_sample, classification=neural_signal)
                 
                 # get + adjust neural classification
@@ -142,7 +142,7 @@ def train(env:gymnasium.Env,
                 adjusted_neural_signal = utils_rl.adjust_neural_classification(new_neural_signal, beta=beta)
 
                 # get true sample label
-                class_truth = processor.get_label_sample(timestamp = rl_timestamp, temporal_shift = -shift)
+                class_truth = processor.get_label_sample(timestamp = rl_timestamp, temporal_shift = -0.0)
                 
                 # get next action distribution, unless episode ends
                 fs = int(final_step) if pd.notna(final_step) else n
@@ -189,6 +189,7 @@ def train(env:gymnasium.Env,
 
             # remember transition
             agent.remember(state, action, reward, next_state, done, priority = priority, q_augmentation = q_augmentation)
+            state = next_state
             # evaluate agent
             if combined_steps % target_update == 0:
                 if domain_key == "F": #flappy bird
@@ -280,16 +281,6 @@ def train(env:gymnasium.Env,
         pbar.update(1)
         combined_episodes += 1
     
-    if domain_key == "F": #flappy bird
-        eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=50), agent=agent, episodes=15, steps=steps, domain_key=domain_key)
-    else: #lunar lander
-        eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=15, steps=steps, domain_key=domain_key)
-    
-    # store success rate
-    all_episode_success.append(eval_success)
-    all_total_rewards.extend(eval_reward)
-    all_episode_steps.append(online_step)
-
     # close environment
     pbar.close()
     env.close()

@@ -1,26 +1,27 @@
 experiment: 
-  domain: "Lunar"                        
-  task: "Passive"                         # Passive | Active | Pooled    
+  domain: "Flappy"                        
+  task: "Pooled"                         # Passive | Active | Pooled    
   model_granularity: "binary"             # binary | ternary | continuous
   participant_list: [2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]
   random_state: 42
-  target_update: 6000
+  target_update: 2000
   integration_type: "pretrain"
   pretrained_success_rate: 0.0
-  eval_success_threshold: 0.0
+  eval_success_threshold: 0.00
   verbose: False
 
 neural:
   smoothing_window_size: 1      # 1 for no smoothing, 2 for 2-point smoothing, etc.
-  temporal_shift: 0.0          # 0.0 for no temporal shift, 0.1 for 0.1 second temporal shift, etc.
+  temporal_shift: 0.0         # 0.0 for no temporal shift, 0.1 for 0.1 second temporal shift, etc.
   window_size_s: 4.0          # 4.0 seconds for 4-second window, 5.0 seconds for 5-second window, etc.
+  step_size_s: 1.0
   sliding_window_size: 1      # 1 for no sliding window, 2 for 2-point sliding window, etc.
   beta: 1.0                  # 1.0 for no beta, 2.0 for 2.0 beta, etc.
   fnirs_rate_hz: 5.2        # CONSTANT
 
 mlp:
   model_noise: 0.0
-  binary_hidden_layer_sizes: [30, 15, 5] # CONSTANT
+  binary_hidden_layer_sizes: [50, 20, 5] # CONSTANT
   ternary_hidden_layer_sizes: [75, 50, 5] # CONSTANT
   regressor_hidden_layer_sizes: [100, 40, 2] # CONSTANT
   binary_activation: "relu" # CONSTANT
@@ -32,11 +33,11 @@ mlp:
   early_stopping: True # CONSTANT
 
 rl:
-  n_episodes: 5000 # CONSTANT
+  n_episodes: 3000 # CONSTANT
   algorithm: "DQN"
   buffer_type: "PER"
   learning_rate_init: 0.001
-  steps: 600 # CONSTANT
-  action_space: 4 # CONSTANT
-  observation_space: 11 # CONSTANT
+  steps: 800 # CONSTANT
+  action_space: 2 # CONSTANT
+  observation_space: 12 # CONSTANT
 

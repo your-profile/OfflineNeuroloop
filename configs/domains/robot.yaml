@@ -13,6 +13,7 @@ neural:
   smoothing_window_size: 1      # 1 for no smoothing, 2 for 2-point smoothing, etc.
   temporal_shift: 0.0          # 0.0 for no temporal shift, 0.1 for 0.1 second temporal shift, etc.
   window_size_s: 4.0          # 4.0 seconds for 4-second window, 5.0 seconds for 5-second window, etc.
+  step_size_s: 1.0
   sliding_window_size: 1      # 1 for no sliding window, 2 for 2-point sliding window, etc.
   beta: 1.0                  # 1.0 for no beta, 2.0 for 2.0 beta, etc.
   fnirs_rate_hz: 5.2        # CONSTANT

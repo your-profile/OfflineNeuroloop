@@ -20,7 +20,7 @@ NEURAL_CONDITION_MAP = {
 # Ablation Studies
 
 ABLATIONS = [
-    {"key": ["mlp", "model_noise"], "vals": [0.1]},#, 0.2, 0.5, 1.0]},
+    {"key": ["mlp", "model_noise"], "vals": [0.0]},#, 0.2, 0.5, 1.0]},
     # {"key": ["experiment", "eval_success_threshold"], "vals": [0.0]},#, 0.2, 0.5, 1.0]},
     # {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0]},
     {"key": ["neural", "beta"], "vals": [1.0]},
@@ -29,7 +29,7 @@ ABLATIONS = [
 
 # testing: single condition, binary granularity, no ablation sweeps
 NEURAL_CONDITIONS = [
-    "Baseline-PER",
+    # "Baseline-PER",
     "Prioritization-PER",
     "Q-Augmentation-PER",
     "Reward Augmentation-PER",
@@ -42,8 +42,8 @@ GRANULARITIES = ["binary"]
 SEEDS = [42] #, 43, 44, 45, 46, 47, 48, 49, 50, 51] 
 
 DOMAINS_TASKS = {
-    "Lunar": ["Active"], #, "Active", "Pooled"],
-    # "Flappy": ["Passive"]#, "Active", "Pooled"],
+    # "Lunar": ["Active"], #, "Active", "Pooled"],
+    "Flappy": ["Passive"]#, "Active", "Pooled"],
     # "Robot": ["Passive"]#, "Active", "Pooled"],
 }
 
@@ -91,7 +91,7 @@ for ablation, (domain, tasks), seed, granularity, condition in itertools.product
     # if condition == "Baseline" and granularity != "binary":
     #     continue
 
-    with open(f"configs/domains/{domain}.yaml") as f:
+    with open(f"configs/test.yaml") as f:
         domain_base = yaml.safe_load(f)
         domain_cfg = copy.deepcopy(domain_base)
 

@@ -166,7 +166,7 @@ submit_array() {
     --output="${LOG_DIR}/neuroloop_%A_%a.log" \
     --error="${LOG_DIR}/neuroloop_%A_%a.log" \
     --export="$(export_exports "${manifest_abs}")" \
-    "${SCRIPT_DIR}/run_bash.sh" \
+    "${SCRIPT_DIR}/scripts/run_bash.sh" \
     | awk '{print $NF}')
 
   echo "Submitted array ${manifest}"
@@ -201,7 +201,7 @@ submit_batch() {
     --output="${LOG_DIR}/batch_%j.log" \
     --error="${LOG_DIR}/batch_%j.log" \
     --export="$(export_exports "${manifest_abs}")",STOP_ON_ERROR="${STOP_ON_ERROR:-0}" \
-    "${SCRIPT_DIR}/run_batch.sh" \
+    "${SCRIPT_DIR}/scripts/run_batch.sh" \
     | awk '{print $NF}')
 
   echo "Submitted batch ${manifest} (${n_tasks} trials sequential) -> job ${job_id}"
