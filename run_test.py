@@ -21,7 +21,7 @@ NEURAL_CONDITION_MAP = {
 
 ABLATIONS = [
     {"key": ["mlp", "model_noise"], "vals": [0.0]},#, 0.2, 0.5, 1.0]},
-    # {"key": ["experiment", "eval_success_threshold"], "vals": [0.0]},#, 0.2, 0.5, 1.0]},
+    # {"key": ["experiment", "finetune_threshold"], "vals": [0.0]},#, 0.2, 0.5, 1.0]},
     # {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0]},
     {"key": ["neural", "beta"], "vals": [1.0]},
     # {"key": ["neural", "window_size_s"], "vals": [4.0, 5.0]},

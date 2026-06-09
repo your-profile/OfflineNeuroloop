@@ -36,7 +36,7 @@ def train(env:gymnasium.Env,
           shift: float = 0.0, 
           noise = 0.0,
           smoothing_window_size: int = 0,
-          target_update: int = 200, 
+          eval_update: int = 200, 
           buffer_type: str = 'ER', 
           seed: int = 42,
           beta: float = 1.0,
@@ -44,7 +44,7 @@ def train(env:gymnasium.Env,
           save_results: bool = False, 
           save_to_csv: bool = False,
           verbose: bool = False,
-          eval_success_threshold = 0.0,
+          finetune_threshold = 0.0,
           success_save_threshold = 1.0,
           save_agent = False,
     ):
@@ -83,8 +83,8 @@ def train(env:gymnasium.Env,
     for online_episode in range(0, episodes_num):
         threshold = online_episode / episodes_num
 
-        if threshold >= eval_success_threshold:
-            print(f"Online episode {online_episode} reached success threshold {eval_success_threshold}")
+        if threshold >= finetune_threshold:
+            print(f"Online episode {online_episode} reached success threshold {finetune_threshold}")
             break
 
         # set seed
@@ -115,7 +115,7 @@ def train(env:gymnasium.Env,
             total_reward += reward
 
             # evaluate agent
-            if combined_steps % target_update == 0:
+            if combined_steps % eval_update == 0:
                 if domain_key == "F": #flappy bird
                     eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=50), agent=agent, episodes=15, steps=steps, domain_key=domain_key)
                 else: #lunar lander
@@ -269,7 +269,7 @@ def train(env:gymnasium.Env,
             agent.remember(state, action, reward, next_state, done, priority = priority, q_augmentation = q_augmentation)
             state = next_state
             # evaluate agent
-            if combined_steps % target_update == 0:
+            if combined_steps % eval_update == 0:
                 if domain_key == "F": #flappy bird
                     eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=50), agent=agent, episodes=15, steps=steps, domain_key=domain_key)
                 else: #lunar lander
@@ -324,7 +324,7 @@ def train(env:gymnasium.Env,
             total_reward += reward
 
             # evaluate agent
-            if combined_steps % target_update == 0:
+            if combined_steps % eval_update == 0:
                 if domain_key == "F": #flappy bird
                     eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=50), agent=agent, episodes=15, steps=steps, domain_key=domain_key)
                 else: #lunar lander
@@ -407,14 +407,14 @@ def train_robot(env:gymnasium.Env,
           shift: float = 0.0, 
           noise = 0.0,
           smoothing_window_size: int = 0,
-          target_update: int = 200, 
+          eval_update: int = 200, 
           buffer_type: str = 'ER', 
           seed: int = 42,
           beta: float = 1.0,
           save_results: bool = False, 
           save_to_csv: bool = False,
           verbose: bool = False,
-          eval_success_threshold = 0.0,
+          finetune_threshold = 0.0,
           success_save_threshold = 1.0,
           save_agent = False,
     ):
@@ -477,7 +477,7 @@ def train_robot(env:gymnasium.Env,
     # ONLINE POST-TRAINING LOOP
     for online_episode in range(total_participant_episodes, episodes_num):
         threshold = online_episode / episodes_num
-        if threshold >= eval_success_threshold:
+        if threshold >= finetune_threshold:
             break
 
         state_dict, _ = env.reset(seed=seed)
@@ -514,7 +514,7 @@ def train_robot(env:gymnasium.Env,
             state_dict = next_state_dict
             total_reward += float(reward)
 
-            if combined_steps % target_update == 0 and save_agent:
+            if combined_steps % eval_update == 0 and save_agent:
                 eval_success, eval_reward = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=10)
                 all_episode_success.append(eval_success)
                 all_total_rewards.append(eval_reward)
@@ -680,7 +680,7 @@ def train_robot(env:gymnasium.Env,
             episode_dict["q_augmentation"].append(float(q_augmentation))
             episode_dict["done"].append(float(done))
 
-            if combined_steps % target_update == 0 and save_agent:
+            if combined_steps % eval_update == 0 and save_agent:
                 eval_success, eval_reward = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=10)
                 all_episode_success.append(eval_success)
                 all_total_rewards.append(eval_reward)
@@ -760,7 +760,7 @@ def train_robot(env:gymnasium.Env,
             state_dict = next_state_dict
             total_reward += float(reward)
 
-            if combined_steps % target_update == 0 and save_agent:
+            if combined_steps % eval_update == 0 and save_agent:
                 eval_success, eval_reward = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=10)
                 all_episode_success.append(eval_success)
                 all_total_rewards.append(eval_reward)

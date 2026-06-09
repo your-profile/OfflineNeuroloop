@@ -36,7 +36,7 @@ def train(env:gymnasium.Env,
           shift: float = 0.0, 
           noise = 0.0,
           smoothing_window_size: int = 0,
-          target_update: int = 200, 
+          eval_update: int = 200, 
           buffer_type: str = 'ER', 
           seed: int = 42,
           beta: float = 1.0,
@@ -44,7 +44,7 @@ def train(env:gymnasium.Env,
           save_results: bool = False, 
           save_to_csv: bool = False,
           verbose: bool = False,
-          eval_success_threshold = 0.0,
+          finetune_threshold = 0.0,
           success_save_threshold = 1.0,
           save_agent = False,
     ):
@@ -194,7 +194,7 @@ def train(env:gymnasium.Env,
             agent.remember(state, action, reward, next_state, done, priority = priority, q_augmentation = q_augmentation)
             state = next_state
             # evaluate agent
-            if combined_steps % target_update == 0:
+            if combined_steps % eval_update == 0:
                 if domain_key == "F": #flappy bird
                     eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=50), agent=agent, episodes=15, steps=steps, domain_key=domain_key)
                 else: #lunar lander
@@ -247,7 +247,7 @@ def train(env:gymnasium.Env,
                 total_reward += reward
 
                 # evaluate agent
-                if combined_steps % target_update == 0:
+                if combined_steps % eval_update == 0:
                     if domain_key == "F": #flappy bird
                         eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=50), agent=agent, episodes=15, steps=steps, domain_key=domain_key)
                     else: #lunar lander
@@ -328,7 +328,7 @@ def train_robot(env: gymnasium.Env,
                 shift: float = 0.0,
                 noise: float = 0.0,
                 smoothing_window_size: int = 0,
-                target_update: int = 20,
+                eval_update: int = 20,
                 buffer_type: str = "ER",
                 beta: float = 1.0,
                 seed = 42,

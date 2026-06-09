@@ -281,7 +281,7 @@ def iter_trial_specs(sweep: dict) -> list[dict]:
     seeds = sweep["seeds"]
     conditions = sweep["conditions"]
     granularities = sweep["granularities"]
-    ablations = sweep.get("ablations", [{"key": ["experiment", "eval_success_threshold"], "vals": [0.0]}])
+    ablations = sweep.get("ablations", [{"key": ["experiment", "finetune_threshold"], "vals": [0.0]}])
     n_episodes_override = sweep.get("n_episodes_override")
 
     specs: list[dict] = []

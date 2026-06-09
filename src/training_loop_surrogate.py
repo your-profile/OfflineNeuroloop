@@ -36,14 +36,14 @@ def train(env:gymnasium.Env,
           shift: float = 0.0, 
           noise = 0.0,
           smoothing_window_size: int = 0,
-          target_update: int = 200, 
+          eval_update: int = 200, 
           buffer_type: str = 'ER', 
           seed: int = 42,
           beta: float = 1.0,
           save_results: bool = False, 
           save_to_csv: bool = False,
           verbose: bool = False,
-          eval_success_threshold = 0.0,
+          finetune_threshold = 0.0,
           success_save_threshold = 1.0,
           save_agent = False,
     ):
@@ -275,7 +275,7 @@ def train(env:gymnasium.Env,
             score_avg = np.mean(all_total_rewards[-50:])
 
             # evaluate agent
-            if combined_episodes % target_update == 0:
+            if combined_episodes % eval_update == 0:
                 if domain_key == "F": #flappy bird
                     success = utils_rl.evaluate(env=FlappyBird(score_limit=20), agent=agent, episodes=50, steps=steps, domain_key=domain_key)
                 else: #lunar lander
@@ -358,7 +358,7 @@ def train_robot(env: gymnasium.Env,
                 shift: float = 0.0,
                 noise: float = 0.0,
                 smoothing_window_size: int = 0,
-                target_update: int = 20,
+                eval_update: int = 20,
                 buffer_type: str = "ER",
                 beta: float = 1.0,
                 seed = 42,

@@ -35,7 +35,7 @@ def main() -> None:
     parser.add_argument("--domain-key", type=str, help="e.g. Flappy (uses configs/domains/flappy.yaml)")
     parser.add_argument("--domain-config", type=Path, help="Full domain YAML, e.g. configs/domains/flappy.yaml")
     parser.add_argument("--base-config", type=Path, default=REPO_ROOT / "configs/test.yaml")
-    parser.add_argument("--ablation-key", default="experiment.eval_success_threshold")
+    parser.add_argument("--ablation-key", default="experiment.finetune_threshold")
     parser.add_argument("--ablation-val", default="0.0")
     parser.add_argument("--n-episodes", type=int, help="Override rl.n_episodes for quick tests")
     parser.add_argument("--data-path", type=Path)

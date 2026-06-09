@@ -37,7 +37,7 @@ class Results():
         return row
         
 
-    def save_parameters(domain:str, participant_list, algorithm_name, experiment_list, episodes:int, state_dim:int, action_dim:int, learning_rate:float, gamma:float, epsilon_type:str, target_update:int, resample_rate, window_size, step_size, buffer_type:str, credit_type:str, temporal_shift, save_to_csv = False, filepath = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/parameters"):
+    def save_parameters(domain:str, participant_list, algorithm_name, experiment_list, episodes:int, state_dim:int, action_dim:int, learning_rate:float, gamma:float, epsilon_type:str, eval_update:int, resample_rate, window_size, step_size, buffer_type:str, credit_type:str, temporal_shift, save_to_csv = False, filepath = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/parameters"):
         import datetime
         row = {"date": datetime.date.today(),
             "time": datetime.datetime.now(),
@@ -53,7 +53,7 @@ class Results():
             "learning_rate": learning_rate,
             "gamma": gamma,
             "epsilon_type": epsilon_type,
-            "target_update": target_update,
+            "eval_update": eval_update,
             "buffer_type": buffer_type,
 
             "temporal_shift": temporal_shift,

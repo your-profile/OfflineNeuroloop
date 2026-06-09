@@ -108,10 +108,10 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
             save_results = True,
             save_to_csv = False,
             verbose = verbose,
-            eval_success_threshold = cfg["experiment"]["eval_success_threshold"],
+            finetune_threshold = cfg["experiment"]["finetune_threshold"],
             success_save_threshold = 0.5,
             save_agent = False,
-            target_update = cfg["experiment"]["target_update"],
+            eval_update = cfg["experiment"]["eval_update"],
         )
     else:
         results_dictionary = train_robot(env=env, 
@@ -137,10 +137,10 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
             save_results = True,
             save_to_csv = False,
             verbose = verbose,
-            eval_success_threshold = cfg["experiment"]["eval_success_threshold"],
+            finetune_threshold = cfg["experiment"]["finetune_threshold"],
             success_save_threshold = 0.5,
             save_agent = False,
-            target_update = cfg["experiment"]["target_update"],
+            eval_update = cfg["experiment"]["eval_update"],
         )
 
     trial_dict = {}
