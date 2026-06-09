@@ -81,7 +81,7 @@ def load_agent(algorithm: str, buffer_type: str, filename:str, space=(11, 4), pr
         if space[0] == 11:
             hidden_layer_size = 256
         else:
-            hidden_layer_size = 256 #192
+            hidden_layer_size = 192
 
         if verbose:
             print(f"Loading DQN agent with {space[0]} observations and {space[1]} actions")
