@@ -7,7 +7,7 @@ experiment:
   pretrained_success_rate: 0.0
   finetune_threshold: 0.0
   verbose: False
-  eval_update: 200
+  eval_update: 10000
 
 neural:
   smoothing_window_size: 1      # 1 for no smoothing, 2 for 2-point smoothing, etc.
