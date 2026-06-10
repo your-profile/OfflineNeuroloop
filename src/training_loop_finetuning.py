@@ -79,12 +79,12 @@ def train(env:gymnasium.Env,
 
     seed, last_seed = 0, 0
 
-    # ONLINE POST-TRAINING LOOP
+    # ONLINE PRE-TRAINING LOOP
     for online_episode in range(0, episodes_num):
         threshold = online_episode / episodes_num
 
         if threshold >= finetune_threshold:
-            print(f"Online episode {online_episode} reached success threshold {finetune_threshold}")
+            print(f"Online episode {online_episode} reached training threshold {finetune_threshold}")
             break
 
         # set seed
@@ -293,6 +293,7 @@ def train(env:gymnasium.Env,
 
     print(f"Offline dataset pre-training loop completed")
     print(f"Online post-training loop started")
+
     # ONLINE POST-TRAINING LOOP
     for online_episode in range(online_episode+total_participant_episodes, episodes_num):
 
@@ -359,12 +360,6 @@ def train(env:gymnasium.Env,
         )          
         pbar.update(1)
         combined_episodes += 1
-
-
-    # store success rate
-    all_episode_success.append(eval_success)
-    all_total_rewards.extend(eval_reward)
-    all_episode_steps.append(online_step)
 
     # close environment
     pbar.close()

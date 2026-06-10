@@ -131,7 +131,7 @@ def train(env:gymnasium.Env,
                 neural_signal, clf_probs = utils_rl.get_neural_signal(features = neural_features, clf = clf)
 
                 # update neural buffer
-                fnirs_sample = processor.get_fnirs_sample(timestamp = rl_timestamp, temporal_shift = -0.0, fnirs_channels = fnirs_channel_names)
+                fnirs_sample = processor.get_fnirs_sample(timestamp = rl_timestamp, temporal_shift = -shift, fnirs_channels = fnirs_channel_names)
                 buffer.add_sample(timestamp = rl_timestamp, x = fnirs_sample, classification=neural_signal)
                 
                 # get + adjust neural classification
@@ -145,7 +145,7 @@ def train(env:gymnasium.Env,
                 adjusted_neural_signal = utils_rl.adjust_neural_classification(new_neural_signal, beta=beta)
 
                 # get true sample label
-                class_truth = processor.get_label_sample(timestamp = rl_timestamp, temporal_shift = -0.0)
+                class_truth = processor.get_label_sample(timestamp = rl_timestamp, temporal_shift = -shift)
                 
                 # get next action distribution, unless episode ends
                 fs = int(final_step) if pd.notna(final_step) else n
@@ -283,7 +283,7 @@ def train(env:gymnasium.Env,
             pbar.update(1)
             combined_episodes += 1 
 
-            if offline_episode >= total_participant_episodes and pbar.n < episodes_num:
+            if offline_episode >= total_participant_episodes-1 and pbar.n < episodes_num:
                 online_episodes_per_participant = episodes_num - pbar.n
 
     # close environment

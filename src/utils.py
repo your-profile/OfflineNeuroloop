@@ -79,7 +79,7 @@ def load_agent(algorithm: str, buffer_type: str, filename:str, space=(11, 4), pr
 
     if algorithm == "DQN":
         if space[0] == 11:
-            hidden_layer_size = 256
+            hidden_layer_size = 312
         else:
             hidden_layer_size = 192
 
