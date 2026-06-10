@@ -34,11 +34,11 @@ def make_fetch_env(max_episode_steps=50, mujoco_version: int = 4, verbose: bool 
 
 def get_means(domain: str):
     if domain[0].lower() == "l":
-        return (1.4, -0.95, -2.6)
+        return (4.5, -1.5, -2.9) #0.9, 0.6, 0.3
     elif domain[0].lower() == "f":
-        return (0.75, -0.1, -0.75)
+        return (1.0, 0.1, -1.0) #0.99, 0.5, 0.01
     elif domain[0].lower() == "r":
-        return (0.0, -0.5, -0.1)
+        return (0.0, -0.5, -1.0) #0.99, 0.5, 0.01
     else:
         raise ValueError(f"Invalid domain: {domain}")
 
