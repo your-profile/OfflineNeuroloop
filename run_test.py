@@ -42,8 +42,8 @@ GRANULARITIES = ["binary"]
 SEEDS = [42] #, 43, 44, 45, 46, 47, 48, 49, 50, 51] 
 
 DOMAINS_TASKS = {
-    # "Lunar": ["Active"], #, "Active", "Pooled"],
-    "Flappy": ["Passive"]#, "Active", "Pooled"],
+    "Lunar": ["Pooled"], #, "Active", "Pooled"],
+    # "Flappy": ["Passive"]#, "Active", "Pooled"],
     # "Robot": ["Passive"]#, "Active", "Pooled"],
 }
 
