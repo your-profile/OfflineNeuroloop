@@ -55,7 +55,7 @@ NEURAL_CONDITION_MAP = {
 
 INTEGRATION_RESULTS_SUFFIX = {
     "finetune": "finetuning",
-    "interleaved": "interleaving",
+    "interleave": "interleaving",
     "pretrain": "pretraining",
 }
 

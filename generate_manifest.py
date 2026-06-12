@@ -63,7 +63,7 @@ def main() -> None:
         help="Write manifests/manifests/<shard>.csv instead of one file",
     )
     parser.add_argument("--filter-domain", nargs="+", metavar="NAME")
-    parser.add_argument("--filter-integration", nargs="+", choices=["pretrain", "finetune", "interleaved"])
+    parser.add_argument("--filter-integration", nargs="+", choices=["pretrain", "finetune", "interleave"])
     parser.add_argument("--filter-ablation-key", nargs="+", help="e.g. mlp.model_noise neural.beta")
     parser.add_argument("--filter-condition", nargs="+")
     parser.add_argument("--filter-task", nargs="+")
