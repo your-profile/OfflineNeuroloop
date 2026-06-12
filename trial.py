@@ -15,7 +15,7 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
         print("Inverse RL")
         from src.training_loop_surrogate import train, train_robot
     elif cfg["experiment"]["integration_type"] == "interleave":
-        print("Interleaved")
+        print("Interleave")
         from src.training_loop_interleaving import train, train_robot
     elif cfg["experiment"]["integration_type"] == "finetune":
         print("Finetune")

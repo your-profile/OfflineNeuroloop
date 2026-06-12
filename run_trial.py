@@ -27,7 +27,7 @@ def main() -> None:
         help="CSV manifest from generate_manifest.py",
     )
     parser.add_argument("--trial-id", type=int, help="1-based trial_id in the manifest")
-    parser.add_argument("--integration", choices=["finetune", "interleaved", "pretrain"])
+    parser.add_argument("--integration", choices=["finetune", "interleave", "pretrain"])
     parser.add_argument("--condition", type=str)
     parser.add_argument("--seed", type=int)
     parser.add_argument("--granularity", default="binary")
