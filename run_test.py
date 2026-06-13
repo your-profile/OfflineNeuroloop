@@ -1,7 +1,7 @@
 import itertools, copy, yaml
 from trial import run
 
-with open("configs/test.yaml") as f:
+with open("configs/test_flappy.yaml") as f:
     base = yaml.safe_load(f)
 
 NEURAL_CONDITION_MAP = {
@@ -29,21 +29,21 @@ ABLATIONS = [
 
 # testing: single condition, binary granularity, no ablation sweeps
 NEURAL_CONDITIONS = [
-    "Baseline-PER",
-    "Prioritization-PER",
+    # "Baseline-PER",
+    # "Prioritization-PER",
     "Q-Augmentation-PER",
     "Reward Augmentation-PER",
     "All-PER",
 ]
 
 GRANULARITIES = ["binary", "ternary", "continuous"]
-GRANULARITIES = ["binary"]
+GRANULARITIES = ["ternary"]
 
 SEEDS = [42] #, 43, 44, 45, 46, 47, 48, 49, 50, 51] 
 
 DOMAINS_TASKS = {
-    "Lunar": ["Pooled"], #, "Active", "Pooled"],
-    # "Flappy": ["Passive"]#, "Active", "Pooled"],
+    # "Lunar": ["Pooled"], #, "Active", "Pooled"],
+    "Flappy": ["Pooled"]#, "Active", "Pooled"],
     # "Robot": ["Passive"]#, "Active", "Pooled"],
 }
 
@@ -91,7 +91,7 @@ for ablation, (domain, tasks), seed, granularity, condition in itertools.product
     # if condition == "Baseline" and granularity != "binary":
     #     continue
 
-    with open(f"configs/test.yaml") as f:
+    with open(f"configs/test_flappy.yaml") as f:
         domain_base = yaml.safe_load(f)
         domain_cfg = copy.deepcopy(domain_base)
 
