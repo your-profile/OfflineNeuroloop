@@ -30,8 +30,8 @@ ABLATIONS = [
 # testing: single condition, binary granularity, no ablation sweeps
 NEURAL_CONDITIONS = [
     # "Baseline-PER",
-    # "Prioritization-PER",
-    "Q-Augmentation-PER",
+    "Prioritization-PER",
+    # "Q-Augmentation-PER",
     "Reward Augmentation-PER",
     "All-PER",
 ]
