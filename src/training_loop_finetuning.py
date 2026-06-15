@@ -81,7 +81,7 @@ def train(env:gymnasium.Env,
 
     # ONLINE PRE-TRAINING LOOP
     for online_episode in range(0, episodes_num):
-        threshold = online_episode / episodes_num
+        threshold = eval_success #online_episode / episodes_num
 
         if threshold >= finetune_threshold:
             print(f"Online episode {online_episode} reached training threshold {finetune_threshold}")
@@ -117,7 +117,7 @@ def train(env:gymnasium.Env,
             # evaluate agent
             if combined_steps % eval_update == 0:
                 if domain_key == "F": #flappy bird
-                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=50), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
+                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=100), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
                 else: #lunar lander
                     eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
                 
@@ -271,7 +271,7 @@ def train(env:gymnasium.Env,
             # evaluate agent
             if combined_steps % eval_update == 0:
                 if domain_key == "F": #flappy bird
-                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=50), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
+                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=100), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
                 else: #lunar lander
                     eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
                 
@@ -295,7 +295,7 @@ def train(env:gymnasium.Env,
     print(f"Online post-training loop started")
 
     # ONLINE POST-TRAINING LOOP
-    for online_episode in range(online_episode+total_participant_episodes, episodes_num):
+    for online_episode in range(online_episode, 500):
 
         # set seed
         if domain_key == "F":
@@ -327,7 +327,7 @@ def train(env:gymnasium.Env,
             # evaluate agent
             if combined_steps % eval_update == 0:
                 if domain_key == "F": #flappy bird
-                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=50), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
+                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=100), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
                 else: #lunar lander
                     eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
                 

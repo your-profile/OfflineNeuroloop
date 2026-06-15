@@ -98,9 +98,9 @@ minutes_per_trial() {
 slurm_time_per_trial() {
   case "$(domain_from_manifest "$1")" in
     flappy) echo "1:30:00" ;;
-    lunar)  echo "3:00:00" ;;
+    lunar)  echo "6:00:00" ;;
     robot)  echo "8:00:00" ;;
-    *)      echo "4:00:00" ;;
+    *)      echo "6:00:00" ;;
   esac
 }
 

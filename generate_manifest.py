@@ -64,7 +64,11 @@ def main() -> None:
     )
     parser.add_argument("--filter-domain", nargs="+", metavar="NAME")
     parser.add_argument("--filter-integration", nargs="+", choices=["pretrain", "finetune", "interleave"])
-    parser.add_argument("--filter-ablation-key", nargs="+", help="e.g. mlp.model_noise neural.beta")
+    parser.add_argument(
+        "--filter-ablation-key",
+        nargs="+",
+        help="e.g. mlp.model_noise neural.beta experiment.finetune_threshold",
+    )
     parser.add_argument("--filter-condition", nargs="+")
     parser.add_argument("--filter-task", nargs="+")
     parser.add_argument(

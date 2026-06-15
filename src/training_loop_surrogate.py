@@ -277,7 +277,7 @@ def train(env:gymnasium.Env,
             # evaluate agent
             if combined_episodes % eval_update == 0:
                 if domain_key == "F": #flappy bird
-                    success = utils_rl.evaluate(env=FlappyBird(score_limit=20), agent=agent, episodes=50, steps=steps, domain_key=domain_key)
+                    success = utils_rl.evaluate(env=FlappyBird(score_limit=100), agent=agent, episodes=50, steps=steps, domain_key=domain_key)
                 else: #lunar lander
                     success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=50, steps=steps, domain_key=domain_key)
                

@@ -62,7 +62,7 @@ INTEGRATION_RESULTS_SUFFIX = {
 # Wall-clock hints for SLURM --time (one trial per array task).
 DOMAIN_SLURM_TIME = {
     "flappy": "1:30:00",
-    "lunar": "3:00:00",
+    "lunar": "6:00:00",
     "robot": "8:00:00",
 }
 
@@ -136,6 +136,7 @@ def make_run_name(cfg: dict) -> str:
         f"__seed{e['random_state']}"
         f"__noise{m['model_noise']}"
         f"__beta{n['beta']}"
+        f"__ft{e.get('finetune_threshold', 0.0)}"
     )
 
 
@@ -235,6 +236,7 @@ def build_cfg(
     if condition.startswith("Baseline") and (
         (ablation["key"] == ["mlp", "model_noise"] and ablation_val != 0.0)
         or (ablation["key"] == ["neural", "temporal_shift"] and ablation_val != 0.0)
+        # or (ablation["key"] == ["experiment", "finetune_threshold"] and ablation_val != 0.0)
     ):
         return None
 
