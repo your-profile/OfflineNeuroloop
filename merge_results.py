@@ -13,7 +13,7 @@ from experiment_sweep import INTEGRATION_RESULTS_SUFFIX, REPO_ROOT
 """
 Example:
 
-python merge_results.py --runs-dir src/results/runs --output-dir src/results --combined_name lunar_trial_results_merged.csv
+python merge_results.py --runs-dir src/results/runs --output-dir src/results --combined_name flappy_finetune_binary_PER1.csv
 """
 
 

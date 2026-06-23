@@ -24,16 +24,16 @@ ABLATIONS = [
 INTEGRATION = "finetune"
 
 NEURAL_CONDITIONS = [
-    "Baseline-PER",
+    # "Baseline-PER",
     "Prioritization-PER",
-    "Q-Augmentation-PER",
-    "Reward Augmentation-PER",
-    "All-PER",
+    # "Q-Augmentation-PER",
+    # "Reward Augmentation-PER",
+    # "All-PER",
 ]
 
 GRANULARITIES = ["binary"]
 
-SEEDS = [43]
+SEEDS = [42]
 
 DOMAIN_CONFIGS = {
     "Flappy": REPO_ROOT / "configs/test_flappy.yaml",
@@ -49,7 +49,7 @@ TASKS_BY_DOMAIN = {
 
 DATA_PATH = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/"
 RESULTS_PATH = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/"
-RESULTS_FILE_NAME = "trial_results_finetuning_priority_aug_betafix.csv"
+RESULTS_FILE_NAME = "trial_results_finetuning.csv"
 # DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/'
 # RESULTS_PATH = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/'
 

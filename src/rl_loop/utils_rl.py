@@ -159,7 +159,7 @@ def adjust_reward(
                 # print(f"Adjusted Reward: {reward + bonus}")
                 return float((reward + bonus) * beta)
     # print("not working")
-    return float(reward + means[neural_signal])
+    return float((reward + means[neural_signal])*beta)
 
 def adjust_epsilon(epsilon: float, neural_signal: float, verbose = False):
     """
