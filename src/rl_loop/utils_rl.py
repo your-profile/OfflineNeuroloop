@@ -118,11 +118,12 @@ def adjust_reward(
     reward: float,
     neural_signal: int | float,
     clf_probs=None,
-    means: tuple[float, float, float] = (1.0, -0.5, -1.0),
+    means: tuple[float, float, float] = (1.0, -0.1, -1.0),
     stds: tuple[float, float, float] = (0.25, 0.25, 0.25),
     mix_scale: float = 1.0,
     sample_bonus: bool = False,
     clip_bonus: float | None = None,
+    beta: float = 1.0,
 ):
     if clf_probs is not None and not np.isscalar(clf_probs):
         probs = np.asarray(clf_probs, dtype=np.float64).ravel()
@@ -156,7 +157,7 @@ def adjust_reward(
                 # print(f"Bonus: {bonus}")
                 # print(f"Reward: {reward}")
                 # print(f"Adjusted Reward: {reward + bonus}")
-                return float(reward + bonus)
+                return float((reward + bonus) * beta)
     # print("not working")
     return float(reward + means[neural_signal])
 

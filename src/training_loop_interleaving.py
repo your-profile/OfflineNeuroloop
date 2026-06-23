@@ -78,7 +78,10 @@ def train(env:gymnasium.Env,
     bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} < {remaining}, {rate_fmt} | {postfix}]'
     pbar = trange(episodes_num, unit="ep", bar_format=bar_format, ascii=True)
 
-    last_seed = 0
+    #get seed for training, randomized with seed from paramters
+    np.random.seed(seed)
+    online_seed = np.random.randint(0, 1000000)
+
     # OFFLINE DATASET PRE-TRAINING LOOP
     for (offline_episode, ((participant, episode), episode_df)) in enumerate(grouped):
         total_reward = 0
@@ -88,12 +91,12 @@ def train(env:gymnasium.Env,
         rows = episode_df.reset_index(drop=True)
         n = len(rows)
 
-        seed = int(rows["seed"].iloc[0])
+        off_seed = int(rows["seed"].iloc[0])
 
         if domain_key == "F":
-            state, _ = env.reset(seed=seed) #seed for flappy bird
+            state, _ = env.reset(seed=off_seed) #seed for flappy bird
         else:
-            state = env.reset(seed=seed) #seed for lunar lander
+            state = env.reset(seed=off_seed) #seed for lunar lander
 
         for offline_step in range(1, n):
             action = rows["actions"].iloc[offline_step]
@@ -162,7 +165,7 @@ def train(env:gymnasium.Env,
                     if verbose:
                         print(f"Experiment Condition 1: Reward Augmentation -- Episode {episode} -- Participant: {participant}")
                         print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal, "| Adjusted Reward: ", reward + adjusted_neural_signal)
-                    reward = utils_rl.adjust_reward(reward, new_neural_signal, clf_probs = clf_probs, means = means)
+                    reward = utils_rl.adjust_reward(reward, new_neural_signal, clf_probs = clf_probs, means = means, beta = beta)
                 
                 # Priorirization experiment
                 if 2 in flags:
@@ -176,7 +179,7 @@ def train(env:gymnasium.Env,
                 if 3 in flags:
                     if verbose:
                         print(f"Experiment Condition 3: Q-Augmentation -- Episode {episode} -- Participant: {participant}")
-                    q_augmentation = utils_rl.adjust_reward(0.0, new_neural_signal, clf_probs = clf_probs)
+                    q_augmentation = utils_rl.adjust_reward(0.0, new_neural_signal, clf_probs = clf_probs, beta = beta)
 
                  # store sample optimality prediction and truth
                 if smoothing_window_size > 1 or noise > 0.0:
@@ -221,11 +224,11 @@ def train(env:gymnasium.Env,
         for online_episode in range(0, online_episodes_per_participant):
             # set seed
             if domain_key == "F":
-                state, _ = env.reset(seed=last_seed) #seed for flappy bird
+                state, _ = env.reset(seed=online_seed) #seed for flappy bird
             else:
-                state = env.reset(seed=last_seed) #seed for lunar lander
+                state = env.reset(seed=online_seed) #seed for lunar lander
 
-            last_seed += 1 #increment seed
+            online_seed += 1 #increment seed
 
             # reset total reward and state action value
             total_reward = 0
@@ -434,7 +437,7 @@ def train_robot(env: gymnasium.Env,
 
             # get neural features, signal, and sample
             neural_features = buffer.get_features()
-            neural_signal = utils_rl.get_neural_signal(clf, neural_features)
+            neural_signal, clf_probs = utils_rl.get_neural_signal(clf, neural_features)
             fnirs_sample = processor.get_fnirs_sample(timestamp=rl_timestamp, temporal_shift=-shift, fnirs_channels=fnirs_channel_names)
             buffer.add_sample(timestamp=rl_timestamp, x=fnirs_sample, classification=neural_signal)
             new_neural_signal = buffer.get_neural_credit(granularity=granularity, X=smoothing_window_size)
@@ -456,7 +459,7 @@ def train_robot(env: gymnasium.Env,
                 if verbose: 
                     print(f"Reward Augmentation — ep {episode} participant {participant}")
                     print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal, "| Adjusted Reward: ", reward + adjusted_neural_signal)
-                reward = float(reward + adjusted_neural_signal)
+                reward = utils_rl.adjust_reward(reward, new_neural_signal, clf_probs = clf_probs, beta = beta)
 
             # Priorirization experiment
             if 2 in flags:
@@ -473,7 +476,7 @@ def train_robot(env: gymnasium.Env,
                 if verbose:
                     print(f"Q-aug analogue — ep {episode} participant {participant}")
                     print("Neural Signal: ", new_neural_signal, "| Q-Value: ", reward + adjusted_neural_signal)
-                q_aug = float(adjusted_neural_signal)
+                q_aug = utils_rl.adjust_reward(0.0, new_neural_signal, clf_probs = clf_probs, beta = beta)
             else:
                 q_aug = 0.0
 

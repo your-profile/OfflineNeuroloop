@@ -66,6 +66,11 @@ def train(env:gymnasium.Env,
     bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} < {remaining}, {rate_fmt} | {postfix}]'
     pbar = trange(episodes_num, unit="ep", bar_format=bar_format, ascii=True)
 
+    if domain_key == "F":
+        top_score = 45
+    else:
+        top_score = 100
+
 
     # ONLINE POST-TRAINING LOOP
     for online_episode in range(episodes_num):

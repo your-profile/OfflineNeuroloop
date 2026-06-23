@@ -74,14 +74,23 @@ def train(env:gymnasium.Env,
 
     # training progress bar
     bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} < {remaining}, {rate_fmt} | {postfix}]'
-    pbar = trange(episodes_num, unit="ep", bar_format=bar_format, ascii=True)
+    pbar = trange(episodes_num+500, unit="ep", bar_format=bar_format, ascii=True)
 
 
-    seed, last_seed = 0, 0
+    last_seed, score_avg = 0, 0.0
+
+    #get seed for training, randomized with seed from paramters
+    np.random.seed(seed)
+    online_seed = np.random.randint(0, 1000000)
+
+    if domain_key == "F":
+        top_score = 50
+    else:
+        top_score = 100
 
     # ONLINE PRE-TRAINING LOOP
     for online_episode in range(0, episodes_num):
-        threshold = eval_success #online_episode / episodes_num
+        threshold = score_avg / top_score
 
         if threshold >= finetune_threshold:
             print(f"Online episode {online_episode} reached training threshold {finetune_threshold}")
@@ -89,11 +98,11 @@ def train(env:gymnasium.Env,
 
         # set seed
         if domain_key == "F":
-            state, _ = env.reset(seed=seed) #seed for flappy bird
+            state, _ = env.reset(seed=online_seed) #seed for flappy bird
         else:
-            state = env.reset(seed=seed) #seed for lunar lander
+            state = env.reset(seed=online_seed) #seed for lunar lander
 
-        seed += 1 #increment seed
+        online_seed += 1 #increment seed
 
         # reset total reward and state action value
         total_reward = 0
@@ -124,7 +133,7 @@ def train(env:gymnasium.Env,
                 # store success rate
                 all_episode_success.append(eval_success)
                 all_total_rewards.extend(eval_reward)
-                all_episode_steps.append(online_step)
+                all_episode_steps.append(combined_steps)
                 score_avg = np.mean(all_total_rewards[-200:])
            
             combined_steps += 1
@@ -151,7 +160,7 @@ def train(env:gymnasium.Env,
         pbar.update(1)
         combined_episodes += 1
 
-    last_seed = seed
+    last_seed = online_seed
 
     # OFFLINE DATASET PRE-TRAINING LOOP
     print(f"Offline dataset pre-training loop started")
@@ -237,7 +246,7 @@ def train(env:gymnasium.Env,
                     if verbose:
                         print(f"Experiment Condition 1: Reward Augmentation -- Episode {episode} -- Participant: {participant}")
                         print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal, "| Adjusted Reward: ", reward + adjusted_neural_signal)
-                    reward = utils_rl.adjust_reward(reward, new_neural_signal, clf_probs = clf_probs, means = means)
+                    reward = utils_rl.adjust_reward(reward, new_neural_signal, clf_probs = clf_probs, means = means, beta = beta)
                 
                 # Priorirization experiment
                 if 2 in flags:
@@ -251,7 +260,7 @@ def train(env:gymnasium.Env,
                 if 3 in flags:
                     if verbose:
                         print(f"Experiment Condition 3: Q-Augmentation -- Episode {episode} -- Participant: {participant}")
-                    q_augmentation = utils_rl.adjust_reward(0.0, new_neural_signal, clf_probs = clf_probs)
+                    q_augmentation = utils_rl.adjust_reward(0.0, new_neural_signal, clf_probs = clf_probs, beta = beta)
 
                  # store sample optimality prediction and truth
                 if smoothing_window_size > 1 or noise > 0.0:
@@ -278,7 +287,7 @@ def train(env:gymnasium.Env,
                 # store success rate
                 all_episode_success.append(eval_success)
                 all_total_rewards.extend(eval_reward)
-                all_episode_steps.append(offline_step)
+                all_episode_steps.append(combined_steps)
                 score_avg = np.mean(all_total_rewards[-200:])
 
             combined_steps += 1
@@ -294,8 +303,10 @@ def train(env:gymnasium.Env,
     print(f"Offline dataset pre-training loop completed")
     print(f"Online post-training loop started")
 
+    last_online_episode = online_episode
+
     # ONLINE POST-TRAINING LOOP
-    for online_episode in range(online_episode, 500):
+    for online_episode in range(last_online_episode, episodes_num+500):
 
         # set seed
         if domain_key == "F":
@@ -334,7 +345,7 @@ def train(env:gymnasium.Env,
                 # store success rate
                 all_episode_success.append(eval_success)
                 all_total_rewards.extend(eval_reward)
-                all_episode_steps.append(online_step)
+                all_episode_steps.append(combined_steps)
                 score_avg = np.mean(all_total_rewards[-200:])
            
             combined_steps += 1
@@ -635,7 +646,7 @@ def train_robot(env:gymnasium.Env,
                     if verbose: 
                         print(f"Reward Augmentation — ep {episode} participant {participant}")
                         print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal, "| Adjusted Reward: ", reward + adjusted_neural_signal)
-                    reward = utils_rl.adjust_reward(reward, new_neural_signal, clf_probs = clf_probs, means = means)
+                    reward = utils_rl.adjust_reward(reward, new_neural_signal, clf_probs = clf_probs, means = means, beta = beta)
 
                 # Priorirization experiment
                 if 2 in flags:
@@ -650,7 +661,7 @@ def train_robot(env:gymnasium.Env,
                     if verbose:
                         print(f"Q-aug analogue — ep {episode} participant {participant}")
                         print("Neural Signal: ", new_neural_signal, "| Q-Value: ", reward + adjusted_neural_signal)
-                    q_augmentation = utils_rl.adjust_reward(0.0, new_neural_signal, clf_probs = clf_probs)
+                    q_augmentation = utils_rl.adjust_reward(0.0, new_neural_signal, clf_probs = clf_probs, beta = beta)
 
                 if smoothing_window_size > 1 or noise > 0.0:
                     classes_pred.append(new_neural_signal)
