@@ -13,8 +13,8 @@ with open(REPO_ROOT / "configs/test_flappy.yaml") as f:
 
 # Ablation studies — enable one block at a time for local smoke tests.
 ABLATIONS = [
-    {"key": ["experiment", "finetune_threshold"], "vals": [0.2, 0.4, 0.6, 0.8]},
-    {"key": ["mlp", "model_noise"], "vals": [0.0, 0.2, 0.5, 1.0]},
+    {"key": ["experiment", "finetune_threshold"], "vals": [0.0, 0.2, 0.4, 0.6, 0.8]},
+    # {"key": ["mlp", "model_noise"], "vals": [0.0, 0.2, 0.5, 1.0]},
     # {"key": ["neural", "beta"], "vals": [1.0]},
     # {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0]},
     # {"key": ["neural", "window_size_s"], "vals": [4.0, 5.0]},
@@ -24,14 +24,14 @@ ABLATIONS = [
 INTEGRATION = "finetune"
 
 NEURAL_CONDITIONS = [
-    "Baseline-PER",
     "Prioritization-PER",
     "Q-Augmentation-PER",
     "Reward Augmentation-PER",
     "All-PER",
+    "Baseline-PER",
 ]
 
-GRANULARITIES = ["binary"]
+GRANULARITIES = ["ternary"]
 
 SEEDS = [42]
 
@@ -49,7 +49,7 @@ TASKS_BY_DOMAIN = {
 
 DATA_PATH = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/"
 RESULTS_PATH = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/"
-RESULTS_FILE_NAME = "trial_results_finetuning.csv"
+RESULTS_FILE_NAME = "trial_results_finetuning_tern.csv"
 # DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/'
 # RESULTS_PATH = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/'
 
