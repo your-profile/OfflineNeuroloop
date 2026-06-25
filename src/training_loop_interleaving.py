@@ -173,7 +173,7 @@ def train(env:gymnasium.Env,
                         print(f"Experiment Condition 2: Prioritization -- Episode {episode} -- Participant: {participant}")
                         print("Original Priority: ", abs(priority), "| Neural Signal: ", new_neural_signal, "| Adjusted Priority: ", abs(priority) + adjusted_neural_signal)
                     priority = abs(priority)
-                    priority += adjusted_neural_signal
+                    priority = utils_rl.adjust_reward(priority, clf_probs = clf_probs, new_neural_signal = new_neural_signal, beta = beta)
 
                 # Q Augmentation Experiment
                 if 3 in flags:

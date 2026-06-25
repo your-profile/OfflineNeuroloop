@@ -152,11 +152,6 @@ def adjust_reward(
                 if clip_bonus is not None:
                     c = float(abs(clip_bonus))
                     bonus = float(np.clip(bonus, -c, c))
-                # print(f"Probs: {probs}")
-                # print(f"Neural Signal: {neural_signal}")
-                # print(f"Bonus: {bonus}")
-                # print(f"Reward: {reward}")
-                # print(f"Adjusted Reward: {reward + bonus}")
                 return float((reward + bonus) * beta)
     # print("not working")
     return float((reward + means[neural_signal])*beta)
