@@ -4,7 +4,7 @@ from typing import List, Optional
 from src.networks.DDPG import DDPG
 
 from src.models.model_training import ModelTrainer
-from src.models.model_neural_predictor import FnirsFeaturePredictor
+# from src.models.model_neural_predictor import FnirsFeaturePredictor
 from src.networks.DQN import DQN
 from src.envs.lunar_lander import LunarLander
 from src.envs.flappy_bird import FlappyBirdEnv as FlappyBird
@@ -18,6 +18,7 @@ import torch
 from src.neural.buffer import fNIRSBuffer
 from src.rl_loop import utils_rl
 from src.neural.preprocessing import DatasetProcessor
+from src.seed_utils import set_global_seed
 
 def train(env:gymnasium.Env, 
           task_df:pd.DataFrame, 
@@ -50,6 +51,8 @@ def train(env:gymnasium.Env,
     ):
 
     start_time = time.time()
+
+    set_global_seed(seed)
 
      # domain key
     domain_key = task_df["condition"].iloc[0][0]
@@ -196,6 +199,8 @@ def train_robot(env:gymnasium.Env,
     """
     Offline neuro + online Fetch (DDPG + HER) with the same experiment_list flags as ``train``
     """
+
+    set_global_seed(seed)
 
     blank_episode_dict = {
             "state": [],

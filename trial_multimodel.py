@@ -77,20 +77,25 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
 
     shifted_df = processor.shift_labels_for_delay(aligned_df, delay_s = cfg["neural"]["temporal_shift"], verbose = verbose)
 
-    X, y = processor.build_balanced_dataset(
+    X, y = processor.build_supervised_dataset(
         shifted_df,
         fnirs_channels = fnirs_channels,
         label_col = "label_shifted",
         granularity = cfg["experiment"]["model_granularity"],
         window_duration_s = cfg["neural"]["window_size_s"],
         resample_rate_hz = cfg["neural"]["fnirs_rate_hz"],
-        random_state = trial_seed,
+        step_size_s = cfg["neural"]["step_size_s"],
+        random_state=trial_seed,
     )
 
+    training_sets = processor.build_training_sets(X, y)
+
     modelTrainer = ModelTrainer(cfg=cfg["mlp"], seed=trial_seed, verbose=verbose)
-    classifier, report = modelTrainer.train_classifier(
-        X, y, granularity=cfg["experiment"]["model_granularity"], random_state=trial_seed
-    )
+    
+    for X, y in training_sets:
+        classifier, report = modelTrainer.train_classifier(
+            X, y, granularity=cfg["experiment"]["model_granularity"], random_state=trial_seed
+        )
     
     print("MLP Report: \n", report)
     print(cfg)

@@ -21,6 +21,8 @@ class ModelTrainer:
         self.max_iter = 200
         self.seed = seed
         self.verbose = verbose
+        self._np_rng = np.random.default_rng(seed) if seed is not None else np.random.default_rng()
+        self._py_rng = random.Random(seed) if seed is not None else random.Random()
 
     def get_report(self, y_test, y_pred, classifier = False):
 
@@ -56,12 +58,9 @@ class ModelTrainer:
     def flip_labels(self, prediction, flip_rate, classes):
         """Reassign a fraction of predictions to a wrong class with noise."""
 
-        if self.seed is not None:
-            np.random.seed(self.seed)
-            
-        if random.random() < flip_rate:
+        if self._py_rng.random() < flip_rate:
             wrong_classes = [c for c in classes if c != prediction]
-            noisy = np.random.choice(wrong_classes)
+            noisy = self._np_rng.choice(wrong_classes)
         else:
             noisy = prediction
 
@@ -94,11 +93,8 @@ class ModelTrainer:
         noise_level=0.1 → noise std = 10% of the prediction's own std.
         Degrades R² roughly proportionally.
         """
-        if self.seed is not None:
-            np.random.seed(self.seed)
-
-        if random.random() < noise_level:
-            noise = np.random.random()
+        if self._py_rng.random() < noise_level:
+            noise = self._np_rng.random()
             return noise
         else:
             return preds

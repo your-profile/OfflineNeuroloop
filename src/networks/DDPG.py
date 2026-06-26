@@ -1,14 +1,16 @@
-import torch
-from torch import from_numpy, device
-import numpy as np
-from src.rl_loop.utils_rl import torch_load_checkpoint
-from torch.optim import Adam
-from mpi4py import MPI
 import threading
-from torch import nn
-import torch
-from torch.nn import functional as F
+from copy import deepcopy as dc
+
 import numpy as np
+import torch
+from mpi4py import MPI
+from torch import from_numpy, nn
+from torch.nn import functional as F
+from torch.optim import Adam
+
+from src.rl_loop.utils_rl import torch_load_checkpoint
+
+MIN_PRIORITY = 1e-8
 
 class DDPG:
     def __init__(self, n_states, n_actions, n_goals, action_bounds, capacity, env,
@@ -19,6 +21,7 @@ class DDPG:
                  actor_lr=1e-3,
                  critic_lr=1e-3,
                  gamma=0.98,
+                 seed=None,
                  verbose = False):
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.n_states = n_states
@@ -28,6 +31,11 @@ class DDPG:
         self.action_bounds = action_bounds
         self.action_size = action_size
         self.env = env
+
+        if seed is not None:
+            torch.manual_seed(int(seed))
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(int(seed))
 
         self.actor = Actor(self.n_states, n_actions=self.n_actions, n_goals=self.n_goals).to(self.device)
         self.critic = Critic(self.n_states, action_size=self.action_size, n_goals=self.n_goals).to(self.device)
@@ -86,9 +94,48 @@ class DDPG:
         return action
 
     def store(self, mini_batch):
-        for batch in mini_batch:
-            self.memory.add(batch)
-        self._update_normalizer(mini_batch)
+        for episode in mini_batch:
+            self.fill_missing_priorities(episode)
+            self.memory.add(episode)
+        self.update_normalizer(mini_batch)
+
+    def fill_missing_priorities(self, episode):
+        """Use explicit step priorities when provided; otherwise use TD error."""
+        step_priorities = episode.get("transition_priority")
+        if not step_priorities:
+            return
+
+        num_steps = len(episode["state"])
+        resolved = []
+        for step in range(num_steps):
+            priority = step_priorities[step] if step < len(step_priorities) else None
+            if priority is None:
+                priority = self.td_error(episode, step)
+            resolved.append(max(abs(float(priority)), MIN_PRIORITY))
+        episode["transition_priority"] = resolved
+
+    def td_error(self, episode, step):
+        state = self.state_normalizer.normalize(episode["state"][step])
+        next_state = self.state_normalizer.normalize(episode["next_state"][step])
+        goal = self.goal_normalizer.normalize(episode["desired_goal"][step])
+        action = np.asarray(episode["action"][step], dtype=np.float32)
+        reward = float(episode["reward"][step])
+        q_augmentation = float(episode["q_augmentation"][step])
+
+        state_goal = np.concatenate([state, goal])
+        next_state_goal = np.concatenate([next_state, goal])
+
+        with torch.no_grad():
+            inputs = torch.tensor(state_goal, dtype=torch.float32, device=self.device).unsqueeze(0)
+            next_inputs = torch.tensor(next_state_goal, dtype=torch.float32, device=self.device).unsqueeze(0)
+            action_tensor = torch.tensor(action, dtype=torch.float32, device=self.device).unsqueeze(0)
+
+            q_value = self.critic(inputs, action_tensor).squeeze()
+            next_action = self.actor_target(next_inputs)
+            target_q = self.critic_target(next_inputs, next_action).squeeze()
+            target = reward + self.gamma * target_q + q_augmentation
+            target = torch.clamp(target, -1 / (1 - self.gamma), 0)
+            return float(torch.abs(target - q_value).item())
 
     def init_target_networks(self):
         self.hard_update_networks(self.actor, self.actor_target)
@@ -171,7 +218,7 @@ class DDPG:
         self.soft_update_networks(self.actor, self.actor_target, self.tau)
         self.soft_update_networks(self.critic, self.critic_target, self.tau)
 
-    def _update_normalizer(self, mini_batch):
+    def update_normalizer(self, mini_batch):
         states, goals = self.memory.sample_for_normalization(mini_batch)
 
         self.state_normalizer.update(states)
@@ -182,17 +229,17 @@ class DDPG:
     @staticmethod
     def sync_networks(network):
         comm = MPI.COMM_WORLD
-        flat_params = _get_flat_params_or_grads(network, mode='params')
+        flat_params = get_flat_params_or_grads(network, mode='params')
         comm.Bcast(flat_params, root=0)
-        _set_flat_params_or_grads(network, flat_params, mode='params')
+        set_flat_params_or_grads(network, flat_params, mode='params')
 
     @staticmethod
     def sync_grads(network):
-        flat_grads = _get_flat_params_or_grads(network, mode='grads')
+        flat_grads = get_flat_params_or_grads(network, mode='grads')
         comm = MPI.COMM_WORLD
         global_grads = np.zeros_like(flat_grads)
         comm.Allreduce(flat_grads, global_grads, op=MPI.SUM)
-        _set_flat_params_or_grads(network, global_grads, mode='grads')
+        set_flat_params_or_grads(network, global_grads, mode='grads')
 
     def load_model(self, filename):
         checkpoint = torch_load_checkpoint(filename)
@@ -205,12 +252,12 @@ class DDPG:
         return self
 
 
-def _get_flat_params_or_grads(network, mode='params'):
+def get_flat_params_or_grads(network, mode='params'):
     attr = 'data' if mode == 'params' else 'grad'
     return np.concatenate([getattr(param, attr).cpu().numpy().flatten() for param in network.parameters()])
 
 
-def _set_flat_params_or_grads(network, flat_params, mode='params'):
+def set_flat_params_or_grads(network, flat_params, mode='params'):
     attr = 'data' if mode == 'params' else 'grad'
     pointer = 0
     for param in network.parameters():
@@ -248,9 +295,9 @@ class Normalizer:
 
     # sync the parameters across the cpus
     def sync(self, local_sum, local_sumsq, local_count):
-        local_sum[...] = self._mpi_average(local_sum)
-        local_sumsq[...] = self._mpi_average(local_sumsq)
-        local_count[...] = self._mpi_average(local_count)
+        local_sum[...] = self.mpi_average(local_sum)
+        local_sumsq[...] = self.mpi_average(local_sumsq)
+        local_count[...] = self.mpi_average(local_count)
         return local_sum, local_sumsq, local_count
 
     def recompute_stats(self):
@@ -274,7 +321,7 @@ class Normalizer:
             self.total_sum / self.total_count)))
 
     # average across the cpu's data
-    def _mpi_average(self, x):
+    def mpi_average(self, x):
         buf = np.zeros_like(x)
         MPI.COMM_WORLD.Allreduce(x, buf, op=MPI.SUM)
         buf /= MPI.COMM_WORLD.Get_size()
@@ -287,75 +334,83 @@ class Normalizer:
         return np.clip((v - self.mean) / self.std, -clip_range, clip_range)
 
 
-import numpy as np
-from copy import deepcopy as dc
-
-
 class Memory:
+    """Episode replay buffer with HER and optional prioritized episode sampling."""
+
     def __init__(self, capacity, k_future, env):
         self.capacity = capacity
-        self.memory = []
-        self.memory_counter = 0
-        self.memory_length = 0
+        self.episodes = []
         self.env = env.unwrapped
-
-        self.future_p = 1 - (1. / (1 + k_future))
+        self.her_probability = 1 - (1.0 / (1 + k_future))
 
     @staticmethod
-    def _trajectory_priority(trajectory):
-        if trajectory is None:
+    def episode_sampling_weight(episode):
+        """Episode weight = max step priority, or uniform when no priorities are stored."""
+        step_priorities = episode.get("transition_priority")
+        if not step_priorities:
             return 1.0
-        if "trajectory_priority" in trajectory:
-            return float(max(float(trajectory["trajectory_priority"]), 1e-8))
-        if "trajectory_priority_scalar" in trajectory:
-            return float(max(trajectory["trajectory_priority_scalar"], 1e-8))
-        tps = trajectory.get("transition_priority")
-        if tps is not None and len(tps) > 0:
-            arr = np.asarray(tps, dtype=np.float64)
-            return float(np.max(np.abs(arr)) + 1e-8)
-        v = trajectory.get("priority")
-        if v is not None:
-            return float(max(float(v), 1e-8))
-        return 1.0
+        return float(max(max(abs(float(p)), MIN_PRIORITY) for p in step_priorities))
 
-    def _episode_sampling_probs(self):
-        n = len(self.memory)
-        if n == 0:
+    def episode_sampling_probs(self):
+        if not self.episodes:
             raise ValueError("Cannot sample from empty memory.")
-        priorities = np.array([self._trajectory_priority(tr) for tr in self.memory], dtype=np.float64)
-        priorities = np.maximum(priorities, 1e-8)
-        return priorities / priorities.sum()
+        weights = np.array([self.episode_sampling_weight(ep) for ep in self.episodes], dtype=np.float64)
+        weights = np.maximum(weights, MIN_PRIORITY)
+        return weights / weights.sum()
 
-    def sample(self, batch_size):
-
-        n = len(self.memory)
-        probs = self._episode_sampling_probs()
-        ep_indices = np.random.choice(n, size=batch_size, replace=True, p=probs)
-
-        time_indices = np.array(
+    @staticmethod
+    def random_timesteps(episodes, episode_indices):
+        return np.array(
             [
-                np.random.randint(0, len(self.memory[ep]["next_state"]))
-                if len(self.memory[ep]["next_state"]) > 0
+                np.random.randint(0, len(episodes[ep]["next_state"]))
+                if len(episodes[ep]["next_state"]) > 0
                 else 0
-                for ep in ep_indices
+                for ep in episode_indices
             ],
             dtype=int,
         )
 
-        states = []
-        actions = []
-        desired_goals = []
-        next_states = []
-        next_achieved_goals = []
-        q_augmentation = []
+    def relabel_goals_with_her(self, episodes, episode_indices, timestep_indices, sample_count):
+        relabel_mask = np.random.uniform(size=sample_count) < self.her_probability
+        relabel_indices = np.flatnonzero(relabel_mask)
+        if relabel_indices.size == 0:
+            return relabel_indices, None
 
-        for episode, timestep in zip(ep_indices, time_indices):
-            states.append(dc(self.memory[episode]["state"][timestep]))
-            actions.append(dc(self.memory[episode]["action"][timestep]))
-            desired_goals.append(dc(self.memory[episode]["desired_goal"][timestep]))
-            next_achieved_goals.append(dc(self.memory[episode]["next_achieved_goal"][timestep]))
-            next_states.append(dc(self.memory[episode]["next_state"][timestep]))
-            q_augmentation.append(dc(self.memory[episode]["q_augmentation"][timestep]))
+        episode_lengths = np.array([len(episodes[ep]["next_state"]) for ep in episode_indices], dtype=int)
+        steps_until_end = np.maximum(episode_lengths - timestep_indices, 0)
+        future_offset = (np.random.uniform(size=sample_count) * steps_until_end).astype(int)
+        future_timesteps = timestep_indices + 1 + future_offset
+
+        her_episode_indices = episode_indices[relabel_indices]
+        future_timesteps = future_timesteps[relabel_indices]
+        max_timesteps = np.array(
+            [max(len(episodes[ep]["achieved_goal"]) - 1, 0) for ep in her_episode_indices],
+            dtype=int,
+        )
+        future_timesteps = np.clip(future_timesteps, 0, max_timesteps)
+
+        future_goals = []
+        for episode, goal_timestep in zip(her_episode_indices, future_timesteps):
+            future_goals.append(dc(episodes[episode]["achieved_goal"][goal_timestep]))
+        return relabel_indices, np.vstack(future_goals)
+
+    def sample(self, batch_size):
+        num_episodes = len(self.episodes)
+        episode_probs = self.episode_sampling_probs()
+        sampled_episode_indices = np.random.choice(num_episodes, size=batch_size, replace=True, p=episode_probs)
+        sampled_timestep_indices = self.random_timesteps(self.episodes, sampled_episode_indices)
+
+        states, actions, desired_goals = [], [], []
+        next_states, next_achieved_goals, q_augmentation = [], [], []
+
+        for episode, timestep in zip(sampled_episode_indices, sampled_timestep_indices):
+            episode_data = self.episodes[episode]
+            states.append(dc(episode_data["state"][timestep]))
+            actions.append(dc(episode_data["action"][timestep]))
+            desired_goals.append(dc(episode_data["desired_goal"][timestep]))
+            next_achieved_goals.append(dc(episode_data["next_achieved_goal"][timestep]))
+            next_states.append(dc(episode_data["next_state"][timestep]))
+            q_augmentation.append(dc(episode_data["q_augmentation"][timestep]))
 
         states = np.vstack(states)
         actions = np.vstack(actions)
@@ -364,94 +419,63 @@ class Memory:
         next_states = np.vstack(next_states)
         q_augmentation = np.vstack(q_augmentation)
 
-        her_mask = np.random.uniform(size=batch_size) < self.future_p
-        her_idx = np.flatnonzero(her_mask)
-
-        T_eps = np.array([len(self.memory[ep]["next_state"]) for ep in ep_indices], dtype=int)
-        span = np.maximum(T_eps - time_indices, 0)
-        future_offset = (np.random.uniform(size=batch_size) * span).astype(int)
-        future_t_full = time_indices + 1 + future_offset
-        future_t = future_t_full[her_idx]
-        her_eps = ep_indices[her_idx]
-        ag_cap = np.array(
-            [max(len(self.memory[e]["achieved_goal"]) - 1, 0) for e in her_eps],
-            dtype=int,
+        relabel_indices, future_goals = self.relabel_goals_with_her(
+            self.episodes, sampled_episode_indices, sampled_timestep_indices, batch_size
         )
-        future_t = np.clip(future_t, 0, ag_cap)
+        if future_goals is not None:
+            desired_goals[relabel_indices] = future_goals
 
-        if her_idx.size > 0:
-            future_ag = []
-            for episode, f_goal_idx in zip(her_eps, future_t):
-                future_ag.append(dc(self.memory[episode]["achieved_goal"][f_goal_idx]))
-            future_ag = np.vstack(future_ag)
-            desired_goals[her_idx] = future_ag
-        rewards = np.expand_dims(self.env.compute_reward(next_achieved_goals, desired_goals, None), 1)
+        rewards = np.expand_dims(
+            self.env.compute_reward(next_achieved_goals, desired_goals, None), 1
+        )
 
-        return self.clip_obs(states), actions, rewards, self.clip_obs(next_states), self.clip_obs(desired_goals), q_augmentation
+        return (
+            self.clip_obs(states),
+            actions,
+            rewards,
+            self.clip_obs(next_states),
+            self.clip_obs(desired_goals),
+            q_augmentation,
+        )
 
-    def add(self, transition):
-        self.memory.append(transition)
-        if len(self.memory) > self.capacity:
-            self.memory.pop(0)
-        assert len(self.memory) <= self.capacity
+    def add(self, episode):
+        self.episodes.append(episode)
+        if len(self.episodes) > self.capacity:
+            self.episodes.pop(0)
+        assert len(self.episodes) <= self.capacity
 
-    def __len__(self):
-        return len(self.memory)
+    def _len__(self):
+        return len(self.episodes)
 
     @staticmethod
     def clip_obs(x):
         return np.clip(x, -200, 200)
 
     def sample_for_normalization(self, batch):
-        nb = len(batch)
-        if nb == 0:
+        num_episodes = len(batch)
+        if num_episodes == 0:
             raise ValueError("Empty minibatch for normalization.")
-        size = max((len(batch[i]["next_state"]) for i in range(nb)), default=1)
-        priorities = np.array([self._trajectory_priority(batch[i]) for i in range(nb)], dtype=np.float64)
-        priorities = np.maximum(priorities, 1e-8)
-        batch_probs = priorities / priorities.sum()
-        ep_indices = np.random.choice(nb, size=size, replace=True, p=batch_probs)
 
-        time_indices = np.array(
-            [
-                np.random.randint(0, len(batch[ep]["next_state"]))
-                if len(batch[ep]["next_state"]) > 0
-                else 0
-                for ep in ep_indices
-            ],
-            dtype=int,
-        )
-        states = []
-        desired_goals = []
+        sample_count = max((len(batch[i]["next_state"]) for i in range(num_episodes)), default=1)
+        weights = np.array([self.episode_sampling_weight(batch[i]) for i in range(num_episodes)], dtype=np.float64)
+        weights = np.maximum(weights, MIN_PRIORITY)
+        episode_probs = weights / weights.sum()
+        sampled_episode_indices = np.random.choice(num_episodes, size=sample_count, replace=True, p=episode_probs)
+        sampled_timestep_indices = self.random_timesteps(batch, sampled_episode_indices)
 
-        for episode, timestep in zip(ep_indices, time_indices):
+        states, desired_goals = [], []
+        for episode, timestep in zip(sampled_episode_indices, sampled_timestep_indices):
             states.append(dc(batch[episode]["state"][timestep]))
             desired_goals.append(dc(batch[episode]["desired_goal"][timestep]))
 
         states = np.vstack(states)
         desired_goals = np.vstack(desired_goals)
 
-        her_mask = np.random.uniform(size=size) < self.future_p
-        her_idx = np.flatnonzero(her_mask)
-
-        T_eps = np.array([len(batch[ep]["next_state"]) for ep in ep_indices], dtype=int)
-        span = np.maximum(T_eps - time_indices, 0)
-        future_offset = (np.random.uniform(size=size) * span).astype(int)
-        future_t_full = time_indices + 1 + future_offset
-        future_t = future_t_full[her_idx]
-        her_eps = ep_indices[her_idx]
-        ag_cap = np.array(
-            [max(len(batch[e]["achieved_goal"]) - 1, 0) for e in her_eps],
-            dtype=int,
+        relabel_indices, future_goals = self.relabel_goals_with_her(
+            batch, sampled_episode_indices, sampled_timestep_indices, sample_count
         )
-        future_t = np.clip(future_t, 0, ag_cap)
-
-        if her_idx.size > 0:
-            future_ag = []
-            for episode, f_goal_idx in zip(her_eps, future_t):
-                future_ag.append(dc(batch[episode]["achieved_goal"][f_goal_idx]))
-            future_ag = np.vstack(future_ag)
-            desired_goals[her_idx] = future_ag
+        if future_goals is not None:
+            desired_goals[relabel_indices] = future_goals
 
         return self.clip_obs(states), self.clip_obs(desired_goals)
 

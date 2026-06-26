@@ -8,12 +8,12 @@ from trial import run
 
 REPO_ROOT = Path(__file__).resolve().parent
 
-with open(REPO_ROOT / "configs/test_flappy.yaml") as f:
+with open(REPO_ROOT / "configs/test_lunar.yaml") as f:
     base = yaml.safe_load(f)
 
 # Ablation studies — enable one block at a time for local smoke tests.
 ABLATIONS = [
-    {"key": ["experiment", "finetune_threshold"], "vals": [0.0, 0.2, 0.4, 0.6, 0.8]},
+    {"key": ["experiment", "finetune_threshold"], "vals": [0.0]}#, 0.2, 0.4, 0.6, 0.8]},
     # {"key": ["mlp", "model_noise"], "vals": [0.0, 0.2, 0.5, 1.0]},
     # {"key": ["neural", "beta"], "vals": [1.0]},
     # {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0]},
@@ -21,35 +21,35 @@ ABLATIONS = [
 ]
 
 # finetune_threshold only affects finetune / interleave integrations
-INTEGRATION = "finetune"
+INTEGRATION = "interleave"
 
 NEURAL_CONDITIONS = [
+    # "Baseline-PER",
     "Prioritization-PER",
-    "Q-Augmentation-PER",
-    "Reward Augmentation-PER",
-    "All-PER",
-    "Baseline-PER",
+    # "Q-Augmentation-PER",
+    # "Reward Augmentation-PER",
+    # "All-PER",
 ]
 
-GRANULARITIES = ["ternary"]
+GRANULARITIES = ["continuous", "ternary"]
 
-SEEDS = [42]
+SEEDS = [1]
 
 DOMAIN_CONFIGS = {
-    "Flappy": REPO_ROOT / "configs/test_flappy.yaml",
+    # "Flappy": REPO_ROOT / "configs/test_flappy.yaml",
     # "Lunar": REPO_ROOT / "configs/test_lunar.yaml",
-    # "Robot": REPO_ROOT / "configs/test_robot.yaml",
+    "Robot": REPO_ROOT / "configs/test_robot.yaml",
 }
 
 TASKS_BY_DOMAIN = {
-    "Flappy": ["Pooled"]#, "Active", "Passive"],
-    # "Lunar": ["Pooled", "Active", "Passive"],
-    # "Robot": ["Pooled", "Active", "Passive"],
+    # "Flappy": ["Pooled"]#, "Active", "Passive"],
+    # "Lunar": ["Pooled"],
+    "Robot": ["Passive"],
 }
 
 DATA_PATH = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/"
 RESULTS_PATH = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/"
-RESULTS_FILE_NAME = "trial_results_finetuning_tern.csv"
+RESULTS_FILE_NAME = "no_sorting.csv"
 # DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/'
 # RESULTS_PATH = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/'
 

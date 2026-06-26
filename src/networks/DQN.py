@@ -31,7 +31,7 @@ class DeepQNetwork(nn.Module):
 
 #DQN ALGORITHM
 class DQN():
-    def __init__(self, n_observations, n_actions, batch_size=64, lr=1e-4, gamma=0.99, mem_size=int(1e5), learn_step=5, tau=1e-3, hidden_layer_size=128, buffer_type = "ER", verbose=False):
+    def __init__(self, n_observations, n_actions, batch_size=64, lr=1e-4, gamma=0.99, mem_size=int(1e5), learn_step=5, tau=1e-3, hidden_layer_size=128, buffer_type = "ER", seed=None, verbose=False):
         self.n_observations = n_observations
         self.n_actions = n_actions
         self.batch_size = batch_size
@@ -41,6 +41,11 @@ class DQN():
         self.lr = lr
         self.hidden_layer_size = hidden_layer_size
         self.buffer_type = buffer_type
+
+        if seed is not None:
+            torch.manual_seed(int(seed))
+            if torch.cuda.is_available():
+                torch.cuda.manual_seed_all(int(seed))
 
         self.policy_net = DeepQNetwork(n_observations, n_actions, hidden_layer_size).to(device)
         self.target_net = DeepQNetwork(n_observations, n_actions, hidden_layer_size).to(device)

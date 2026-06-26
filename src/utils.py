@@ -5,6 +5,7 @@ from src.networks.DDPG import DDPG
 # from src.networks.PPO import PPO
 from src.envs.lunar_lander import LunarLander
 from src.envs.flappy_bird import FlappyBirdEnv
+from src.seed_utils import set_global_seed
 import torch
 
 def make_fetch_env(max_episode_steps=50, mujoco_version: int = 4, verbose: bool = False):
@@ -74,8 +75,11 @@ def load_pretrained_agent(agent: DQN | DDPG, filename:str,pretrained_success_rat
         print("Loaded DDPG agent from: " + filename+"src/policies/robot/"+"FetchPolicy"+str(int(pretrained_success_rate)) + ".pth")
     return agent
 
-def load_agent(algorithm: str, buffer_type: str, filename:str, space=(11, 4), pretrained_success_rate: float = 0.0, verbose: bool = False):
+def load_agent(algorithm: str, buffer_type: str, filename:str, space=(11, 4), pretrained_success_rate: float = 0.0, seed: int | None = None, verbose: bool = False):
     agent = None
+
+    if seed is not None:
+        set_global_seed(seed)
 
     if algorithm == "DQN":
         if space[0] == 11:
@@ -97,12 +101,13 @@ def load_agent(algorithm: str, buffer_type: str, filename:str, space=(11, 4), pr
             tau=0.005,
             buffer_type=buffer_type,
             hidden_layer_size=hidden_layer_size,
+            seed=seed,
             verbose=verbose
         )
 
     elif algorithm == "DDPG":
         inner = make_fetch_env(max_episode_steps=50, mujoco_version=4, verbose = verbose)
-        agent = load_ddpg_agent(inner, buffer_type, verbose = verbose)
+        agent = load_ddpg_agent(inner, buffer_type, seed=seed, verbose = verbose)
 
     if pretrained_success_rate > 0.0:
         return load_pretrained_agent(agent=agent, filename=filename, pretrained_success_rate=pretrained_success_rate, algorithm=algorithm, space=space, verbose = verbose)
@@ -110,7 +115,7 @@ def load_agent(algorithm: str, buffer_type: str, filename:str, space=(11, 4), pr
     return agent
 
 
-def load_ddpg_agent(env, buffer_type: str, verbose: bool = False, pretrained_success_rate: float = 0.0):
+def load_ddpg_agent(env, buffer_type: str, seed: int | None = None, verbose: bool = False, pretrained_success_rate: float = 0.0):
     """Build DDPG + HER replay for an existing Fetch env (same obs/action space as training)."""
 
     memory_size = 7e+5
@@ -141,6 +146,7 @@ def load_ddpg_agent(env, buffer_type: str, verbose: bool = False, pretrained_suc
             tau=tau,
             k_future=k_future,
             env=dc(env),
+            seed=seed,
             verbose=verbose)
             
     if pretrained_success_rate > 0.0:

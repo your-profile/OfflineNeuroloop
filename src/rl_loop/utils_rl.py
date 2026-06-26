@@ -8,7 +8,7 @@ class Results():
     '''
     Results: Saving hyperparameters and final results for experiments
     '''
-    def save_results(episodes, total_rewards, success_rate, steps, experiment_list, save_to_csv = False, filepath = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/results"):
+    def save_results(episodes, total_rewards, success_rate, steps, experiment_list, index_of_interest, save_to_csv = False, filepath = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/results"):
         import datetime
 
         print(f"Len Total Rewards: {len(total_rewards)}, Len Success Rate: {len(success_rate)}, Len Steps: {len(steps)}, Episodes: {episodes}")
@@ -21,6 +21,7 @@ class Results():
             "total_reward": json.dumps(list(map(float, total_rewards))),
             "success_rate": json.dumps(list(map(float, success_rate))),
             "steps": json.dumps(list(map(float, steps))),
+            "index_of_interest": index_of_interest,
         }
 
         if save_to_csv:
@@ -86,34 +87,6 @@ class Results():
 
         return row
 
-def adjust_neural_classification(output: int|None, beta = 1.0, verbose = False) -> float:
-    """
-    adjust_neural_classification(output: int, 
-        beta: float = 1.0):
-        Receives classifier/regressor output. Scales output based on beta parameter. Beta default set to 1.0
-    """
-    original_output = output
-
-    if output is None:
-        return 0.0
-
-    # binary and ternary model output
-    if output == 0.0:
-        return 1.0
-    elif output == 1.0:
-        return -0.0
-    elif output == 2.0:
-        return -1.0
-    # regressor output (continuous)
-    else:
-        adjustment = -output
-
-    if verbose:
-        print(f"Original Neural Classification: {original_output}, Adjusted w/o Beta {output}, Beta: {beta}, Adjusted Neural Classification: {adjustment*beta}")
-    
-    return adjustment*beta #scale value with beta parameter
-
-
 def adjust_reward(
     reward: float,
     neural_signal: int | float,
@@ -125,7 +98,14 @@ def adjust_reward(
     clip_bonus: float | None = None,
     beta: float = 1.0,
 ):
-    if clf_probs is not None and not np.isscalar(clf_probs):
+    std = (means[0]-means[2])*0.1
+    stds = [std, std, std]
+    # for continuous output
+    if isinstance(clf_probs, str):
+        optimal_neural_value = 1 - neural_signal
+        return float((reward + optimal_neural_value*means[0])*beta)
+        
+    elif clf_probs is not None and not np.isscalar(clf_probs):
         probs = np.asarray(clf_probs, dtype=np.float64).ravel()
         means_array = np.asarray(means, dtype=np.float64).ravel()
         std_array = np.asarray(stds, dtype=np.float64).ravel()
@@ -153,7 +133,9 @@ def adjust_reward(
                     c = float(abs(clip_bonus))
                     bonus = float(np.clip(bonus, -c, c))
                 return float((reward + bonus) * beta)
-    # print("not working")
+
+
+
     return float((reward + means[neural_signal])*beta)
 
 def adjust_epsilon(epsilon: float, neural_signal: float, verbose = False):
@@ -173,71 +155,68 @@ def adjust_epsilon(epsilon: float, neural_signal: float, verbose = False):
     # epsilon is not lower than 0.05 or higher than 1.0
     return min(max(0.05, new_epsilon), 1.0)
 
-
-# def adjust_action(state, neural_signal, agent, verbose = False):
-#     action_distribution = agent.chooseAction(state, epislon = 0.0, returnDist = True)
-    
-#     argmax_idx = np.argmax(action_distribution)
-#     action_distribution[argmax_idx] += neural_signal
-
-#     new_argmax_idx = np.argmax(action_distribution)
-
-#     if verbose:
-#         print(f"Old Action: {argmax_idx}, New Action: {new_argmax_idx}")
-
-#     return new_argmax_idx
-
 def get_neural_signal(clf, features):
 
-        if features is not None:
-            classification = clf.predict(features[None, :])[0] #predict with model
+    if features is not None:
+        classification = clf.predict(features[None, :])[0] #predict with model
+
+        try:
             probs = clf.predict_proba(features[None, :])[0]
-            # bonus = adjust_neural_classification(neural_classification)
-        else:
-            classification = 0.0
-            probs = 0.0
+        except:
+            probs = "regression"
+        
+    else:
+        classification = 0.0
+        probs = 0.0
 
-        return classification, probs
+    return classification, probs
 
-def evaluate(env, agent, steps=600, episodes=20, domain_key=None):
+def evaluate(env, agent, steps=600, episodes=20, domain_key=None, random_seed=0):
     """
     Agent evaluation function
     """
     rewards = []
     successes = 0
+    np.random.seed(random_seed)
+    seed =np.random.randint(0, 1000000)
     for i in range(episodes):
         ep_reward = 0.0
         if domain_key == "F":
-            state, _  = env.reset()
+            state, _  = env.reset(seed=seed)
         else:
-            state = env.reset()
+            state = env.reset(seed=seed)
 
+        final_win = False
         for idx_step in range(steps):
             action, _ = agent.chooseAction(state, epsilon=0)
 
             if domain_key == "F":
                 state, reward, done, win, info = env.step(action)
                 if info['score'] >= 10:
-                    win = True
-                    done = True
+                    #done = True
+                    final_win = True
             else:
                 state, reward, done, win = env.step(action)
+                final_win = win
             
             ep_reward += reward
-
-            if done:
-                if win:
+            seed += 1
+            if done or idx_step == steps-1:
+                if final_win:
                     successes += 1
                 break
         
         rewards.append(ep_reward)
     return np.array(rewards), successes/episodes
 
-def evaluate_fetch(env, agent, steps=50, episodes=20):
+def evaluate_fetch(env, agent, steps=50, episodes=20, random_seed=0):
     """Evaluate DDPG on a goal-conditioned Fetch env (dict observations)."""
     successes = 0
+    np.random.seed(random_seed)
+    seed = np.random.randint(0, 1000000)
+
     for _ in range(episodes):
-        obs, _ = env.reset()
+        obs, _ = env.reset(seed=seed)
         for _ in range(steps):
             action = agent.choose_action(
                 obs["observation"],
@@ -245,6 +224,7 @@ def evaluate_fetch(env, agent, steps=50, episodes=20):
                 train_mode=False,
             )
             obs, _, terminated, truncated, info = env.step(action)
+            seed += 1
             if terminated or truncated:
                 break
         successes += int(float(info.get("is_success", 0.0)))

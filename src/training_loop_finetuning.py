@@ -4,7 +4,7 @@ from typing import List, Optional
 from src.networks.DDPG import DDPG
 
 from src.models.model_training import ModelTrainer
-from src.models.model_neural_predictor import FnirsFeaturePredictor
+# from src.models.model_neural_predictor import FnirsFeaturePredictor
 from src.networks.DQN import DQN
 from src.envs.lunar_lander import LunarLander
 from src.envs.flappy_bird import FlappyBirdEnv as FlappyBird
@@ -18,6 +18,7 @@ import torch
 from src.neural.buffer import fNIRSBuffer
 from src.rl_loop import utils_rl
 from src.neural.preprocessing import DatasetProcessor
+from src.seed_utils import begin_rl_training, set_global_seed
 
 def train(env:gymnasium.Env, 
           task_df:pd.DataFrame, 
@@ -49,6 +50,8 @@ def train(env:gymnasium.Env,
           save_agent = False,
     ):
 
+    set_global_seed(seed)
+
     start_time = time.time()
 
     # calculate window size + initialize buffer
@@ -62,6 +65,7 @@ def train(env:gymnasium.Env,
 
     # domain key
     domain_key = task_df["condition"].iloc[0][0]
+    end_tag_episodes = 500 #episodes to follow neural injection
 
     # granularity index
     if granularity[0] == "b": gr = 0
@@ -69,19 +73,15 @@ def train(env:gymnasium.Env,
     if granularity[0] == "c": gr = 2
 
     # rewards, timesteps, success rate, optimality predictions
-    all_average_rewards, all_total_rewards, all_episode_steps, all_episode_success, classes_truth, classes_pred = [],[],[],[],[],[]
+    all_total_rewards, all_episode_steps, all_episode_success, classes_truth, classes_pred = [],[],[],[],[]
     eval_success, combined_steps, combined_episodes = (0.0, 0, 0)
 
     # training progress bar
     bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} < {remaining}, {rate_fmt} | {postfix}]'
-    pbar = trange(episodes_num+500, unit="ep", bar_format=bar_format, ascii=True)
-
+    pbar = trange(episodes_num+total_participant_episodes+end_tag_episodes, unit="ep", bar_format=bar_format, ascii=True)
 
     last_seed, score_avg = 0, 0.0
-
-    #get seed for training, randomized with seed from paramters
-    np.random.seed(seed)
-    online_seed = np.random.randint(0, 1000000)
+    online_seed = begin_rl_training(seed)
 
     if domain_key == "F":
         top_score = 50
@@ -103,8 +103,6 @@ def train(env:gymnasium.Env,
             state = env.reset(seed=online_seed) #seed for lunar lander
 
         online_seed += 1 #increment seed
-
-        # reset total reward and state action value
         total_reward = 0
 
         for online_step in range(steps):
@@ -118,7 +116,12 @@ def train(env:gymnasium.Env,
                 terminated = False
                 next_state, reward, done, _ = env.step(action) #lunar lander
 
-            agent.remember(state=state, action=action, reward=reward, next_state=next_state, done=done, priority=None, q_augmentation=0.0)
+            if buffer_type == "PER":
+                priority = None
+            else:
+                priority = 1.0
+
+            agent.remember(state=state, action=action, reward=reward, next_state=next_state, done=done, priority=priority, q_augmentation=0.0)
             
             state = next_state
             total_reward += reward
@@ -161,11 +164,12 @@ def train(env:gymnasium.Env,
         combined_episodes += 1
 
     last_seed = online_seed
+    starting_neural_injection = online_episode
 
     # OFFLINE DATASET PRE-TRAINING LOOP
     print(f"Offline dataset pre-training loop started")
     for (participant, episode), episode_df in grouped:  
-        total_reward = 0
+        total_reward = 0.0
         done = False
 
         # get episode data
@@ -214,6 +218,9 @@ def train(env:gymnasium.Env,
                 neural_features = buffer.get_features()
                 neural_signal, clf_probs = utils_rl.get_neural_signal(features = neural_features, clf = clf)
 
+                if gr == 2:
+                    clf_probs = "regression"               
+
                 # update neural buffer
                 fnirs_sample = processor.get_fnirs_sample(timestamp = rl_timestamp, temporal_shift = -shift, fnirs_channels = fnirs_channel_names)
                 buffer.add_sample(timestamp = rl_timestamp, x = fnirs_sample, classification=neural_signal)
@@ -224,9 +231,6 @@ def train(env:gymnasium.Env,
                 # add noise to neural classification
                 if noise > 0.0:
                     new_neural_signal = ml.noisy_output(clf,  new_neural_signal, granularity, flip_rate = noise)
-
-                # adjust neural classification - scales with beta and makes 0 class and 1 class negative
-                adjusted_neural_signal = utils_rl.adjust_neural_classification(new_neural_signal, beta=beta)
 
                 # get true sample label
                 class_truth = processor.get_label_sample(timestamp = rl_timestamp, temporal_shift = -shift)
@@ -245,17 +249,16 @@ def train(env:gymnasium.Env,
                 if 1 in flags:
                     if verbose:
                         print(f"Experiment Condition 1: Reward Augmentation -- Episode {episode} -- Participant: {participant}")
-                        print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal, "| Adjusted Reward: ", reward + adjusted_neural_signal)
+                        print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal)
                     reward = utils_rl.adjust_reward(reward, new_neural_signal, clf_probs = clf_probs, means = means, beta = beta)
                 
                 # Priorirization experiment
                 if 2 in flags:
                     if verbose:
                         print(f"Experiment Condition 2: Prioritization -- Episode {episode} -- Participant: {participant}")
-                        print("Original Priority: ", abs(priority), "| Neural Signal: ", new_neural_signal, "| Adjusted Priority: ", abs(priority) + adjusted_neural_signal)
+                        print("Original Priority: ", abs(priority), "| Neural Signal: ", new_neural_signal)
                     priority = abs(priority)
-                    # priority += adjusted_neural_signal
-                    priority = utils_rl.adjust_reward(priority, clf_probs = clf_probs, new_neural_signal = new_neural_signal, beta = beta)
+                    priority = utils_rl.adjust_reward(priority, new_neural_signal, clf_probs = clf_probs, beta = beta)
 
                 # Q Augmentation Experiment
                 if 3 in flags:
@@ -272,8 +275,7 @@ def train(env:gymnasium.Env,
                 classes_truth.append(class_truth.to_list()[gr]) #truth
                 
             # set priority to 0 for ER buffer functionality
-            if buffer_type == "ER":
-                priority = 0.0
+            if buffer_type == "ER": priority = 1.0
 
             # remember transition
             agent.remember(state, action, reward, next_state, done, priority = priority, q_augmentation = q_augmentation)
@@ -307,7 +309,7 @@ def train(env:gymnasium.Env,
     last_online_episode = online_episode
 
     # ONLINE POST-TRAINING LOOP
-    for online_episode in range(last_online_episode, episodes_num+500):
+    for online_episode in range(last_online_episode, episodes_num+end_tag_episodes):
 
         # set seed
         if domain_key == "F":
@@ -331,7 +333,12 @@ def train(env:gymnasium.Env,
                 terminated = False
                 next_state, reward, done, _ = env.step(action) #lunar lander
 
-            agent.remember(state=state, action=action, reward=reward, next_state=next_state, done=done, priority=None, q_augmentation=0.0)
+            if buffer_type == "PER":
+                priority = None
+            else:
+                priority = 1.0
+
+            agent.remember(state=state, action=action, reward=reward, next_state=next_state, done=done, priority=priority, q_augmentation=0.0)
             
             state = next_state
             total_reward += reward
@@ -387,6 +394,7 @@ def train(env:gymnasium.Env,
                                    total_rewards = all_total_rewards, 
                                    success_rate = all_episode_success,
                                    steps = all_episode_steps,
+                                   index_of_interest = starting_neural_injection,
                                    save_to_csv = save_to_csv)
 
     print(f"Episode {episode}, Reward: {total_reward:.2f}, Success: {eval_success:.2f}")
@@ -399,7 +407,7 @@ def train(env:gymnasium.Env,
 
 def train_robot(env:gymnasium.Env, 
           task_df:pd.DataFrame, 
-          agent: DQN, 
+          agent: DDPG, 
           clf, 
           processor: DatasetProcessor,
           ml: ModelTrainer,
@@ -418,6 +426,7 @@ def train_robot(env:gymnasium.Env,
           buffer_type: str = 'ER', 
           seed: int = 42,
           beta: float = 1.0,
+          #epsilon
           save_results: bool = False, 
           save_to_csv: bool = False,
           verbose: bool = False,
@@ -428,6 +437,8 @@ def train_robot(env:gymnasium.Env,
     """
     Offline neuro + online Fetch (DDPG + HER) with the same experiment_list flags as ``train``
     """
+
+    set_global_seed(seed)
 
     blank_episode_dict = {
             "state": [],
@@ -443,53 +454,55 @@ def train_robot(env:gymnasium.Env,
         }
 
     start_time = time.time()
+    robot_df = task_df[task_df["desired_goal"].notna()].copy()
     
-    # get experiment flags
+    # calculate window size + initialize buffer
     sample_period_s = 1.0 / fnirs_rate_hz
-
-    # initialize buffer
     buffer = fNIRSBuffer(window_duration_s=window_duration_s, sample_period_s=sample_period_s)
+    grouped = robot_df.groupby(["participantKey", "episode"])
 
-    # get robot dataframe
-    rw_df = task_df[task_df["desired_goal"].notna()].copy()
-
-    # get total participant episodes
-    total_participant_episodes = int(task_df["episode"].nunique())
+    # Calculate total number of participant episodes
+    total_participant_episodes = robot_df.drop_duplicates(subset=["participantKey", "episode"]).shape[0]
+    print("Total Participant Episodes: ", total_participant_episodes, "Flags: ", flags)
 
     # check if robot dataframe is empty
-    if rw_df.empty:
-        rw_df = task_df[task_df["participantKey"].astype(str).str.contains("RW", na=False)].copy()
-    if rw_df.empty:
+    # if robot_df.empty:
+        # rw_df = task_df[task_df["participantKey"].astype(str).str.contains("RW", na=False)].copy()
+    if robot_df.empty:
         raise ValueError("No robot rows in task_df (need desired_goal or RW in participantKey).")
 
-    grouped = rw_df.groupby(["participantKey", "episode"])
-    total_participant_episodes = task_df.drop_duplicates(subset=["participantKey", "episode"]).shape[0]
-    print("Total Participant Episodes: ", total_participant_episodes)
+    end_tag_episodes = 5000 #episodes to follow neural injection
 
-    # get granularity index
+    # granularity index
     if granularity[0] == "b": gr = 0
-    elif granularity[0] == "t": gr = 1
-    else: gr = 2
+    if granularity[0] == "t": gr = 1
+    if granularity[0] == "c": gr = 2
 
-    # initialize rewards, success, and classes
-    all_total_rewards, all_episode_steps, all_episode_success, classes_truth, classes_pred = ([],[],[],[],[])
-    eval_success, combined_steps, last_participant_episode, combined_episodes = 0.0, 0, 0, 0
-    learning_rate = float(agent.actor_lr)
+
+    # rewards, timesteps, success rate, optimality predictions
+    all_total_rewards, all_episode_steps, all_episode_success, classes_truth, classes_pred = [],[],[],[],[]
+    eval_success, combined_steps, combined_episodes = (0.0, 0, 0)
 
     # training progress bar
     bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed} < {remaining}, {rate_fmt} | {postfix}]'
-    pbar = trange(episodes_num, unit="ep", bar_format=bar_format, ascii=True)
+    pbar = trange(episodes_num+total_participant_episodes+end_tag_episodes, unit="ep", bar_format=bar_format, ascii=True)
+    
+    last_seed, score_avg = 0, 0.0
+    online_seed = begin_rl_training(seed)
     minibatch = []
 
-    # ONLINE POST-TRAINING LOOP
-    for online_episode in range(total_participant_episodes, episodes_num):
-        threshold = online_episode / episodes_num
-        if threshold >= finetune_threshold:
+    # ONLINE PRE-TRAINING LOOP
+    for online_episode in range(0, episodes_num):
+        
+        if eval_success >= finetune_threshold:
+            print(f"Online episode {online_episode} reached training threshold {finetune_threshold}")
             break
 
-        state_dict, _ = env.reset(seed=seed)
-        seed += 1
+        state_dict, _ = env.reset(seed=online_seed)
+
+        online_seed += 1
         total_reward = 0.0
+
         online_ep = dc(blank_episode_dict)
 
         for online_step in range(steps):
@@ -505,7 +518,9 @@ def train_robot(env:gymnasium.Env,
             next_achieved_goal = next_state_dict["achieved_goal"].astype(np.float32).ravel()
 
             if buffer_type == "PER":
-                priority = ddpg_priority(reward, action, desired_goal, next_achieved_goal)
+                priority = None
+            else:
+                priority = 1.0
 
             online_ep["state"].append(state)
             online_ep["action"].append(action.astype(np.float32))
@@ -521,30 +536,32 @@ def train_robot(env:gymnasium.Env,
             state_dict = next_state_dict
             total_reward += float(reward)
 
-            if combined_steps % eval_update == 0 and save_agent:
-                eval_success, eval_reward = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=10)
+            if combined_steps % eval_update == 0:
+                eval_success, eval_reward = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=10, seed=seed)
+                
+                # store success rate
                 all_episode_success.append(eval_success)
                 all_total_rewards.append(eval_reward)
                 all_episode_steps.append(online_step)
                 score_avg = np.mean(all_total_rewards[-200:])
 
-                if eval_success >= success_save_threshold:
-                    agent.save_weights()
-                    torch.save(
-                        {
-                            "episode": episode,
-                            "actor": agent.actor.state_dict(),
-                            "critic": agent.critic.state_dict(),
-                            "actor_target": agent.actor_target.state_dict(),
-                            "critic_target": agent.critic_target.state_dict(),
-                            "actor_optim": agent.actor_optim.state_dict(),
-                            "critic_optim": agent.critic_optim.state_dict(),
-                        },
-                        "FetchPolicy" + str(int(eval_success * 100)) + ".pth",
-                    )
-
             if terminated or truncated:
                 break
+
+        if eval_success >= success_save_threshold and save_agent:
+            agent.save_weights()
+            torch.save(
+                {
+                    "episode": episode,
+                    "actor": agent.actor.state_dict(),
+                    "critic": agent.critic.state_dict(),
+                    "actor_target": agent.actor_target.state_dict(),
+                    "critic_target": agent.critic_target.state_dict(),
+                    "actor_optim": agent.actor_optim.state_dict(),
+                    "critic_optim": agent.critic_optim.state_dict(),
+                },
+                "FetchPolicy" + str(int(eval_success * 100)) + ".pth",
+            )
 
         minibatch.append(dc(online_ep))
 
@@ -566,41 +583,40 @@ def train_robot(env:gymnasium.Env,
         pbar.update(1)
         combined_episodes += 1
 
-    last_seed = seed
-
-
+    last_seed = online_seed
+    index_of_interest = online_episode
 
     # OFFLINE DATASET PRE-TRAINING LOOP
     for (participant, episode), episode_df in grouped:
-        last_participant_episode = int(episode)
-        rows = episode_df.reset_index(drop=True)
-        episode_dict = dc(blank_episode_dict)
-        seed = int(rows["seed"].iloc[0])
-        state_dict, _ = env.reset(seed=seed)
+        total_reward = 0.0
+        done = False
 
+        # get episode data
+        episode_dict = dc(blank_episode_dict)
+        rows = episode_df.reset_index(drop=True)
+        n = len(rows)
+
+        # get seed
+        offline_seed = int(rows["seed"].iloc[0])
+
+        # reset environment
+        state_dict, _ = env.reset(seed=offline_seed)
         state = state_dict["observation"]
         achieved_goal = state_dict["achieved_goal"]
         desired_goal = state_dict["desired_goal"]
-
-        # initialize total reward, neural signal, and new neural signal
-        total_reward, neural_signal, new_neural_signal, score_avg = 0.0, 0.0, 0.0, 0.0
-
-        # initialize
-        class_truth = None
-        n = len(rows)
 
         # OFFLINE DATASET PRE-TRAINING LOOP
         for offline_step in range(1, n):
             action = vectorize_action(rows["actions"].iloc[offline_step])
             action_dist = rows["optimal_actions"].iloc[offline_step]
-            # reward = float(rows["rewards"].iloc[offline_step])
-            # state = vectorize_action(rows["states"].iloc[offline_step])
-            # achieved_goal = vectorize_action(rows["achieved_goal"].iloc[offline_step])
-            # desired_goal = vectorize_action(rows["desired_goal"].iloc[offline_step])
-            priority = 1.0
+            reward_dataset = rows["rewards"].iloc[offline_step]
+            state_dataset = rows["states"].iloc[offline_step]
+            final_step = rows["steps"].iloc[offline_step]
+
+            # initialize priority and q augmentation
+            priority = None
             q_augmentation = 0.0
 
-            # if action is Nan, skip
             if action.size == 0 or not np.isfinite(action).all():
                 continue
 
@@ -611,18 +627,23 @@ def train_robot(env:gymnasium.Env,
 
             # get next state unless episode ends
             if offline_step + 1 < n:
+                next_state_dataset = rows["states"].iloc[offline_step + 1]
                 next_action_dist = rows["optimal_actions"].iloc[offline_step + 1]
             else:
+                next_state_dataset = rows["states"].iloc[offline_step]
                 next_action_dist = action_dist
 
-            # print(f"DATASET: {offline_step}, Next State: {next_state_dataset}, Reward: {reward_dataset}, Done: {done_dataset}")
-            # print(f"ENVIRON: {offline_step}, Next State: {next_state}, Reward: {reward}, Terminated: {terminated}, Done: {done}")
+            print(f"DATASET: {offline_step}, Next State: {next_state_dataset}, Reward: {reward_dataset}, Done: {final_step}")
+            print(f"ENVIRON: {offline_step}, Next State: {next_state}, Reward: {reward}, Terminated: {terminated}, Done: {done}")
             
             if 0 not in flags:
-                rl_timestamp = rows["time"].iloc[offline_step]
                 # get associated fNIRS sample given timestep
+                rl_timestamp = rows["time"].iloc[offline_step]
                 neural_features = buffer.get_features()
                 neural_signal, clf_probs = utils_rl.get_neural_signal(features = neural_features, clf = clf)
+
+                if gr == 2:
+                    clf_probs = "regression"               
 
                 # update neural buffer
                 fnirs_sample = processor.get_fnirs_sample(timestamp = rl_timestamp, temporal_shift = -shift, fnirs_channels = fnirs_channel_names)
@@ -635,44 +656,34 @@ def train_robot(env:gymnasium.Env,
                 if noise > 0.0:
                     new_neural_signal = ml.noisy_output(clf,  new_neural_signal, granularity, flip_rate = noise)
 
-                # adjust neural classification - scales with beta and makes 0 class and 1 class negative
-                adjusted_neural_signal = utils_rl.adjust_neural_classification(new_neural_signal, beta=beta)
-
-                # get true sample label
-                class_truth = processor.get_label_sample(timestamp = rl_timestamp, temporal_shift = -shift)
                 priority = ddpg_priority(reward, action, action_dist, next_action_dist)
                 
                 # Reward Augmentation Experiment
                 if 1 in flags:
                     if verbose: 
                         print(f"Reward Augmentation — ep {episode} participant {participant}")
-                        print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal, "| Adjusted Reward: ", reward + adjusted_neural_signal)
+                        print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal, "| Adjusted Reward: ")
                     reward = utils_rl.adjust_reward(reward, new_neural_signal, clf_probs = clf_probs, means = means, beta = beta)
 
                 # Priorirization experiment
                 if 2 in flags:
                     if verbose:
                         print(f"Prioritization — ep {episode} participant {participant}")
-                        print("Original Priority: ", abs(priority), "| Neural Signal: ", new_neural_signal, "| Adjusted Priority: ", abs(priority) + adjusted_neural_signal)
+                        print("Original Priority: ", abs(priority), "| Neural Signal: ", new_neural_signal, "| Adjusted Priority: ")
                     priority = abs(priority)
-                    priority += adjusted_neural_signal
+                    priority = utils_rl.adjust_reward(priority, new_neural_signal, clf_probs = clf_probs, beta = beta)
 
                 # Q Augmentation Experiment
                 if 3 in flags:
                     if verbose:
                         print(f"Q-aug analogue — ep {episode} participant {participant}")
-                        print("Neural Signal: ", new_neural_signal, "| Q-Value: ", reward + adjusted_neural_signal)
+                        print("Neural Signal: ", new_neural_signal, "| Q-Value: ", reward)
                     q_augmentation = utils_rl.adjust_reward(0.0, new_neural_signal, clf_probs = clf_probs, beta = beta)
 
                 if smoothing_window_size > 1 or noise > 0.0:
                     classes_pred.append(new_neural_signal)
                 else:
                     classes_pred.append(neural_signal)
-
-                if class_truth.to_list()[gr] is None or class_truth.to_list()[gr] != class_truth.to_list()[gr]:
-                    classes_truth.append(0.0)
-                else:
-                    classes_truth.append(class_truth.to_list()[gr])
 
             if buffer_type == "ER": priority = 1.0
 
@@ -729,13 +740,14 @@ def train_robot(env:gymnasium.Env,
         )    
 
         pbar.update(1)
-
-    seed = last_seed
+    
     # ONLINE POST-TRAINING LOOP
     for online_episode in range(total_participant_episodes+online_episode, episodes_num):
-        state_dict, _ = env.reset(seed=seed)
-        seed += 1
+        state_dict, _ = env.reset(seed=online_seed)
+
+        online_seed += 1
         total_reward = 0.0
+
         online_ep = dc(blank_episode_dict)
 
         for online_step in range(steps):
@@ -751,7 +763,9 @@ def train_robot(env:gymnasium.Env,
             next_achieved_goal = next_state_dict["achieved_goal"].astype(np.float32).ravel()
 
             if buffer_type == "PER":
-                priority = ddpg_priority(reward, action, desired_goal, next_achieved_goal)
+                priority = None
+            else:
+                priority = 1.0
 
             online_ep["state"].append(state)
             online_ep["action"].append(action.astype(np.float32))
@@ -767,30 +781,32 @@ def train_robot(env:gymnasium.Env,
             state_dict = next_state_dict
             total_reward += float(reward)
 
-            if combined_steps % eval_update == 0 and save_agent:
-                eval_success, eval_reward = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=10)
+            if combined_steps % eval_update == 0:
+                eval_success, eval_reward = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=10, seed=seed)
+                
+                # store success rate
                 all_episode_success.append(eval_success)
                 all_total_rewards.append(eval_reward)
                 all_episode_steps.append(online_step)
                 score_avg = np.mean(all_total_rewards[-200:])
 
-                if eval_success >= success_save_threshold:
-                    agent.save_weights()
-                    torch.save(
-                        {
-                            "episode": episode,
-                            "actor": agent.actor.state_dict(),
-                            "critic": agent.critic.state_dict(),
-                            "actor_target": agent.actor_target.state_dict(),
-                            "critic_target": agent.critic_target.state_dict(),
-                            "actor_optim": agent.actor_optim.state_dict(),
-                            "critic_optim": agent.critic_optim.state_dict(),
-                        },
-                        "FetchPolicy" + str(int(eval_success * 100)) + ".pth",
-                    )
-
             if terminated or truncated:
                 break
+
+        if eval_success >= success_save_threshold and save_agent:
+            agent.save_weights()
+            torch.save(
+                {
+                    "episode": episode,
+                    "actor": agent.actor.state_dict(),
+                    "critic": agent.critic.state_dict(),
+                    "actor_target": agent.actor_target.state_dict(),
+                    "critic_target": agent.critic_target.state_dict(),
+                    "actor_optim": agent.actor_optim.state_dict(),
+                    "critic_optim": agent.critic_optim.state_dict(),
+                },
+                "FetchPolicy" + str(int(eval_success * 100)) + ".pth",
+            )
 
         minibatch.append(dc(online_ep))
 
@@ -822,9 +838,10 @@ def train_robot(env:gymnasium.Env,
                 total_rewards = all_total_rewards, 
                 success_rate = all_episode_success,
                 steps = all_episode_steps,
+                index_of_interest = index_of_interest,
                 save_to_csv = save_to_csv)
 
-    print(f"Robot episode {last_participant_episode}, Reward: {total_reward:.2f}, Success: {eval_success:.2f}")
+    print(f"Robot episode {online_episode}, Reward: {total_reward:.2f}, Success: {eval_success:.2f}")
     print("Summation of participant episodes seen: ", total_participant_episodes)
     print("Elapsed time in hours: ", (time.time() - start_time) / 3600)
 
