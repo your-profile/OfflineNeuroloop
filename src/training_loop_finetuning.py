@@ -83,14 +83,12 @@ def train(env:gymnasium.Env,
     last_seed, score_avg = 0, 0.0
     online_seed = begin_rl_training(seed)
 
-    if domain_key == "F":
-        top_score = 50
-    else:
-        top_score = 100
-
     # ONLINE PRE-TRAINING LOOP
     for online_episode in range(0, episodes_num):
-        threshold = score_avg / top_score
+        if domain_key == "F":
+            threshold = score_avg / 50
+        else:
+            threshold = eval_success
 
         if threshold >= finetune_threshold:
             print(f"Online episode {online_episode} reached training threshold {finetune_threshold}")
@@ -633,8 +631,8 @@ def train_robot(env:gymnasium.Env,
                 next_state_dataset = rows["states"].iloc[offline_step]
                 next_action_dist = action_dist
 
-            print(f"DATASET: {offline_step}, Next State: {next_state_dataset}, Reward: {reward_dataset}, Done: {final_step}")
-            print(f"ENVIRON: {offline_step}, Next State: {next_state}, Reward: {reward}, Terminated: {terminated}, Done: {done}")
+            # print(f"DATASET: {offline_step}, Next State: {next_state_dataset}, Reward: {reward_dataset}, Done: {final_step}")
+            # print(f"ENVIRON: {offline_step}, Next State: {next_state}, Reward: {reward}, Terminated: {terminated}, Done: {done}")
             
             if 0 not in flags:
                 # get associated fNIRS sample given timestep

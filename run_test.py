@@ -13,7 +13,7 @@ with open(REPO_ROOT / "configs/test_lunar.yaml") as f:
 
 # Ablation studies — enable one block at a time for local smoke tests.
 ABLATIONS = [
-    {"key": ["experiment", "finetune_threshold"], "vals": [0.0]}#, 0.2, 0.4, 0.6, 0.8]},
+    {"key": ["experiment", "finetune_threshold"], "vals": [0.2]}#, 0.2, 0.4, 0.6, 0.8]},
     # {"key": ["mlp", "model_noise"], "vals": [0.0, 0.2, 0.5, 1.0]},
     # {"key": ["neural", "beta"], "vals": [1.0]},
     # {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0]},
@@ -21,7 +21,7 @@ ABLATIONS = [
 ]
 
 # finetune_threshold only affects finetune / interleave integrations
-INTEGRATION = "interleave"
+INTEGRATION = "finetune"
 
 NEURAL_CONDITIONS = [
     # "Baseline-PER",
@@ -31,20 +31,20 @@ NEURAL_CONDITIONS = [
     # "All-PER",
 ]
 
-GRANULARITIES = ["continuous", "ternary"]
+GRANULARITIES = ["binary", "ternary"]
 
 SEEDS = [1]
 
 DOMAIN_CONFIGS = {
     # "Flappy": REPO_ROOT / "configs/test_flappy.yaml",
-    # "Lunar": REPO_ROOT / "configs/test_lunar.yaml",
-    "Robot": REPO_ROOT / "configs/test_robot.yaml",
+    "Lunar": REPO_ROOT / "configs/test_lunar.yaml",
+    # "Robot": REPO_ROOT / "configs/test_robot.yaml",
 }
 
 TASKS_BY_DOMAIN = {
     # "Flappy": ["Pooled"]#, "Active", "Passive"],
-    # "Lunar": ["Pooled"],
-    "Robot": ["Passive"],
+    "Lunar": ["Pooled"],
+    # "Robot": ["Passive"],
 }
 
 DATA_PATH = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/"

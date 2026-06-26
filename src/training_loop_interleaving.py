@@ -512,8 +512,8 @@ def train_robot(env:gymnasium.Env,
                 next_state_dataset = rows["states"].iloc[offline_step]
                 next_action_dist = action_dist
 
-            print(f"DATASET: {offline_step}, Next State: {next_state_dataset}, Reward: {reward_dataset}, Done: {final_step}")
-            print(f"ENVIRON: {offline_step}, Next State: {next_state}, Reward: {reward}, Terminated: {terminated}, Done: {done}")
+            # print(f"DATASET: {offline_step}, Next State: {next_state_dataset}, Reward: {reward_dataset}, Done: {final_step}")
+            # print(f"ENVIRON: {offline_step}, Next State: {next_state}, Reward: {reward}, Terminated: {terminated}, Done: {done}")
             
             if 0 not in flags:
                 # get associated fNIRS sample given timestep
