@@ -214,9 +214,11 @@ def evaluate_fetch(env, agent, steps=50, episodes=20, random_seed=0):
     successes = 0
     np.random.seed(random_seed)
     seed = np.random.randint(0, 1000000)
+    rewards = []
 
     for _ in range(episodes):
         obs, _ = env.reset(seed=seed)
+        ep_reward = 0.0
         for _ in range(steps):
             action = agent.choose_action(
                 obs["observation"],
@@ -225,10 +227,12 @@ def evaluate_fetch(env, agent, steps=50, episodes=20, random_seed=0):
             )
             obs, _, terminated, truncated, info = env.step(action)
             seed += 1
+            ep_reward += info.get("reward", 0.0)
             if terminated or truncated:
                 break
         successes += int(float(info.get("is_success", 0.0)))
-    return successes / max(episodes, 1)
+        rewards.append(ep_reward)
+    return successes / max(episodes, 1), np.array(rewards)
     
 def torch_load_checkpoint(path: str, map_location=None):
     kwargs = {}

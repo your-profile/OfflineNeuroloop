@@ -46,7 +46,7 @@ def train(env:gymnasium.Env,
           save_to_csv: bool = False,
           verbose: bool = False,
           finetune_threshold = 0.0,
-          success_save_threshold = 1.0,
+          success_save_threshold = 0.0,
           save_agent = False,
     ):
 
@@ -429,7 +429,7 @@ def train_robot(env:gymnasium.Env,
           save_to_csv: bool = False,
           verbose: bool = False,
           finetune_threshold = 0.0,
-          success_save_threshold = 1.0,
+          success_save_threshold = 0.0,
           save_agent = False,
     ):
     """
@@ -530,18 +530,18 @@ def train_robot(env:gymnasium.Env,
             online_ep["done"].append(done)
             online_ep["q_augmentation"].append(float(0.0))
             online_ep["transition_priority"].append(priority)
-
-            state_dict = next_state_dict
             total_reward += float(reward)
 
             if combined_steps % eval_update == 0:
-                eval_success, eval_reward = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=10, seed=seed)
+                eval_success, eval_reward = utils_rl.evaluate_fetch(utils.make_fetch_env(), agent, steps=steps, episodes=25, random_seed=seed)
                 
                 # store success rate
                 all_episode_success.append(eval_success)
-                all_total_rewards.append(eval_reward)
-                all_episode_steps.append(online_step)
+                all_total_rewards.extend(eval_reward)
+                all_episode_steps.append(combined_steps)
                 score_avg = np.mean(all_total_rewards[-200:])
+            state_dict = next_state_dict
+            combined_steps += 1
 
             if terminated or truncated:
                 break
@@ -566,7 +566,7 @@ def train_robot(env:gymnasium.Env,
         if len(minibatch) == 20:
             agent.store(minibatch)
             
-            for _ in range(40): actor_loss, critic_loss = agent.train()
+            for _ in range(10): actor_loss, critic_loss = agent.train()
 
             agent.update_networks()
             minibatch = []
@@ -596,6 +596,7 @@ def train_robot(env:gymnasium.Env,
 
         # get seed
         offline_seed = int(rows["seed"].iloc[0])
+        dataset_state = rows["states"].iloc[0]
 
         # reset environment
         state_dict, _ = env.reset(seed=offline_seed)
@@ -604,7 +605,11 @@ def train_robot(env:gymnasium.Env,
         desired_goal = state_dict["desired_goal"]
 
         # OFFLINE DATASET PRE-TRAINING LOOP
-        for offline_step in range(1, n):
+        for offline_step in range(0, n):
+            state = state_dict["observation"]
+            achieved_goal = state_dict["achieved_goal"]
+            desired_goal = state_dict["desired_goal"]
+
             action = vectorize_action(rows["actions"].iloc[offline_step])
             action_dist = rows["optimal_actions"].iloc[offline_step]
             reward_dataset = rows["rewards"].iloc[offline_step]
@@ -696,11 +701,11 @@ def train_robot(env:gymnasium.Env,
             episode_dict["q_augmentation"].append(float(q_augmentation))
             episode_dict["done"].append(float(done))
 
-            if combined_steps % eval_update == 0 and save_agent:
-                eval_success, eval_reward = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=10)
+            if combined_steps % eval_update == 0:
+                eval_success, eval_reward = utils_rl.evaluate_fetch(utils.make_fetch_env(), agent, steps=steps, episodes=25, random_seed=seed)
                 all_episode_success.append(eval_success)
-                all_total_rewards.append(eval_reward)
-                all_episode_steps.append(online_step)
+                all_total_rewards.extend(eval_reward)
+                all_episode_steps.append(combined_steps)
                 score_avg = np.mean(all_total_rewards[-200:])
 
                 if eval_success >= success_save_threshold:
@@ -717,14 +722,14 @@ def train_robot(env:gymnasium.Env,
                         },
                         "FetchPolicy" + str(int(eval_success * 100)) + ".pth",
                     )
-            
+            state_dict = next_state_dict
             combined_steps += 1
         
         minibatch.append(dc(episode_dict))
 
         if len(minibatch) == 20:
             agent.store(minibatch)
-            for _ in range(40):
+            for _ in range(10):
                 actor_loss, critic_loss = agent.train()
             
             agent.update_networks()
@@ -739,8 +744,10 @@ def train_robot(env:gymnasium.Env,
 
         pbar.update(1)
     
+    last_online_episode = online_episode
+    
     # ONLINE POST-TRAINING LOOP
-    for online_episode in range(total_participant_episodes+online_episode, episodes_num):
+    for online_episode in range(last_online_episode, episodes_num+end_tag_episodes):
         state_dict, _ = env.reset(seed=online_seed)
 
         online_seed += 1
@@ -775,19 +782,18 @@ def train_robot(env:gymnasium.Env,
             online_ep["done"].append(done)
             online_ep["q_augmentation"].append(float(0.0))
             online_ep["transition_priority"].append(priority)
-
-            state_dict = next_state_dict
             total_reward += float(reward)
 
             if combined_steps % eval_update == 0:
-                eval_success, eval_reward = utils_rl.evaluate_fetch(env, agent, steps=steps, episodes=10, seed=seed)
+                eval_success, eval_reward = utils_rl.evaluate_fetch(utils.make_fetch_env(), agent, steps=steps, episodes=25, random_seed=seed)
                 
                 # store success rate
                 all_episode_success.append(eval_success)
-                all_total_rewards.append(eval_reward)
-                all_episode_steps.append(online_step)
+                all_total_rewards.extend(eval_reward)
+                all_episode_steps.append(combined_steps)
                 score_avg = np.mean(all_total_rewards[-200:])
-
+            state_dict = next_state_dict
+            combined_steps += 1
             if terminated or truncated:
                 break
 
@@ -811,7 +817,7 @@ def train_robot(env:gymnasium.Env,
         if len(minibatch) == 20:
             agent.store(minibatch)
             
-            for _ in range(40): actor_loss, critic_loss = agent.train()
+            for _ in range(10): actor_loss, critic_loss = agent.train()
 
             agent.update_networks()
             minibatch = []

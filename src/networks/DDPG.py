@@ -511,7 +511,7 @@ class Actor(nn.Module):
 
 
 class Critic(nn.Module):
-    def __init__(self, n_states, n_goals, n_hidden1=256, n_hidden2=256, n_hidden3=256, initial_w=3e-3, action_size=1):
+    def __init__(self, n_states, n_goals, n_hidden1=512, n_hidden2=512, n_hidden3=512, initial_w=3e-3, action_size=1):
         self.n_states = n_states[0]
         self.n_goals = n_goals
         self.n_hidden1 = n_hidden1

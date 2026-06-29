@@ -8,7 +8,7 @@ from src.envs.flappy_bird import FlappyBirdEnv
 from src.seed_utils import set_global_seed
 import torch
 
-def make_fetch_env(max_episode_steps=50, mujoco_version: int = 4, verbose: bool = False):
+def make_fetch_env(max_episode_steps=50, mujoco_version: int = 4, verbose: bool = False, render_mode: str = "rgb_array"):
     """
     OpenAI Gym / Gymnasium Fetch Pick and Place. Prefer v2 when registered;
     fall back to v3/v4 if the installed gymnasium-robotics build omits v2.
@@ -26,7 +26,7 @@ def make_fetch_env(max_episode_steps=50, mujoco_version: int = 4, verbose: bool 
         "FetchPickAndPlace-v2",
     ):
         try:
-            return gymnasium.make(vid, **kwargs)
+            return gymnasium.make(vid, render_mode=render_mode, **kwargs)
         except gymnasium.error.NameNotFound:
             continue
     raise gymnasium.error.NameNotFound(
@@ -49,7 +49,7 @@ def load_domain(env: str, steps: int = None):
     elif env[0].lower() == "f":
         env = FlappyBirdEnv(score_limit=100)
     elif env[0].lower() == "r":
-        env = make_fetch_env(max_episode_steps=steps, mujoco_version=4)
+        env = make_fetch_env(max_episode_steps=steps)
     else:
         Exception("Incorrect domain key received. Domains are: \n lunar_lander \n flappy_bird \n robot")
 
@@ -83,7 +83,7 @@ def load_agent(algorithm: str, buffer_type: str, filename:str, space=(11, 4), pr
 
     if algorithm == "DQN":
         if space[0] == 11:
-            hidden_layer_size = 312
+            hidden_layer_size = 256
         else:
             hidden_layer_size = 192
 
@@ -93,7 +93,7 @@ def load_agent(algorithm: str, buffer_type: str, filename:str, space=(11, 4), pr
         agent = DQN(
             n_observations=space[0],
             n_actions=space[1],
-            batch_size=128,
+            batch_size=256,
             lr=1e-3,
             gamma=0.99,
             mem_size=100000,
@@ -106,7 +106,7 @@ def load_agent(algorithm: str, buffer_type: str, filename:str, space=(11, 4), pr
         )
 
     elif algorithm == "DDPG":
-        inner = make_fetch_env(max_episode_steps=50, mujoco_version=4, verbose = verbose)
+        inner = make_fetch_env(max_episode_steps=50, verbose = verbose)
         agent = load_ddpg_agent(inner, buffer_type, seed=seed, verbose = verbose)
 
     if pretrained_success_rate > 0.0:
