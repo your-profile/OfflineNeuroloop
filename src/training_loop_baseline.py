@@ -41,7 +41,7 @@ def train(env:gymnasium.Env,
           buffer_type: str = 'ER', 
           seed: int = 42,
           beta: float = 1.0,
-          epsilon: float = 0.1,
+          epsilon: float = 0.2,
           save_results: bool = False, 
           save_to_csv: bool = False,
           verbose: bool = False,
@@ -99,7 +99,9 @@ def train(env:gymnasium.Env,
                 terminated = False
                 next_state, reward, done, _ = env.step(action) #lunar lander
 
-            agent.remember(state=state, action=action, reward=reward, next_state=next_state, done=done, priority=None, q_augmentation=0.0)
+            priority = utils_rl.td_priority(agent, "DQN", reward, action, state, next_state, done=done, buffer_type=buffer_type)
+
+            agent.remember(state=state, action=action, reward=reward, next_state=next_state, done=done, priority=priority, q_augmentation=0.0)
             
             state = next_state
             total_reward += reward
@@ -252,8 +254,7 @@ def train_robot(env:gymnasium.Env,
             next_state = next_state_dict["observation"].astype(np.float32).ravel()
             next_achieved_goal = next_state_dict["achieved_goal"].astype(np.float32).ravel()
 
-            if buffer_type == "PER":
-                priority = ddpg_priority(reward, action, desired_goal, next_achieved_goal)
+            priority = utils_rl.td_priority(agent, "DDPG", float(reward), action, state, next_state, goal=desired_goal, buffer_type=buffer_type)
 
             online_ep["state"].append(state)
             online_ep["action"].append(action.astype(np.float32))
@@ -331,23 +332,3 @@ def train_robot(env:gymnasium.Env,
     print("Elapsed time in hours: ", (time.time() - start_time) / 3600)
 
     return results
-
-
-def dqn_priority(reward, action: int, action_dist, next_action_dist) -> float:
-    """Discrete actions: same as reward + P(a|s_t) - P(a|s_{t+1}) over stored optimal distributions."""
-    prev_action_value = next_action_dist[action] if action < len(next_action_dist) else 0.0
-    curr_action_value = action_dist[action] if action < len(action_dist) else 0.0
-    return float(reward + curr_action_value - prev_action_value)
-
-
-def ddpg_priority(reward, action, action_dist, next_action_dist) -> float:
-    """Continuous actions (e.g. Fetch): reward + score(a, opt_t) - score(a, opt_{t+1}) with score = -||a - opt||^2."""
-    a = np.asarray(action, dtype=np.float64).ravel()
-    opt_curr = np.asarray(action_dist, dtype=np.float64).ravel()
-    opt_next = np.asarray(next_action_dist, dtype=np.float64).ravel()
-    m = int(min(a.size, opt_curr.size, opt_next.size))
-    if m == 0:
-        return float(reward)
-    curr_action_value = -np.sum((a[:m] - opt_curr[:m]) ** 2)
-    prev_action_value = -np.sum((a[:m] - opt_next[:m]) ** 2)
-    return float(reward + curr_action_value - prev_action_value)

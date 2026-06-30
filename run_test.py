@@ -33,16 +33,16 @@ NEURAL_CONDITIONS = [
 
 GRANULARITIES = ["continuous"]
 
-SEEDS = [42]
+SEEDS = [43]
 
 DOMAIN_CONFIGS = {
-    "Flappy": REPO_ROOT / "configs/test_flappy.yaml",
+    # "Flappy": REPO_ROOT / "configs/test_flappy.yaml",
     "Lunar": REPO_ROOT / "configs/test_lunar.yaml",
     "Robot": REPO_ROOT / "configs/test_robot.yaml",
 }
 
 TASKS_BY_DOMAIN = {
-    "Flappy": ["Passive"],#, "Active", "Passive"],
+    # "Flappy": ["Passive"],#, "Active", "Passive"],
     "Lunar": ["Passive"],
     "Robot": ["Passive"],
 }

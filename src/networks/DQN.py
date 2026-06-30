@@ -1,7 +1,7 @@
 
 import torch
 import torch.nn as nn
-from src.rl_loop.utils_rl import torch_load_checkpoint
+from src.rl_loop.utils_rl import torch_load_checkpoint, td_priority
 import torch.optim as optim
 import numpy as np
 import random
@@ -15,7 +15,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 #Q NETWORK ARCHITECTURE
 class DeepQNetwork(nn.Module):
-    def __init__(self, n_observations, n_actions, hidden_layer_size=128):
+    def __init__(self, n_observations, n_actions, hidden_layer_size=128, random_seed=None):
         super(DeepQNetwork, self).__init__()
 
         self.fc = nn.Sequential(
@@ -24,7 +24,15 @@ class DeepQNetwork(nn.Module):
             nn.Linear(hidden_layer_size, hidden_layer_size),
             nn.ReLU(),
             nn.Linear(hidden_layer_size, n_actions)
-            )
+        )
+        # Initialize all weights and biases uniformly between 0 and 1 using the provided seed
+        torch.manual_seed(int(random_seed))
+        for m in self.fc:
+            if isinstance(m, nn.Linear):
+                m.weight.data.uniform_(0.0, 1.0)
+                if m.bias is not None:
+                    m.bias.data.uniform_(0.0, 1.0)
+ 
 
     def forward(self, x):
         return self.fc(x)
@@ -47,8 +55,8 @@ class DQN():
             if torch.cuda.is_available():
                 torch.cuda.manual_seed_all(int(seed))
 
-        self.policy_net = DeepQNetwork(n_observations, n_actions, hidden_layer_size).to(device)
-        self.target_net = DeepQNetwork(n_observations, n_actions, hidden_layer_size).to(device)
+        self.policy_net = DeepQNetwork(n_observations, n_actions, hidden_layer_size, random_seed=seed).to(device)
+        self.target_net = DeepQNetwork(n_observations, n_actions, hidden_layer_size, random_seed=seed).to(device)
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=lr)
 
         if buffer_type == "PER":
@@ -85,15 +93,7 @@ class DQN():
         action = int(action)
 
         if priority is None:
-            with torch.no_grad():
-                s = torch.from_numpy(state).float().unsqueeze(0).to(device)
-                ns = torch.from_numpy(next_state).float().unsqueeze(0).to(device)
-                q_eval = self.policy_net(s).squeeze(0)[action]
-                if _as_bool_done(done):
-                    target = torch.as_tensor(reward, dtype=torch.float32, device=device)
-                else:
-                    target = torch.as_tensor(reward, dtype=torch.float32, device=device) + self.gamma * self.target_net(ns).squeeze(0).max()
-                priority = float(torch.abs(target - q_eval).item())
+            priority = td_priority(self, "DQN", reward, action, state, next_state, done=done, buffer_type=self.buffer_type)
 
         if self.verbose:
             print(f"Added priority: {priority} and q_augmentation: {q_augmentation} to memory")
@@ -211,10 +211,6 @@ class ReplayBuffer:
         ).unsqueeze(1)
 
         return (states, actions, rewards, next_states, dones, q_augs)
-
-
-def _as_bool_done(done) -> bool:
-    return bool(np.asarray(done).item())
 
 
 class PrioritizedReplayBuffer():

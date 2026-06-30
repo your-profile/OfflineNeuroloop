@@ -56,7 +56,7 @@ class ModelTrainer:
 
 
     def flip_labels(self, prediction, flip_rate, classes):
-        """Reassign a fraction of predictions to a wrong class with noise."""
+        """Randomly reassign a fraction of predictions to a wrong class with noise."""
 
         if self._py_rng.random() < flip_rate:
             wrong_classes = [c for c in classes if c != prediction]

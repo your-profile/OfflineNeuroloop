@@ -661,7 +661,7 @@ class LunarLander(gym.Env, EzPickle):
 
         if self.game_over or (abs(state[0]) >= 1.0):
             terminated = True
-            reward += -100
+            reward += -60
             # print("Lose")
 
         if not self.lander.awake: #MODIFIED

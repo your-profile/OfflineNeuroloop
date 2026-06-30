@@ -120,7 +120,7 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
             save_to_csv = False,
             verbose = verbose,
             finetune_threshold = cfg["experiment"]["finetune_threshold"],
-            success_save_threshold = 0.5,
+            success_save_threshold = 0.0,
             save_agent = True,
             eval_update = cfg["experiment"]["eval_update"],
         )

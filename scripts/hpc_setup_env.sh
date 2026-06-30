@@ -1,5 +1,5 @@
 #!/bin/bash
-# Load miniforge + conda env on Tufts/HPC compute nodes. Sourced by run_bash.sh / run_batch.sh.
+# Load miniforge + conda env on Tufts/HPC compute nodes
 set -euo pipefail
 
 _hpc_load_miniforge() {

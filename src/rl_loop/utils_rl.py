@@ -1,8 +1,44 @@
 import numpy as np
 import csv
 import os
-import json 
+import json
 import torch
+
+_device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+
+def td_priority(agent, algorithm, reward, action, state, next_state, done=None, goal=None, q_augmentation=0.0, buffer_type="PER"):
+    """TD Error for PER"""
+    if buffer_type != "PER":
+        return 1.0
+    with torch.no_grad():
+        if algorithm.upper() == "DQN":
+            action = int(action)
+            s = torch.from_numpy(np.asarray(state, dtype=np.float32)).float().unsqueeze(0).to(_device)
+            ns = torch.from_numpy(np.asarray(next_state, dtype=np.float32)).float().unsqueeze(0).to(_device)
+            q_eval = agent.policy_net(s).squeeze(0)[action]
+            if done is not None and bool(np.asarray(done).item()):
+                target = float(reward)
+            else:
+                target = float(reward) + agent.gamma * agent.target_net(ns).squeeze(0).max().item()
+            return abs(target - q_eval.item())
+
+        dev = agent.device
+        state_n = agent.state_normalizer.normalize(np.asarray(state, dtype=np.float32))
+        next_state_n = agent.state_normalizer.normalize(np.asarray(next_state, dtype=np.float32))
+        goal_n = agent.goal_normalizer.normalize(np.asarray(goal, dtype=np.float32))
+        sg = torch.tensor(np.concatenate([state_n, goal_n]), dtype=torch.float32, device=dev).unsqueeze(0)
+        nsg = torch.tensor(np.concatenate([next_state_n, goal_n]), dtype=torch.float32, device=dev).unsqueeze(0)
+        a = torch.tensor(np.asarray(action, dtype=np.float32), device=dev).unsqueeze(0)
+        q = agent.critic(sg, a).squeeze()
+        tq = agent.critic_target(nsg, agent.actor_target(nsg)).squeeze()
+        target = torch.clamp(
+            torch.tensor(float(reward), device=dev) + agent.gamma * tq + float(q_augmentation),
+            -1 / (1 - agent.gamma),
+            0,
+        )
+        return float(torch.abs(target - q).item())
+
 
 class Results():
     '''
@@ -180,7 +216,9 @@ def evaluate(env, agent, steps=600, episodes=20, domain_key=None, random_seed=0)
     np.random.seed(random_seed)
     seed =np.random.randint(0, 1000000)
     for i in range(episodes):
+
         ep_reward = 0.0
+
         if domain_key == "F":
             state, _  = env.reset(seed=seed)
         else:
@@ -200,12 +238,12 @@ def evaluate(env, agent, steps=600, episodes=20, domain_key=None, random_seed=0)
                 final_win = win
             
             ep_reward += reward
-            seed += 1
             if done or idx_step == steps-1:
                 if final_win:
                     successes += 1
                 break
         
+        seed += 1
         rewards.append(ep_reward)
     return np.array(rewards), successes/episodes
 
@@ -226,11 +264,11 @@ def evaluate_fetch(env, agent, steps=50, episodes=20, random_seed=0):
                 train_mode=False,
             )
             obs, _, terminated, truncated, info = env.step(action)
-            seed += 1
             ep_reward += info.get("reward", 0.0)
             if terminated or truncated:
                 break
         successes += int(float(info.get("is_success", 0.0)))
+        seed += 1
         rewards.append(ep_reward)
     return successes / max(episodes, 1), np.array(rewards)
     

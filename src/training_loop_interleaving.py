@@ -104,7 +104,6 @@ def train(env:gymnasium.Env,
             state_dataset = rows["states"].iloc[offline_step]
             final_step = rows["steps"].iloc[offline_step]
 
-            priority = None
             q_augmentation = 0.0
 
             # if action is Nan, skip
@@ -121,9 +120,14 @@ def train(env:gymnasium.Env,
                 terminated = False
                 next_state, reward, done, _ = env.step(action) #lunar lander
 
-            # print(f"DATASET: {offline_step}, Next State: {next_state_dataset}, Reward: {reward_dataset}, Done: {done_dataset}")
-            # print(f"ENVIRON: {offline_step}, Next State: {next_state}, Reward: {reward}, Terminated: {terminated}, Done: {done}")
-            
+            fs = int(final_step) if pd.notna(final_step) else n
+            if offline_step < fs - 1 and offline_step + 1 < n:
+                next_action_dist = rows["optimal_actions"].iloc[offline_step + 1]
+            else:
+                next_action_dist = action_dist
+
+            priority = utils_rl.td_priority(agent, "DQN", reward, action, state, next_state, done=done, buffer_type=buffer_type)
+
             if 0 not in flags:
                 # get rl task statistic tuple (state, action, reward) timestamp
                 rl_timestamp = rows["time"].iloc[offline_step]
@@ -149,16 +153,6 @@ def train(env:gymnasium.Env,
                 # get true sample label
                 class_truth = processor.get_label_sample(timestamp = rl_timestamp, temporal_shift = -shift)
                 
-                # get next action distribution, unless episode ends
-                fs = int(final_step) if pd.notna(final_step) else n
-
-                if offline_step < fs - 1 and offline_step + 1 < n:
-                    next_action_dist = rows["optimal_actions"].iloc[offline_step + 1]
-                else:
-                    next_action_dist = action_dist
-
-                priority = dqn_priority(reward, action, action_dist, next_action_dist)
-
                 # Reward Augmentation Experiment
                 if 1 in flags:
                     if verbose:
@@ -188,19 +182,17 @@ def train(env:gymnasium.Env,
                 
                 classes_truth.append(class_truth.to_list()[gr]) #truth
                 
-            # set priority to 0 for ER buffer functionality
-            if buffer_type == "ER":
-                priority = 1.0
+            if domain_key == "L" and offline_step == n-1:
+                reward -= 100
 
-            # remember transition
             agent.remember(state, action, reward, next_state, done, priority = priority, q_augmentation = q_augmentation)
             state = next_state
             # evaluate agent
             if combined_steps % eval_update == 0:
                 if domain_key == "F": #flappy bird
-                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=100), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
+                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=100), agent=agent, episodes=25, steps=steps, domain_key=domain_key, random_seed=seed)
                 else: #lunar lander
-                    eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
+                    eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=25, steps=steps, domain_key=domain_key, random_seed=seed)
                 
                 # store success rate
                 all_episode_success.append(eval_success)
@@ -243,7 +235,12 @@ def train(env:gymnasium.Env,
                     terminated = False
                     next_state, reward, done, _ = env.step(action) #lunar lander
 
-                agent.remember(state=state, action=action, reward=reward, next_state=next_state, done=done, priority=None, q_augmentation=0.0)
+                    if online_step == steps-1:
+                        reward -= 100
+
+                priority = utils_rl.td_priority(agent, "DQN", reward, action, state, next_state, done=done, buffer_type=buffer_type)
+
+                agent.remember(state=state, action=action, reward=reward, next_state=next_state, done=done, priority=priority, q_augmentation=0.0)
                 
                 state = next_state
                 total_reward += reward
@@ -251,9 +248,9 @@ def train(env:gymnasium.Env,
                 # evaluate agent
                 if combined_steps % eval_update == 0:
                     if domain_key == "F": #flappy bird
-                        eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=100), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
+                        eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=100), agent=agent, episodes=25, steps=steps, domain_key=domain_key, random_seed=seed)
                     else: #lunar lander
-                        eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
+                        eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=25, steps=steps, domain_key=domain_key, random_seed=seed)
                     
                     # store success rate
                     all_episode_success.append(eval_success)
@@ -311,7 +308,12 @@ def train(env:gymnasium.Env,
                 terminated = False
                 next_state, reward, done, _ = env.step(action) #lunar lander
 
-            agent.remember(state=state, action=action, reward=reward, next_state=next_state, done=done, priority=None, q_augmentation=0.0)
+                if  online_step == steps-1:
+                    reward -= 100
+
+            priority = utils_rl.td_priority(agent, "DQN", reward, action, state, next_state, done=done, buffer_type=buffer_type)
+
+            agent.remember(state=state, action=action, reward=reward, next_state=next_state, done=done, priority=priority, q_augmentation=0.0)
             
             state = next_state
             total_reward += reward
@@ -319,9 +321,9 @@ def train(env:gymnasium.Env,
             # evaluate agent
             if combined_steps % eval_update == 0:
                 if domain_key == "F": #flappy bird
-                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=100), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
+                    eval_reward, eval_success = utils_rl.evaluate(env=FlappyBird(score_limit=100), agent=agent, episodes=25, steps=steps, domain_key=domain_key, random_seed=seed)
                 else: #lunar lander
-                    eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=25, steps=steps, domain_key=domain_key)
+                    eval_reward, eval_success = utils_rl.evaluate(env=LunarLander(), agent=agent, episodes=25, steps=steps, domain_key=domain_key, random_seed=seed)
                 
                 # store success rate
                 all_episode_success.append(eval_success)
@@ -492,8 +494,7 @@ def train_robot(env:gymnasium.Env,
             state_dataset = rows["states"].iloc[offline_step]
             final_step = rows["steps"].iloc[offline_step]
 
-            # initialize priority and q augmentation
-            priority = None
+            # initialize q augmentation
             q_augmentation = 0.0
 
             # if action is Nan, skip
@@ -512,6 +513,8 @@ def train_robot(env:gymnasium.Env,
             else:
                 next_state_dataset = rows["states"].iloc[offline_step]
                 next_action_dist = action_dist
+
+            priority = utils_rl.td_priority(agent, "DDPG", float(reward), action, state, next_state, goal=desired_goal, buffer_type=buffer_type)
 
             if 0 not in flags:
                 # get associated fNIRS sample given timestep
@@ -533,8 +536,6 @@ def train_robot(env:gymnasium.Env,
                 if noise > 0.0:
                     new_neural_signal = ml.noisy_output(clf,  new_neural_signal, granularity, flip_rate = noise)
 
-                priority = ddpg_priority(reward, action, action_dist, next_action_dist)
-                
                 # Reward Augmentation Experiment
                 if 1 in flags:
                     if verbose: 
@@ -561,8 +562,6 @@ def train_robot(env:gymnasium.Env,
                     classes_pred.append(new_neural_signal)
                 else:
                     classes_pred.append(neural_signal)
-
-            if buffer_type == "ER": priority = 1.0
 
             episode_dict["state"].append(state)
             episode_dict["action"].append(action.astype(np.float32))
@@ -641,10 +640,7 @@ def train_robot(env:gymnasium.Env,
                 next_state = next_state_dict["observation"].astype(np.float32).ravel()
                 next_achieved_goal = next_state_dict["achieved_goal"].astype(np.float32).ravel()
 
-                if buffer_type == "PER":
-                    priority = None
-                else:
-                    priority = 1.0
+                priority = utils_rl.td_priority(agent, "DDPG", float(reward), action, state, next_state, goal=desired_goal, buffer_type=buffer_type)
 
                 online_ep["state"].append(state)
                 online_ep["action"].append(action.astype(np.float32))
@@ -732,10 +728,7 @@ def train_robot(env:gymnasium.Env,
             next_state = next_state_dict["observation"].astype(np.float32).ravel()
             next_achieved_goal = next_state_dict["achieved_goal"].astype(np.float32).ravel()
 
-            if buffer_type == "PER":
-                priority = None
-            else:
-                priority = 1.0
+            priority = utils_rl.td_priority(agent, "DDPG", float(reward), action, state, next_state, goal=desired_goal, buffer_type=buffer_type)
 
             online_ep["state"].append(state)
             online_ep["action"].append(action.astype(np.float32))
@@ -821,23 +814,3 @@ def train_robot(env:gymnasium.Env,
 
 def vectorize_action(x, dtype=np.float32):
     return np.asarray(x, dtype=dtype).ravel()
-
-
-def dqn_priority(reward, action: int, action_dist, next_action_dist) -> float:
-    """Discrete actions: same as reward + P(a|s_t) - P(a|s_{t+1}) over stored optimal distributions."""
-    prev_action_value = next_action_dist[action] if action < len(next_action_dist) else 0.0
-    curr_action_value = action_dist[action] if action < len(action_dist) else 0.0
-    return float(reward + curr_action_value - prev_action_value)
-
-
-def ddpg_priority(reward, action, action_dist, next_action_dist) -> float:
-    """Continuous actions (e.g. Fetch): reward + score(a, opt_t) - score(a, opt_{t+1}) with score = -||a - opt||^2."""
-    a = np.asarray(action, dtype=np.float64).ravel()
-    opt_curr = np.asarray(action_dist, dtype=np.float64).ravel()
-    opt_next = np.asarray(next_action_dist, dtype=np.float64).ravel()
-    m = int(min(a.size, opt_curr.size, opt_next.size))
-    if m == 0:
-        return float(reward)
-    curr_action_value = -np.sum((a[:m] - opt_curr[:m]) ** 2)
-    prev_action_value = -np.sum((a[:m] - opt_next[:m]) ** 2)
-    return float(reward + curr_action_value - prev_action_value)

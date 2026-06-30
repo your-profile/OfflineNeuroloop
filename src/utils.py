@@ -83,27 +83,40 @@ def load_agent(algorithm: str, buffer_type: str, filename:str, space=(11, 4), pr
 
     if algorithm == "DQN":
         if space[0] == 11:
-            hidden_layer_size = 256
+            hidden_layer_size = 128
+            agent = DQN(
+                n_observations=space[0],
+                n_actions=space[1],
+                batch_size=128,
+                lr=1e-3,
+                gamma=0.99,
+                mem_size=100000,
+                learn_step=5, #try 3
+                tau=0.005,
+                buffer_type=buffer_type,
+                hidden_layer_size=hidden_layer_size,
+                seed=seed,
+                verbose=verbose
+            )
         else:
-            hidden_layer_size = 192
+            hidden_layer_size = 128
+            agent = DQN(
+                n_observations=space[0],
+                n_actions=space[1],
+                batch_size=128,
+                lr=1e-3,
+                gamma=0.99,
+                mem_size=100000,
+                learn_step=5,
+                tau=0.005,
+                buffer_type=buffer_type,
+                hidden_layer_size=hidden_layer_size,
+                seed=seed,
+                verbose=verbose
+            )
 
         if verbose:
             print(f"Loading DQN agent with {space[0]} observations and {space[1]} actions")
-
-        agent = DQN(
-            n_observations=space[0],
-            n_actions=space[1],
-            batch_size=256,
-            lr=1e-3,
-            gamma=0.99,
-            mem_size=100000,
-            learn_step=5,
-            tau=0.005,
-            buffer_type=buffer_type,
-            hidden_layer_size=hidden_layer_size,
-            seed=seed,
-            verbose=verbose
-        )
 
     elif algorithm == "DDPG":
         inner = make_fetch_env(max_episode_steps=50, verbose = verbose)
@@ -145,6 +158,7 @@ def load_ddpg_agent(env, buffer_type: str, seed: int | None = None, verbose: boo
             gamma=gamma,
             tau=tau,
             k_future=k_future,
+            buffer_type=buffer_type,
             env=dc(env),
             seed=seed,
             verbose=verbose)

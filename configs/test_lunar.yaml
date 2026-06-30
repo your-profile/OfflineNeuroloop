@@ -33,11 +33,11 @@ mlp:
   early_stopping: True # CONSTANT
 
 rl:
-  n_episodes: 8000 # CONSTANT
+  n_episodes: 5000 # CONSTANT
   algorithm: "DQN"
   buffer_type: "PER"
   learning_rate_init: 0.001
-  steps: 600  # CONSTANT
+  steps: 1000  # CONSTANT
   action_space: 4 # CONSTANT
   observation_space: 11 # CONSTANT
 
