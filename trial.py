@@ -121,7 +121,7 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
             verbose = verbose,
             finetune_threshold = cfg["experiment"]["finetune_threshold"],
             success_save_threshold = 0.0,
-            save_agent = True,
+            save_agent = False,
             eval_update = cfg["experiment"]["eval_update"],
         )
     else:
@@ -150,7 +150,7 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
             verbose = verbose,
             finetune_threshold = cfg["experiment"]["finetune_threshold"],
             success_save_threshold = 0.5,
-            save_agent = True,
+            save_agent = False,
             eval_update = cfg["experiment"]["eval_update"],
         )
 
