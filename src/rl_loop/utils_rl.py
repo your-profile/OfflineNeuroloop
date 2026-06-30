@@ -9,10 +9,14 @@ _device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 def td_priority(agent, algorithm, reward, action, state, next_state, done=None, goal=None, q_augmentation=0.0, buffer_type="PER"):
     """TD Error for PER"""
+
+    # Set priority to 1.0 for ER buffers (uniform sampling)
     if buffer_type != "PER":
         return 1.0
+
+    # Calculate TD error for DQN or DDPG
     with torch.no_grad():
-        if algorithm.upper() == "DQN":
+        if algorithm.upper() == "DQN": # DQN
             action = int(action)
             s = torch.from_numpy(np.asarray(state, dtype=np.float32)).float().unsqueeze(0).to(_device)
             ns = torch.from_numpy(np.asarray(next_state, dtype=np.float32)).float().unsqueeze(0).to(_device)
@@ -23,6 +27,7 @@ def td_priority(agent, algorithm, reward, action, state, next_state, done=None, 
                 target = float(reward) + agent.gamma * agent.target_net(ns).squeeze(0).max().item()
             return abs(target - q_eval.item())
 
+        # DDPG TD error
         dev = agent.device
         state_n = agent.state_normalizer.normalize(np.asarray(state, dtype=np.float32))
         next_state_n = agent.state_normalizer.normalize(np.asarray(next_state, dtype=np.float32))
@@ -32,11 +37,7 @@ def td_priority(agent, algorithm, reward, action, state, next_state, done=None, 
         a = torch.tensor(np.asarray(action, dtype=np.float32), device=dev).unsqueeze(0)
         q = agent.critic(sg, a).squeeze()
         tq = agent.critic_target(nsg, agent.actor_target(nsg)).squeeze()
-        target = torch.clamp(
-            torch.tensor(float(reward), device=dev) + agent.gamma * tq + float(q_augmentation),
-            -1 / (1 - agent.gamma),
-            0,
-        )
+        target = torch.clamp(torch.tensor(float(reward), device=dev) + agent.gamma * tq + float(q_augmentation), -1 / (1 - agent.gamma), 0)
         return float(torch.abs(target - q).item())
 
 
@@ -72,73 +73,38 @@ class Results():
                 writer.writerow(row)
 
         return row
-        
 
-    def save_parameters(domain:str, participant_list, algorithm_name, experiment_list, episodes:int, state_dim:int, action_dim:int, learning_rate:float, gamma:float, epsilon_type:str, eval_update:int, resample_rate, window_size, step_size, buffer_type:str, credit_type:str, temporal_shift, save_to_csv = False, filepath = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/parameters"):
-        import datetime
-        row = {"date": datetime.date.today(),
-            "time": datetime.datetime.now(),
-            "domain": domain,
-            # "task": task,
-            "participant_list": participant_list,
-            "experiment_list": experiment_list,
-            "algorithm": algorithm_name,
-
-            "episodes": episodes,
-            "state_dim": state_dim,
-            "action_dim": action_dim,
-            "learning_rate": learning_rate,
-            "gamma": gamma,
-            "epsilon_type": epsilon_type,
-            "eval_update": eval_update,
-            "buffer_type": buffer_type,
-
-            "temporal_shift": temporal_shift,
-            "resample_rate": resample_rate,
-            "window_size": window_size,
-            "step_size": step_size,
-            # "random_state": random_state,
-            
-            "credit_type": credit_type,
-            # "model_name": model_name,
-            # "model_granularity": model_granularity,
-            # "model_architecture": model_architecture,
-            # "model_solver": model_solver,
-            # "model_activation": model_activation,
-            # "model_report": model_report,
-            }
-        
-        if save_to_csv:
-            fieldnames = row.keys()
-            write_header = not os.path.exists(filepath)
-
-
-            with open(filepath, mode='a', newline='') as csvfile:
-                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-
-                if write_header:
-                    writer.writeheader()
-
-                writer.writerow(row)
-
-        return row
-
-def adjust_reward(
+def adjust_signal(
     reward: float,
     neural_signal: int | float,
     clf_probs=None,
     means: tuple[float, float, float] = (1.0, -0.1, -1.0),
     stds: tuple[float, float, float] = (0.25, 0.25, 0.25),
-    mix_scale: float = 1.0,
-    sample_bonus: bool = False,
     clip_bonus: float | None = None,
     beta: float = 1.0,
 ):
+    """Adjust reward based on neural signal and classification probabilities. 
+    Gaussian mixture model used to adjust reward.
+    """
+
+    # estimate standard deviation of the target distribution
     std = (means[0]-means[2])*0.1
+
+    # if zero, set to a small value
+    if std == 0:
+        std = 0.1
+
     stds = [std, std, std]
+
     # for continuous output
     if isinstance(clf_probs, str):
-        optimal_neural_value = 1 - neural_signal
+        # Reverse error to mean optimality: 1 - error = optimality
+        optimal_neural_value = (1 - neural_signal)
+
+        #shift distribution to be between -1 and 1
+        optimal_neural_value = (optimal_neural_value - 0.5) * 2
+
+        # adjust reward based on the optimal neural value
         return float((reward + optimal_neural_value*means[0])*beta)
         
     elif clf_probs is not None and not np.isscalar(clf_probs):
@@ -155,44 +121,16 @@ def adjust_reward(
             p_sum = float(probs.sum())
             if p_sum > 0.0:
                 probs = probs / p_sum
-                mu = float(np.sum(probs * means_array))
+                # weight means by probabilities
+                means_array = probs * means_array
 
-                if sample_bonus:
-                    second_moment = float(np.sum(probs * (std_array**2 + means_array**2)))
-                    var = max(second_moment - mu**2, 1e-8)
-                    bonus = float(np.random.normal(loc=mu, scale=np.sqrt(var)))
-                else:
-                    bonus = mu
-
-                bonus *= float(mix_scale)
-                if clip_bonus is not None:
-                    c = float(abs(clip_bonus))
-                    bonus = float(np.clip(bonus, -c, c))
-                return float((reward + bonus) * beta)
-
-
+                #return weighted mean associated with the neural signal classification
+                return float((reward + means_array[neural_signal])*beta)
 
     return float((reward + means[neural_signal])*beta)
 
-def adjust_epsilon(epsilon: float, neural_signal: float, verbose = False):
-    """
-    adjust_epsilon(epsilon: float, 
-        neural_signal: float) -> adjusted_epsilon: float
-    
-    This function adjusts epsilon to modulate exploration given the neural signal. 
-    """
-
-    # neural signal in tenths place, subtracted from current decay
-    new_epsilon = epsilon - (neural_signal/20)
-
-    if verbose:
-        print(f"Original Epsilon: {epsilon}, Neural Signal: {neural_signal}, Adjusted Epsilon: {new_epsilon}")
-    
-    # epsilon is not lower than 0.05 or higher than 1.0
-    return min(max(0.05, new_epsilon), 1.0)
-
 def get_neural_signal(clf, features):
-
+    """Get neural signal and classification probabilities from features"""
     if features is not None:
         classification = clf.predict(features[None, :])[0] #predict with model
 

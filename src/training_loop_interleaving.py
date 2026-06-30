@@ -158,7 +158,7 @@ def train(env:gymnasium.Env,
                     if verbose:
                         print(f"Experiment Condition 1: Reward Augmentation -- Episode {episode} -- Participant: {participant}")
                         print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal, "| Adjusted Reward: ")
-                    reward = utils_rl.adjust_reward(reward, new_neural_signal, clf_probs = clf_probs, means = means, beta = beta)
+                    reward = utils_rl.adjust_signal(reward, new_neural_signal, clf_probs = clf_probs, means = means, beta = beta)
                 
                 # Priorirization experiment
                 if 2 in flags:
@@ -166,13 +166,13 @@ def train(env:gymnasium.Env,
                         print(f"Experiment Condition 2: Prioritization -- Episode {episode} -- Participant: {participant}")
                         print("Original Priority: ", abs(priority), "| Neural Signal: ", new_neural_signal, "| Adjusted Priority: ")
                     priority = abs(priority)
-                    priority = utils_rl.adjust_reward(priority, new_neural_signal, clf_probs = clf_probs, beta = beta)
+                    priority = utils_rl.adjust_signal(priority, new_neural_signal, clf_probs = clf_probs, beta = beta)
 
                 # Q Augmentation Experiment
                 if 3 in flags:
                     if verbose:
                         print(f"Experiment Condition 3: Q-Augmentation -- Episode {episode} -- Participant: {participant}")
-                    q_augmentation = utils_rl.adjust_reward(0.0, new_neural_signal, clf_probs = clf_probs, beta = beta)
+                    q_augmentation = utils_rl.adjust_signal(0.0, new_neural_signal, clf_probs = clf_probs, beta = beta)
 
                  # store sample optimality prediction and truth
                 if smoothing_window_size > 1 or noise > 0.0:
@@ -541,7 +541,7 @@ def train_robot(env:gymnasium.Env,
                     if verbose: 
                         print(f"Reward Augmentation — ep {episode} participant {participant}")
                         print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal, "| Adjusted Reward: ")
-                    reward = utils_rl.adjust_reward(reward, new_neural_signal, clf_probs = clf_probs, means = means, beta = beta)
+                    reward = utils_rl.adjust_signal(reward, new_neural_signal, clf_probs = clf_probs, means = means, beta = beta)
 
                 # Priorirization experiment
                 if 2 in flags:
@@ -549,14 +549,14 @@ def train_robot(env:gymnasium.Env,
                         print(f"Prioritization — ep {episode} participant {participant}")
                         print("Original Priority: ", abs(priority), "| Neural Signal: ", new_neural_signal, "| Adjusted Priority: ")
                     priority = abs(priority)
-                    priority = utils_rl.adjust_reward(priority, new_neural_signal, clf_probs = clf_probs, beta = beta)
+                    priority = utils_rl.adjust_signal(priority, new_neural_signal, clf_probs = clf_probs, beta = beta)
 
                 # Q Augmentation Experiment
                 if 3 in flags:
                     if verbose:
                         print(f"Q-aug analogue — ep {episode} participant {participant}")
                         print("Neural Signal: ", new_neural_signal, "| Q-Value: ", reward)
-                    q_augmentation = utils_rl.adjust_reward(0.0, new_neural_signal, clf_probs = clf_probs, beta = beta)
+                    q_augmentation = utils_rl.adjust_signal(0.0, new_neural_signal, clf_probs = clf_probs, beta = beta)
 
                 if smoothing_window_size > 1 or noise > 0.0:
                     classes_pred.append(new_neural_signal)

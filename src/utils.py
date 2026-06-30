@@ -2,7 +2,6 @@ import gymnasium
 from copy import deepcopy as dc
 from src.networks.DQN import DQN
 from src.networks.DDPG import DDPG
-# from src.networks.PPO import PPO
 from src.envs.lunar_lander import LunarLander
 from src.envs.flappy_bird import FlappyBirdEnv
 from src.seed_utils import set_global_seed
@@ -10,38 +9,24 @@ import torch
 
 def make_fetch_env(max_episode_steps=50, mujoco_version: int = 4, verbose: bool = False, render_mode: str = "rgb_array"):
     """
-    OpenAI Gym / Gymnasium Fetch Pick and Place. Prefer v2 when registered;
-    fall back to v3/v4 if the installed gymnasium-robotics build omits v2.
+    OpenAI Gymnasium Fetch Pick and Place
     """
     import gymnasium_robotics
 
     gymnasium.register_envs(gymnasium_robotics)
-    kwargs = {}
-    if max_episode_steps is not None:
-        kwargs["max_episode_steps"] = max_episode_steps
-    for vid in (
-        f"FetchPickAndPlace-v{mujoco_version}",
-        "FetchPickAndPlace-v4",
-        "FetchPickAndPlace-v3",
-        "FetchPickAndPlace-v2",
-    ):
-        try:
-            return gymnasium.make(vid, render_mode=render_mode, **kwargs)
-        except gymnasium.error.NameNotFound:
-            continue
-    raise gymnasium.error.NameNotFound(
-        "No FetchPickAndPlace env found (tried v2/v3/v4). Install gymnasium-robotics."
-    )
 
-def get_means(domain: str):
+    return gymnasium.make("FetchPickAndPlace-v4", render_mode=render_mode, max_episode_steps=max_episode_steps)
+    
+
+def get_percentiles(domain: str):
     if domain[0].lower() == "l":
-        return (4.5, -1.5, -2.9) #0.9, 0.6, 0.3
+        return (5.2, -1.5, -2.9) #0.9, 0.6, 0.3
     elif domain[0].lower() == "f":
         return (1.0, 0.1, -1.0) #0.99, 0.5, 0.01
     elif domain[0].lower() == "r":
         return (0.0, -0.5, -1.0) #0.99, 0.5, 0.01
     else:
-        raise ValueError(f"Invalid domain: {domain}")
+        raise Exception(f"Invalid domain: {domain}. Try: Lunar Lander, Flappy Bird, Robot")
 
 def load_domain(env: str, steps: int = None):
     if env[0].lower() == "l":
@@ -51,14 +36,15 @@ def load_domain(env: str, steps: int = None):
     elif env[0].lower() == "r":
         env = make_fetch_env(max_episode_steps=steps)
     else:
-        Exception("Incorrect domain key received. Domains are: \n lunar_lander \n flappy_bird \n robot")
+        raise Exception(f"Invalid domain: {env}. Try: Lunar Lander, Flappy Bird, Robot")
 
     return env
 
 def load_pretrained_agent(agent: DQN | DDPG, filename:str,pretrained_success_rate: float, algorithm: str, space=(11, 4), verbose: bool = False):
-    
+    """ Loading pretrained agents for Lunar Lander, Flappy Bird, and Robot """
+
     if algorithm == "DQN":
-        if space[0] == 11:
+        if space[0] == 11: # Lunar Lander
             if verbose:
                 print(filename+"lunar/"+"LPolicy"+str(int(pretrained_success_rate)))
 
@@ -68,7 +54,7 @@ def load_pretrained_agent(agent: DQN | DDPG, filename:str,pretrained_success_rat
                 print(filename+"flappy/"+"FPolicy"+str(int(pretrained_success_rate)))
             agent = agent.load_model(filename = filename+"src/policies/flappy/"+"FPolicy"+str(int(pretrained_success_rate)))
         
-    if algorithm == "DDPG":
+    if algorithm == "DDPG": # Robot
         if verbose:
             print(filename+"robot/"+"FetchPolicy"+str(int(pretrained_success_rate)))
         agent = agent.load_model(filename = filename+"src/policies/robot/"+"FetchPolicy"+str(int(pretrained_success_rate)) + ".pth")
@@ -76,13 +62,16 @@ def load_pretrained_agent(agent: DQN | DDPG, filename:str,pretrained_success_rat
     return agent
 
 def load_agent(algorithm: str, buffer_type: str, filename:str, space=(11, 4), pretrained_success_rate: float = 0.0, seed: int | None = None, verbose: bool = False):
+    
+    """ Loading DQN or DDPG agents for Lunar Lander, Flappy Bird, and Robot """
+
     agent = None
 
     if seed is not None:
         set_global_seed(seed)
 
     if algorithm == "DQN":
-        if space[0] == 11:
+        if space[0] == 11: # Lunar Lander
             hidden_layer_size = 128
             agent = DQN(
                 n_observations=space[0],
@@ -91,14 +80,14 @@ def load_agent(algorithm: str, buffer_type: str, filename:str, space=(11, 4), pr
                 lr=1e-3,
                 gamma=0.99,
                 mem_size=100000,
-                learn_step=5, #try 3
+                learn_step=5,
                 tau=0.005,
                 buffer_type=buffer_type,
                 hidden_layer_size=hidden_layer_size,
                 seed=seed,
                 verbose=verbose
             )
-        else:
+        else: # Flappy Bird
             hidden_layer_size = 128
             agent = DQN(
                 n_observations=space[0],
@@ -118,7 +107,7 @@ def load_agent(algorithm: str, buffer_type: str, filename:str, space=(11, 4), pr
         if verbose:
             print(f"Loading DQN agent with {space[0]} observations and {space[1]} actions")
 
-    elif algorithm == "DDPG":
+    elif algorithm == "DDPG": # Robot
         inner = make_fetch_env(max_episode_steps=50, verbose = verbose)
         agent = load_ddpg_agent(inner, buffer_type, seed=seed, verbose = verbose)
 
@@ -129,7 +118,7 @@ def load_agent(algorithm: str, buffer_type: str, filename:str, space=(11, 4), pr
 
 
 def load_ddpg_agent(env, buffer_type: str, seed: int | None = None, verbose: bool = False, pretrained_success_rate: float = 0.0):
-    """Build DDPG + HER replay for an existing Fetch env (same obs/action space as training)."""
+    """Build DDPG + HER + Prioritization for Robot Pick and Place """
 
     memory_size = 7e+5
     batch_size = 256
@@ -158,7 +147,6 @@ def load_ddpg_agent(env, buffer_type: str, seed: int | None = None, verbose: boo
             gamma=gamma,
             tau=tau,
             k_future=k_future,
-            buffer_type=buffer_type,
             env=dc(env),
             seed=seed,
             verbose=verbose)
