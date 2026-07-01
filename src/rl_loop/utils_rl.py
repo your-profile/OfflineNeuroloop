@@ -201,8 +201,8 @@ def evaluate_fetch(env, agent, steps=50, episodes=20, random_seed=0):
                 obs["desired_goal"],
                 train_mode=False,
             )
-            obs, _, terminated, truncated, info = env.step(action)
-            ep_reward += info.get("reward", 0.0)
+            obs, reward, terminated, truncated, info = env.step(action)
+            ep_reward += reward
             if terminated or truncated:
                 break
         successes += int(float(info.get("is_success", 0.0)))

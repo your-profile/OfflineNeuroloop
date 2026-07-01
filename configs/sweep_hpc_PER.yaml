@@ -25,7 +25,7 @@ integrations:
   - finetune
   - interleave
 
-seeds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+seeds: [1, 2, 3, 4, 5]
 
 conditions:
   - Baseline-PER
@@ -52,12 +52,12 @@ domains:
 
 # Each ablation block is a separate study (not crossed with the other).
 ablations:
-  - key: [mlp, model_noise]
-    vals: [0.0, 0.1, 1.0]
+  # - key: [mlp, model_noise]
+  #   vals: [0.0, 0.1, 1.0]
   - key: [neural, beta]
     vals: [0.5, 1.0, 5.0]
   - key: [experiment, finetune_threshold]
-    vals: [0.0, 0.2, 0.5, 0.7]
+    vals: [0.0, 0.25, 0.5, 0.75]
 
 profiles:
   smoke:
