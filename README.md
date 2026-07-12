@@ -1,39 +1,54 @@
-TO FRIKIN DO:
-- Connect yaml configurations to actual experiment code
-- Add robot code and finalize all conditions
-- Configure baseline experiments for all environments
-- Add results to logging
-- Add agent and classifier parameters
-- Write some testing files to make sure things are running as expected
-- Create figures from logged results (ablations, main experiments)
+# OfflineNeuroloop
 
+Offline RL with neural (fNIRS) feedback integrated into training via **finetune**, **interleave**, and related loops. Experiments sweep neural conditions, model noise, β, and finetune threshold across **Passive**, **Active**, and **Pooled** tasks, with reward/action granularities **binary**, **ternary**, and **continuous**.
 
+## Setup
+
+```bash
+conda env create -f environment.yml
+conda activate offline-neuroloop
 ```
-project/
-├── configs/
-│   ├── base.yaml
-│   ├── domains/
-│   │   ├── robot.yaml
-│   │   ├── lunar_lander.yaml
-│   │   └── flappy_bird.yaml
-│   └── ablations/
-│       ├── noise_sweep.yaml
-│       ├── smoothing_sweep.yaml
-│       └── credit_sweep.yaml
-├── src/
-│   ├── neural/
-│   │   ├── preprocessing.py      # smoothing, noise injection
-│   │   ├── credit.py             # credit assignment methods
-│   │   └── conditions.py         # reward_shaping, lr_modulation, replay_priority
-│   ├── models/
-│   │   ├── binary.py             # binary classifier MLP
-│   │   ├── ternary.py            # ternary classifier MLP
-│   │   └── continuous.py         # continuous output MLP
-│   ├── envs/
-│   │   ├── robot.py              # environments
-│   │   ├── lunar_lander.py
-│   │   └── flappy_bird.py
-│   └── logging.py
-├── train.py
-└── run_experiments.py
-```
+
+HPC job arrays and manifest sweeps: see [`docs/HPC.md`](docs/HPC.md).
+
+## Results
+
+Publication-style curves (mean ± 95% CI, `n = 5`) live in [`src/results/figures/`](src/results/figures/). Plots are generated from `src/results/graphs_finetune.ipynb`.
+
+### Best settings per condition
+
+Best (noise, β, ft) curve for each neural condition, shown for Passive / Active / Pooled. Active uses a longer checkpoint window than Passive and Pooled.
+
+**Binary**
+
+![Best settings — binary](src/results/figures/best_settings_binary.png)
+
+**Ternary**
+
+![Best settings — ternary](src/results/figures/best_settings_ternary.png)
+
+**Continuous**
+
+![Best settings — continuous](src/results/figures/best_settings_continuous.png)
+
+### Model noise ablation (binary, Pooled)
+
+Noise levels `{0.0, 0.5, 1.0}` at fixed β / ft for selected conditions.
+
+**Q-Augmentation PER**
+
+![Noise ablation — Q Augmentation](src/results/figures/noise_binary_q.png)
+
+**Reward Augmentation PER**
+
+![Noise ablation — Reward Augmentation](src/results/figures/noise_binary_reward.png)
+
+## Repo layout
+
+| Path | Role |
+|------|------|
+| `configs/` | Domain and sweep YAMLs |
+| `manifests/` | Trial manifests for HPC arrays |
+| `src/` | Envs, agents, neural loaders, training loops |
+| `src/results/` | Aggregated CSVs, notebooks, figures |
+| `submit_hpc.sh` / `run_trial.py` | Cluster submit and single-trial entrypoints |
