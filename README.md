@@ -13,7 +13,7 @@ HPC job arrays and manifest sweeps: see [`docs/HPC.md`](docs/HPC.md).
 
 ## Results
 
-Publication-style curves (mean ± 95% CI, `n = 5`) live in [`src/results/figures/`](src/results/figures/). Plots are generated from `src/results/graphs_finetune.ipynb`.
+Publication-style curves (mean ± 95% CI, `n = 5`) in [`src/results/figures/`](src/results/figures/). Plots are generated from `src/results/graphs_finetune.ipynb`.
 
 ### Best settings per condition
 
