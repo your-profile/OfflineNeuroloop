@@ -44,7 +44,9 @@ Noise levels `{0.0, 0.5, 1.0}` at fixed β / ft for selected conditions.
 ![Noise ablation — Reward Augmentation](src/results/figures/noise_binary_reward.png)
 
 **Dense Reward Function - Quick Test**
-A quick experiment to analyze the neural signal's effect on robot learning with a dense reward function. (SEM Error Bars, 4 trials, Passive Binary experiment)
+*New results, not discussed in paper.*
+A quick experiment to analyze the neural signal's effect on robot learning with a dense reward function. 
+(SEM Error Bars, 4 trials, Passive Binary experiment)
 
 ![Dense Environmental Reward — Passive Binary](src/results/figures/dense_binary_robot.png)
 
