@@ -17,6 +17,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 class DeepQNetwork(nn.Module):
     def __init__(self, n_observations, n_actions, hidden_layer_size=128, random_seed=None):
         super(DeepQNetwork, self).__init__()
+        torch.manual_seed(random_seed)
 
         self.fc = nn.Sequential(
             nn.Linear(n_observations, hidden_layer_size),
@@ -25,13 +26,13 @@ class DeepQNetwork(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_layer_size, n_actions)
         )
-        # Initialize all weights and biases uniformly between 0 and 1 using the provided seed
-        torch.manual_seed(int(random_seed))
-        for m in self.fc:
-            if isinstance(m, nn.Linear):
-                m.weight.data.uniform_(0.0, 1.0)
-                if m.bias is not None:
-                    m.bias.data.uniform_(0.0, 1.0)
+        # # Initialize all weights and biases uniformly between 0 and 1 using the provided seed
+        # torch.manual_seed(int(random_seed))
+        # for m in self.fc:
+        #     if isinstance(m, nn.Linear):
+        #         m.weight.data.uniform_(0.0, 1.0)
+        #         if m.bias is not None:
+        #             m.bias.data.uniform_(0.0, 1.0)
  
 
     def forward(self, x):
