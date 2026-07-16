@@ -31,19 +31,19 @@ NEURAL_CONDITIONS = [
     # "All-PER",
 ]
 
-GRANULARITIES = ["continuous"]
+GRANULARITIES = ["binary"]
 
 SEEDS = [43]
 
 DOMAIN_CONFIGS = {
-    "Flappy": REPO_ROOT / "configs/test_flappy.yaml",
-    # "Lunar": REPO_ROOT / "configs/test_lunar.yaml",
+    # "Flappy": REPO_ROOT / "configs/test_flappy.yaml",
+    "Lunar": REPO_ROOT / "configs/test_lunar.yaml",
     # "Robot": REPO_ROOT / "configs/test_robot.yaml",
 }
 
 TASKS_BY_DOMAIN = {
-    "Flappy": ["Passive"],#, "Active", "Passive"],
-    # "Lunar": ["Passive"],
+    # "Flappy": ["Passive"],#, "Active", "Passive"],
+    "Lunar": ["Passive"],
     # "Robot": ["Passive"],
 }
 
