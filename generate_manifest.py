@@ -9,7 +9,7 @@ from pathlib import Path
 """
 Example:
 
-python generate_manifest.py -s configs/sweep_hpc_PER.yaml --filter-domain Flappy --filter-integration pretrain --filter-granularity binary -o manifests/flappy_pretrain_binary_PER.csv
+python generate_manifest.py -s configs/sweep_hpc_PER.yaml --filter-domain Lunar --filter-integration finetune --filter-granularity binary -o manifests/lunar_finetune_binary_PER.csv
 
 """
 
