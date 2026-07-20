@@ -401,7 +401,7 @@ class Memory:
         sampled_timestep_indices = self.random_timesteps(self.episodes, sampled_episode_indices)
 
         states, actions, desired_goals = [], [], []
-        next_states, next_achieved_goals, q_augmentation = [], [], []
+        next_states, next_achieved_goals, q_augmentation, rewards = [], [], [], []
 
         for episode, timestep in zip(sampled_episode_indices, sampled_timestep_indices):
             episode_data = self.episodes[episode]
@@ -411,6 +411,7 @@ class Memory:
             next_achieved_goals.append(dc(episode_data["next_achieved_goal"][timestep]))
             next_states.append(dc(episode_data["next_state"][timestep]))
             q_augmentation.append(dc(episode_data["q_augmentation"][timestep]))
+            rewards.append(float(episode_data["reward"][timestep]))
 
         states = np.vstack(states)
         actions = np.vstack(actions)
@@ -418,16 +419,23 @@ class Memory:
         next_achieved_goals = np.vstack(next_achieved_goals)
         next_states = np.vstack(next_states)
         q_augmentation = np.vstack(q_augmentation)
+        rewards = np.expand_dims(np.asarray(rewards, dtype=np.float32), axis=1)
 
         relabel_indices, future_goals = self.relabel_goals_with_her(
             self.episodes, sampled_episode_indices, sampled_timestep_indices, batch_size
         )
         if future_goals is not None:
             desired_goals[relabel_indices] = future_goals
+            rewards[relabel_indices, 0] = self.env.compute_reward(
+                next_achieved_goals[relabel_indices],
+                desired_goals[relabel_indices],
+                None,
+            )
 
-        rewards = np.expand_dims(
-            self.env.compute_reward(next_achieved_goals, desired_goals, None), 1
-        )
+        # Original: always recompute from goals (discards stored reward augmentation).
+        # rewards = np.expand_dims(
+        #     self.env.compute_reward(next_achieved_goals, desired_goals, None), 1
+        # )
 
         return (
             self.clip_obs(states),
