@@ -24,7 +24,7 @@ def get_percentiles(domain: str):
     elif domain[0].lower() == "f":
         return (1.0, 0.1, -1.0) 
     elif domain[0].lower() == "r":
-        return (1.0, -0.5, -1.0) 
+        return (0.1, -0.5, -1.0) 
     else:
         raise Exception(f"Invalid domain: {domain}. Try: Lunar Lander, Flappy Bird, Robot")
 
