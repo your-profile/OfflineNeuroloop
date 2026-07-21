@@ -20,11 +20,11 @@ def make_fetch_env(max_episode_steps=50, mujoco_version: int = 4, verbose: bool 
 
 def get_percentiles(domain: str):
     if domain[0].lower() == "l":
-        return (5.2, -1.5, -2.9) #0.9, 0.6, 0.3
+        return (5.2, -1.5, -2.9) 
     elif domain[0].lower() == "f":
-        return (1.0, 0.1, -1.0) #0.99, 0.5, 0.01
+        return (1.0, 0.1, -1.0) 
     elif domain[0].lower() == "r":
-        return (0.1, -0.5, -1.0) #0.99, 0.5, 0.01
+        return (1.0, -0.5, -1.0) 
     else:
         raise Exception(f"Invalid domain: {domain}. Try: Lunar Lander, Flappy Bird, Robot")
 
