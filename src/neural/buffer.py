@@ -3,6 +3,11 @@ from turtle import pd
 import pandas as pd
 import numpy as np
 
+
+"""
+Saves sequential fNIRS data in a buffer (queue)
+Handles adding fNIRS samples to the buffer and creating feature windows.
+"""
 class fNIRSBuffer:
     def __init__(self, window_duration_s: float = 60.0, sample_period_s: float = 10.0, neural_channels = ["L_O_DSI", "L_D_DSI", "L_O_DSphi", "L_D_DSphi", "R_O_DSI", "R_D_DSI", "R_O_DSphi", "R_D_DSphi"], verbose: bool = False):
         self.window_duration_s = window_duration_s

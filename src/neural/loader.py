@@ -2,6 +2,13 @@ import pandas as pd
 import numpy as np
 from src.neural import utils_data as utils
 
+
+'''
+DataLoader():
+Loads fNIRS data into a Python Dictionary and in order of timestamp.
+Includes: Timestamps, Actions, States, Next States, Seeds etc...
+'''
+
 class DataLoader:
     def __init__(self, fnirs_data_source_path=None, task_data_source_path=None, labeled_data_source_path=None, participant_list=None, conditions_list=None):
         self.fnirs_path = fnirs_data_source_path

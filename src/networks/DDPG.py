@@ -1,14 +1,21 @@
 import threading
 from copy import deepcopy as dc
-
 import numpy as np
 import torch
 from mpi4py import MPI
 from torch import from_numpy, nn
 from torch.nn import functional as F
 from torch.optim import Adam
-
 from src.rl_loop.utils_rl import torch_load_checkpoint
+
+
+'''
+Deep Deterministic Policy Gradients (DDPG) with Hindisght Experience Replay (HER) and Prioritized episode trajectories
+
+TODO: Citation for DDPG-HER
+TODO: Citation for Prioritization
+'''
+
 
 MIN_PRIORITY = 1e-8
 

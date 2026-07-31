@@ -47,8 +47,11 @@ class Results():
     '''
     Results: Saving hyperparameters and final results for experiments
     '''
-    def save_results(episodes, total_rewards, success_rate, steps, experiment_list, index_of_interest, save_to_csv = False, filepath = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/results"):
+    def save_results(episodes, total_rewards, success_rate, steps, experiment_list, index_of_interest, save_to_csv = False, filepath = None):
         import datetime
+
+        if filepath is None:
+            Exception("Filename missing")
 
         print(f"Len Total Rewards: {len(total_rewards)}, Len Success Rate: {len(success_rate)}, Len Steps: {len(steps)}, Episodes: {episodes}")
 

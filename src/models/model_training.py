@@ -5,6 +5,11 @@ from sklearn.metrics import mean_squared_error, r2_score, classification_report
 import numpy as np
 import random
 
+'''
+ModelTrainer():
+Trains the neural decoder.
+Trains binary and ternary classifiers. Trains continuous regressor. Handles model noise injection. 
+'''
 class ModelTrainer:
     def __init__(self, cfg, seed, verbose = False):
         self.binary_hidden_layer_sizes = (cfg["binary_hidden_layer_sizes"][0],cfg["binary_hidden_layer_sizes"][1],cfg["binary_hidden_layer_sizes"][2])
@@ -24,6 +29,7 @@ class ModelTrainer:
         self._np_rng = np.random.default_rng(seed) if seed is not None else np.random.default_rng()
         self._py_rng = random.Random(seed) if seed is not None else random.Random()
 
+    # get performance report for classifier or regressor
     def get_report(self, y_test, y_pred, classifier = False):
 
         if classifier:
@@ -45,7 +51,6 @@ class ModelTrainer:
         
         return report
 
-
     def noisy_output(self, model, X, granularity, flip_rate):
         if granularity[0] == "c":
             return self.noisy_regressor(model, X, flip_rate)
@@ -54,7 +59,7 @@ class ModelTrainer:
         if granularity[0] == "t":
             return self.noisy_ternary(model, X, flip_rate)
 
-
+    # flip labels with probability of flip rate (noise injection)
     def flip_labels(self, prediction, flip_rate, classes):
         """Randomly reassign a fraction of predictions to a wrong class with noise."""
 

@@ -4,6 +4,12 @@ from typing import Tuple, List
 import statistics
 import scipy.stats
 
+'''
+DatasetProcessor():
+Proccesses and aligns fNIRS data and Reinforcement Learning (RL) task statistic data by timestamp.
+Handles building training set for the MLP decoder.
+Includes utilities.
+'''
 class DatasetProcessor:
     def __init__(self, verbose = False):
         self.neural_channels = None
@@ -12,6 +18,7 @@ class DatasetProcessor:
         self.fnirs_df = None
         self.label_df = None
 
+    # aligns fNIRS and RL task statistics by timestamp
     def align_streams(self, 
                       fnirs_df: pd.DataFrame, 
                       task_df: pd.DataFrame, 
@@ -132,22 +139,7 @@ class DatasetProcessor:
 
         return aligned, fnirs_channels
 
-    def compute_poisson_likelihood(self, granularity: str) -> pd.DataFrame:
-        df = self.fnirs_df.copy()
-        time_interval_s = (df.index[16] - df.index[0]).total_seconds()
-        mu = 1.0 / time_interval_s
-        events = df["binary_label_shifted"].values
-        events = events[events != 0]
-        likelihood_of_events = scipy.stats.poisson.pmf(events, mu)
-
-        print("Likelihood of events: ", likelihood_of_events)
-        print("Number of probabilities: ", len(likelihood_of_events))
-        print("Time interval: ", time_interval_s)
-        print("Number of original events: ", len(events))
-
-        return likelihood_of_events
-
-
+    # Builds balanced dataset for the decoder via downsampling (with step size)
     def build_balanced_dataset(self, 
             aligned_df: pd.DataFrame,
             fnirs_channels: List[str],
@@ -234,6 +226,7 @@ class DatasetProcessor:
             f"Unknown granularity {granularity!r}; use 'binary', 'ternary', or 'continuous'."
         )
 
+    # builds unbalanced, supervised dataset for neural decoder
     def build_supervised_dataset_fnirs(self, 
                                  aligned_df: pd.DataFrame,
                                  fnirs_channels: List[str],
@@ -272,6 +265,7 @@ class DatasetProcessor:
 
         return S_list, F_list
 
+    # shifts labels based on time delay from configuration file
     def shift_labels_for_delay(self, 
                     aligned_df: pd.DataFrame,
                     delay_s: float,
@@ -309,6 +303,10 @@ class DatasetProcessor:
 
         return df
 
+
+    '''
+    Utilities for finding buffer indices
+    '''
     @staticmethod
     def _iloc_nearest_sorted_ns(times_ns: np.ndarray, t_ns: np.int64) -> int:
         """Return iloc index of row whose index time is closest."""

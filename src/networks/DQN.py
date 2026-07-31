@@ -10,6 +10,12 @@ from collections import namedtuple, deque
 import heapq
 from src.networks import utils_networks as utils
 
+'''
+Deep Q-Network (DQN) with Prioritized Experience Replay
+
+TODO: Citation for DQN
+TODO: Citation for PER
+'''
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -26,13 +32,6 @@ class DeepQNetwork(nn.Module):
             nn.ReLU(),
             nn.Linear(hidden_layer_size, n_actions)
         )
-        # # Initialize all weights and biases uniformly between 0 and 1 using the provided seed
-        # torch.manual_seed(int(random_seed))
-        # for m in self.fc:
-        #     if isinstance(m, nn.Linear):
-        #         m.weight.data.uniform_(0.0, 1.0)
-        #         if m.bias is not None:
-        #             m.bias.data.uniform_(0.0, 1.0)
  
 
     def forward(self, x):
