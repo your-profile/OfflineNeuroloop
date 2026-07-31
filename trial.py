@@ -45,7 +45,7 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
     if not os.path.exists(os.path.join(DATA_PATH, 'fNIRS/LabeledData/')):
         try:
             DATA_PATH = os.path.join(os.environ.get("HOME", ""),
-                        '/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/')
+                        '/Users/USERNAME/Desktop/fNIRSDataset/Experiment/ParticipantData/')
             assert os.path.exists(os.path.join(DATA_PATH, 'fNIRS/LabeledData/'))
         except AssertionError:
             print("Please store path to participant date in DATA_PATH")

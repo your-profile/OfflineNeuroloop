@@ -1,5 +1,5 @@
 #!/bin/bash
-# Load miniforge + conda env on Tufts/HPC compute nodes
+# Load miniforge + conda env on INSTITUTION/HPC compute nodes
 set -euo pipefail
 
 _hpc_load_miniforge() {
