@@ -50,8 +50,8 @@ TASKS_BY_DOMAIN = {
 
 RESULTS_FILE_NAME = "test_results.csv"
 
-DATA_PATH = "/Users/USERNAME/PATH/"
-RESULTS_PATH = "/Users/USERNAME/PATH/"
+DATA_PATH = "/fnirs/"
+RESULTS_PATH = "/src/results/"
 
 # print configurations
 def print_cfg(cfg):
