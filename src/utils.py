@@ -1,3 +1,5 @@
+""" General Utilities for Offline Neuro-Loop """
+
 import gymnasium
 from copy import deepcopy as dc
 from src.networks.DQN import DQN
@@ -5,8 +7,8 @@ from src.networks.DDPG import DDPG
 from src.envs.lunar_lander import LunarLander
 from src.envs.flappy_bird import FlappyBirdEnv
 from src.seed_utils import set_global_seed
-import torch
 
+# Makes the Fetch Pick and Place environment
 def make_fetch_env(max_episode_steps=50, mujoco_version: int = 4, verbose: bool = False, render_mode: str = "rgb_array"):
     """
     OpenAI Gymnasium Fetch Pick and Place
@@ -17,8 +19,8 @@ def make_fetch_env(max_episode_steps=50, mujoco_version: int = 4, verbose: bool 
 
     return gymnasium.make("FetchPickAndPlaceDense-v4", render_mode=render_mode, max_episode_steps=max_episode_steps)
     
-
-def get_percentiles(domain: str):
+#Gets the expected reward ranges for each domain
+def get_expected_reward(domain: str):
     if domain[0].lower() == "l":
         return (5.2, -1.5, -2.9) 
     elif domain[0].lower() == "f":
@@ -28,6 +30,7 @@ def get_percentiles(domain: str):
     else:
         raise Exception(f"Invalid domain: {domain}. Try: Lunar Lander, Flappy Bird, Robot")
 
+# Loads the domain environment
 def load_domain(env: str, steps: int = None):
     if env[0].lower() == "l":
         env = LunarLander()
@@ -40,6 +43,7 @@ def load_domain(env: str, steps: int = None):
 
     return env
 
+# Loads the pretrained agent
 def load_pretrained_agent(agent: DQN | DDPG, filename:str,pretrained_success_rate: float, algorithm: str, space=(11, 4), verbose: bool = False):
     """ Loading pretrained agents for Lunar Lander, Flappy Bird, and Robot """
 
@@ -61,6 +65,7 @@ def load_pretrained_agent(agent: DQN | DDPG, filename:str,pretrained_success_rat
         print("Loaded DDPG agent from: " + filename+"src/policies/robot/"+"FetchPolicy"+str(int(pretrained_success_rate)) + ".pth")
     return agent
 
+# Loads the agent architecture for each domain
 def load_agent(algorithm: str, buffer_type: str, filename:str, space=(11, 4), pretrained_success_rate: float = 0.0, seed: int | None = None, verbose: bool = False):
     
     """ Loading DQN or DDPG agents for Lunar Lander, Flappy Bird, and Robot """
@@ -116,7 +121,7 @@ def load_agent(algorithm: str, buffer_type: str, filename:str, space=(11, 4), pr
 
     return agent
 
-
+# Loads the DDPG agent for the Robot domain
 def load_ddpg_agent(env, buffer_type: str, seed: int | None = None, verbose: bool = False, pretrained_success_rate: float = 0.0):
     """Build DDPG + HER + Prioritization for Robot Pick and Place """
 
@@ -156,6 +161,7 @@ def load_ddpg_agent(env, buffer_type: str, seed: int | None = None, verbose: boo
     
     return agent
 
+# Gets the conditions for each task in the dataset
 def get_conditions(domain, task: str, verbose = False):
 
     domain_letter = str(domain[0]).upper()

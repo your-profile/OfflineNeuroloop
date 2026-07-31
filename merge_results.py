@@ -1,21 +1,19 @@
 #!/usr/bin/env python3
-"""Merge per-trial CSVs under src/results/runs/ into combined result files."""
+"""Merge per-trial CSVs under src/results/runs/ into combined result file, separating by integration type."""
 from __future__ import annotations
-
 import argparse
 from pathlib import Path
-
 import pandas as pd
-
 from experiment_sweep import INTEGRATION_RESULTS_SUFFIX, REPO_ROOT
 
 
 """
 Example:
+python merge_results.py --runs-dir src/results/runs --output-dir src/results --combined_name robot_finetune_binary_PER.csv
 
-python merge_results.py --runs-dir src/results/runs --output-dir src/results --combined_name flappy_finetune_binary_PER1.csv
+Or:
+python merge_results.py
 """
-
 
 def main() -> None:
     parser = argparse.ArgumentParser()

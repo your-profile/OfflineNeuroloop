@@ -28,7 +28,7 @@ mlp:
   reg_activation: "tanh"
   binary_alpha: 0.0005
   ternary_alpha: 0.0001
-  reg_alpha: 0.00001
+  reg_alpha: 0.0001
   early_stopping: True
 
 rl:

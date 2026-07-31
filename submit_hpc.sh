@@ -1,12 +1,12 @@
 #!/bin/bash
-# Submit SLURM job arrays from manifest CSV(s): one array job per manifest, one task per trial.
+# Submit SLURM job arrays from manifest CSV. One array job per manifest, one task per trial.
 #
 #   export NEUROLOOP_RESULTS_ROOT=$SCRATCH/OfflineNeuroloop_results   # optional
 #   ./submit_hpc.sh --dry-run manifests/flappy_finetune_binary_PER1.csv
 #   ./submit_hpc.sh manifests/flappy_finetune_binary_PER1.csv
 #   ./submit_hpc.sh --all
 #
-# Sequential (slow): SUBMIT_MODE=batch ./submit_hpc.sh manifests/foo.csv
+# Sequential (very slow): SUBMIT_MODE=batch ./submit_hpc.sh manifests/foo.csv
 
 set -euo pipefail
 

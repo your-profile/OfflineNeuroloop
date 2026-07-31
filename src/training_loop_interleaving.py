@@ -1,8 +1,13 @@
+""" 
+Training Loop for Interleaving Integration 
+Interleaving integration is a technique that inserts offline RL training episodes between online RL training episodes every n episodes.
+This is different from the finetune integration, which is a technique that trains an agent on all of the offline data at some point in training.
+"""
+
 import numpy as np
 import pandas as pd
 from typing import List, Optional
 from src.networks.DDPG import DDPG
-
 from src.models.model_training import ModelTrainer
 from src.networks.DQN import DQN
 from src.envs.lunar_lander import LunarLander

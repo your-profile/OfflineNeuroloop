@@ -8,7 +8,6 @@
 #SBATCH --mem=16G
 # Time is set at submit time via submit_hpc.sh (see BATCH_TIME or auto estimate).
 #SBATCH --time=72:00:00
-#
 # One batch job runs every trial in MANIFEST sequentially.
 # Submit: ./submit_hpc.sh manifests/flappy_pretrain_binary.csv
 

@@ -1,3 +1,7 @@
+"""
+Script for running trials given the config file and data paths.
+"""
+
 from src.neural.loader import DataLoader
 from src.neural.preprocessing import DatasetProcessor
 from src.models.model_training import ModelTrainer
@@ -21,7 +25,7 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
         seed=trial_seed,
         verbose=verbose,
     )
-    means = utils.get_percentiles(cfg["experiment"]["domain"].lower())
+    means = utils.get_expected_reward(cfg["experiment"]["domain"].lower())
 
     if cfg["experiment"]["integration_type"] == "irl":
         print("Inverse RL")

@@ -1,3 +1,5 @@
+""" Utilities for the RL loop """
+
 import numpy as np
 import csv
 import os
@@ -6,7 +8,7 @@ import torch
 
 _device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-
+# Calculates the TD error for the PER buffer
 def td_priority(agent, algorithm, reward, action, state, next_state, done=None, goal=None, q_augmentation=0.0, buffer_type="PER"):
     """TD Error for PER"""
 
@@ -79,22 +81,10 @@ def adjust_signal(
     neural_signal: int | float,
     clf_probs=None,
     means: tuple[float, float, float] = (1.0, -0.1, -1.0),
-    stds: tuple[float, float, float] = (0.25, 0.25, 0.25),
-    clip_bonus: float | None = None,
     beta: float = 1.0,
 ):
     """Adjust reward based on neural signal and classification probabilities. 
-    Gaussian mixture model used to adjust reward.
     """
-
-    # estimate standard deviation of the target distribution
-    std = (means[0]-means[2])*0.1
-
-    # if zero, set to a small value
-    if std == 0:
-        std = 0.1
-
-    stds = [std, std, std]
 
     # for continuous output
     if isinstance(clf_probs, str):
@@ -110,13 +100,12 @@ def adjust_signal(
     elif clf_probs is not None and not np.isscalar(clf_probs):
         probs = np.asarray(clf_probs, dtype=np.float64).ravel()
         means_array = np.asarray(means, dtype=np.float64).ravel()
-        std_array = np.asarray(stds, dtype=np.float64).ravel()
 
-        k = int(min(len(probs), len(means_array), len(std_array)))
+        k = int(min(len(probs), len(means_array)))
+
         if k > 0:
             probs = probs[:k]
             means_array = means_array[:k]
-            std_array = np.maximum(std_array[:k], 1e-8)
 
             p_sum = float(probs.sum())
             if p_sum > 0.0:
@@ -145,6 +134,7 @@ def get_neural_signal(clf, features):
 
     return classification, probs
 
+# Evaluates the agent on the Lunar nad Flappy environments
 def evaluate(env, agent, steps=600, episodes=20, domain_key=None, random_seed=0):
     """
     Agent evaluation function
@@ -185,6 +175,7 @@ def evaluate(env, agent, steps=600, episodes=20, domain_key=None, random_seed=0)
         rewards.append(ep_reward)
     return np.array(rewards), successes/episodes
 
+# Evaluates the DDPG agent on the Fetch environment
 def evaluate_fetch(env, agent, steps=50, episodes=20, random_seed=0):
     """Evaluate DDPG on a goal-conditioned Fetch env (dict observations)."""
     successes = 0
@@ -210,6 +201,7 @@ def evaluate_fetch(env, agent, steps=50, episodes=20, random_seed=0):
         rewards.append(ep_reward)
     return successes / max(episodes, 1), np.array(rewards)
     
+# Loads the checkpoint for the agent
 def torch_load_checkpoint(path: str, map_location=None):
     kwargs = {}
     if map_location is not None:
@@ -217,5 +209,4 @@ def torch_load_checkpoint(path: str, map_location=None):
     try:
         return torch.load(path, weights_only=False, **kwargs)
     except TypeError:
-        # PyTorch < 2.0 has no weights_only
         return torch.load(path, **kwargs)

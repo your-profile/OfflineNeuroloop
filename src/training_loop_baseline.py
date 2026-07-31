@@ -1,10 +1,9 @@
+""" Training Loop for Baseline Integration
+Baseline integration does not use any offline data.
+"""
 import numpy as np
 import pandas as pd
-from typing import List, Optional
-from src.networks.DDPG import DDPG
-
 from src.models.model_training import ModelTrainer
-# from src.models.model_neural_predictor import FnirsFeaturePredictor
 from src.networks.DQN import DQN
 from src.envs.lunar_lander import LunarLander
 from src.envs.flappy_bird import FlappyBirdEnv as FlappyBird
@@ -13,12 +12,11 @@ import time
 from tqdm import trange
 from copy import deepcopy as dc
 import numpy as np
-import src.utils as utils
 import torch
-from src.neural.buffer import fNIRSBuffer
 from src.rl_loop import utils_rl
 from src.neural.preprocessing import DatasetProcessor
 from src.seed_utils import set_global_seed
+from typing import List
 
 def train(env:gymnasium.Env, 
           task_df:pd.DataFrame, 

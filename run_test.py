@@ -1,69 +1,70 @@
+"""
+Script for running tests give the config file and data path. Real experiments were run through the HPC cluster
+"""
+
 import itertools
 from pathlib import Path
-
 import yaml
-
 from experiment_sweep import build_cfg, make_run_name
 from trial import run
 
 REPO_ROOT = Path(__file__).resolve().parent
 
-with open(REPO_ROOT / "configs/test_flappy.yaml") as f:
+with open(REPO_ROOT / "configs/base.yaml") as f:
     base = yaml.safe_load(f)
 
-# Ablation studies — enable one block at a time for local smoke tests.
+# Ablations
 ABLATIONS = [
-    {"key": ["experiment", "finetune_threshold"], "vals": [0.0]}#, 0.2, 0.4, 0.6, 0.8]},
-    # {"key": ["mlp", "model_noise"], "vals": [0.0, 0.2, 0.5, 1.0]},
-    # {"key": ["neural", "beta"], "vals": [1.0]},
-    # {"key": ["neural", "temporal_shift"], "vals": [0.0, 1.0, 2.0, 3.0]},
-    # {"key": ["neural", "window_size_s"], "vals": [4.0, 5.0]},
+    {"key": ["experiment", "finetune_threshold"], "vals": [0.0, 0.2, 0.5, 0.7]},
+    {"key": ["mlp", "model_noise"], "vals": [0.0, 0.5, 1.0]},
+    {"key": ["neural", "beta"], "vals": [0.5, 1.0, 5.0]},
 ]
 
-# finetune_threshold only affects finetune / interleave integrations
 INTEGRATION = "finetune"
 
 NEURAL_CONDITIONS = [
-    # "Prioritization-PER",
     "Baseline-PER",
-    # "Q-Augmentation-PER",
-    # "Reward Augmentation-PER",
-    # "All-PER",
+    "Prioritization-PER",
+    "Q-Augmentation-PER",
+    "Reward Augmentation-PER",
+    "All-PER",
 ]
 
-GRANULARITIES = ["binary"]
+GRANULARITIES = ["binary", "ternary", "continuous"]
 
-SEEDS = [43]
+SEEDS = [1,2,3,4,5,6,7,8,9,10]
 
+# Domain configs: Flappy, Lunar, Robot
 DOMAIN_CONFIGS = {
-    # "Flappy": REPO_ROOT / "configs/test_flappy.yaml",
+    "Flappy": REPO_ROOT / "configs/test_flappy.yaml",
     "Lunar": REPO_ROOT / "configs/test_lunar.yaml",
-    # "Robot": REPO_ROOT / "configs/test_robot.yaml",
+    "Robot": REPO_ROOT / "configs/test_robot.yaml",
 }
 
+# Task types: Passive, Active, Pooled
 TASKS_BY_DOMAIN = {
-    # "Flappy": ["Passive"],#, "Active", "Passive"],
-    "Lunar": ["Passive"],
-    # "Robot": ["Passive"],
+    "Flappy": ["Passive", "Active","Pooled"],
+    "Lunar": ["Passive", "Active", "Pooled"],
+    "Robot": ["Passive", "Active", "Pooled"],
 }
+
+RESULTS_FILE_NAME = "test_results.csv"
 
 DATA_PATH = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/"
 RESULTS_PATH = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/"
-RESULTS_FILE_NAME = "no_sorting.csv"
 # DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/'
 # RESULTS_PATH = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/'
-
 # DATA_PATH = '/cluster/home/mbrowe02/fNIRS2RL/Experiment/ParticipantData/'
 # RESULTS_PATH = '/cluster/home/mbrowe02/OfflineNeuroloop/'
 
-
+# print configurations
 def print_cfg(cfg):
     for k, v in cfg.items():
         print(f"{k}: {v}")
         if isinstance(v, dict):
             print_cfg(v)
 
-
+# run tests
 for ablation, (domain, domain_config), seed, granularity, condition in itertools.product(
     ABLATIONS,
     DOMAIN_CONFIGS.items(),
@@ -92,7 +93,7 @@ for ablation, (domain, domain_config), seed, granularity, condition in itertools
                 cfg["rl"]["n_episodes"] = 10
 
             print_cfg(cfg)
-            # input("Press Enter to continue... \n")
+
             run(
                 cfg,
                 run_name=make_run_name(cfg),

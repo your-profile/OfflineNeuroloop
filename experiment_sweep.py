@@ -1,12 +1,10 @@
-"""Shared experiment grid: build configs, manifest, and run names."""
+"""Creates a shared experiment grid. Builds configs, manifests, and run names given an experiment configuration."""
 from __future__ import annotations
-
 import copy
 import csv
 import re
 from pathlib import Path
 from typing import Any, Iterable
-
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent
@@ -15,7 +13,7 @@ MANIFESTS_DIR = REPO_ROOT / "manifests"
 
 
 def path_for_manifest(path: Path) -> str:
-    """Store paths relative to the repo so manifests work on HPC after local generation."""
+    """Store paths relative to the repo so manifests work on HPC."""
     resolved = path.resolve()
     try:
         return str(resolved.relative_to(REPO_ROOT))
@@ -24,7 +22,7 @@ def path_for_manifest(path: Path) -> str:
 
 
 def resolve_repo_path(path: str | Path | None) -> Path | None:
-    """Map manifest paths to files under this checkout (handles Mac → cluster manifests)."""
+    """Map manifest paths to files."""
     if path is None or path == "":
         return None
     p = Path(path)
@@ -59,7 +57,7 @@ INTEGRATION_RESULTS_SUFFIX = {
     "pretrain": "pretraining",
 }
 
-# Wall-clock hints for SLURM --time (one trial per array task).
+# Wall-clock hints for SLURM.
 DOMAIN_SLURM_TIME = {
     "flappy": "1:30:00",
     "lunar": "10:00:00",
@@ -124,7 +122,7 @@ def normalize_domain_filter(label: str) -> str:
 def domain_config_path(domain_key: str) -> Path:
     return domain_yaml_path(domain_key)
 
-
+# Creates run name
 def make_run_name(cfg: dict) -> str:
     e = cfg["experiment"]
     n = cfg["neural"]
@@ -151,7 +149,7 @@ def apply_profile(sweep: dict, profile: str | None) -> dict:
         merged[key] = val
     return merged
 
-
+# builds the config file
 def build_cfg(
     *,
     integration: str,

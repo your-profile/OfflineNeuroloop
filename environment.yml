@@ -21,4 +21,3 @@ dependencies:
     - pygame==2.6.1
     - torch
     - gymnasium_robotics
-    # - gym[box2d]

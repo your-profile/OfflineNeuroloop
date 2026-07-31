@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-"""Build trial manifest CSV(s) for SLURM job arrays."""
+"""Build trial manifest CSV for SLURM job arrays."""
 from __future__ import annotations
-
 import argparse
 from pathlib import Path
 
 
 """
 Example:
-
-python generate_manifest.py -s configs/sweep_hpc_PER.yaml --filter-domain Lunar --filter-integration finetune --filter-granularity binary -o manifests/lunar_finetune_binary_PER.csv
+For Robot domain, finetune integration, and binary granularity:
+python generate_manifest.py -s configs/sweep_hpc_PER.yaml --filter-domain Robot --filter-integration finetune --filter-granularity binary -o manifests/robot_finetune_binary_PER.csv
 
 """
 

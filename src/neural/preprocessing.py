@@ -157,6 +157,7 @@ class DatasetProcessor:
             random_state: int | None = None,
             granularity: str = "binary",
             return_indices: bool = False,
+            step_size_s: int = 0,
             ):
 
         X, y_binary, y_ternary, y_continuous = self.build_supervised_dataset(
@@ -164,7 +165,8 @@ class DatasetProcessor:
             fnirs_channels=fnirs_channels,
             label_col=label_col,
             window_duration_s=window_duration_s,
-            resample_rate_hz=resample_rate_hz,
+            resample_rate_hz=resample_rate_hz,  
+            step_size_s=step_size_s,
         )
 
         gs = str(granularity).strip().lower()
@@ -225,6 +227,7 @@ class DatasetProcessor:
                 rng.shuffle(sel)
                 return pack(sel, y)
             sel = balanced(class_indices, n_per)
+            print(len(y))
             return pack(sel, y)
 
         raise ValueError(
