@@ -98,7 +98,7 @@ def adjust_signal(
         optimal_neural_value = (optimal_neural_value - 0.5) * 2
 
         # adjust reward based on the optimal neural value
-        return float((reward + optimal_neural_value*means[0])*beta)
+        return float((reward + optimal_neural_value*means[0]*beta))
         
     elif clf_probs is not None and not np.isscalar(clf_probs):
         probs = np.asarray(clf_probs, dtype=np.float64).ravel()
@@ -117,9 +117,9 @@ def adjust_signal(
                 means_array = probs * means_array
 
                 #return weighted mean associated with the neural signal classification
-                return float((reward + means_array[neural_signal])*beta)
+                return float((reward + means_array[neural_signal]*beta))
 
-    return float((reward + means[neural_signal])*beta)
+    return float((reward + means[neural_signal]*beta))
 
 def get_neural_signal(clf, features):
     """Get neural signal and classification probabilities from features"""
