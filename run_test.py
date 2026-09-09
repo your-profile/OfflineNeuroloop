@@ -50,8 +50,12 @@ TASKS_BY_DOMAIN = {
 
 RESULTS_FILE_NAME = "test_results.csv"
 
-DATA_PATH = "/fnirs/"
-RESULTS_PATH = "/src/results/"
+DATA_PATH = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/"
+RESULTS_PATH = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/"
+# DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/'
+# RESULTS_PATH = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/'
+# DATA_PATH = '/cluster/home/mbrowe02/fNIRS2RL/Experiment/ParticipantData/'
+# RESULTS_PATH = '/cluster/home/mbrowe02/OfflineNeuroloop/'
 
 # print configurations
 def print_cfg(cfg):
