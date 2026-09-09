@@ -17,7 +17,7 @@ def make_fetch_env(max_episode_steps=50, mujoco_version: int = 4, verbose: bool 
 
     gymnasium.register_envs(gymnasium_robotics)
 
-    return gymnasium.make("FetchPickAndPlaceDense-v4", render_mode=render_mode, max_episode_steps=max_episode_steps)
+    return gymnasium.make("FetchPickAndPlace-v4", render_mode=render_mode, max_episode_steps=max_episode_steps)
     
 #Gets the expected reward ranges for each domain
 def get_expected_reward(domain: str):
