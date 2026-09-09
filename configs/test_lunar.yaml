@@ -9,6 +9,7 @@ experiment:
   pretrained_success_rate: 0.0
   finetune_threshold: 0.00
   verbose: False
+  mlp_episode_fraction: 0.3
 
 neural:
   smoothing_window_size: 1      # 1 for no smoothing, 2 for 2-point smoothing, etc.

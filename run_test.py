@@ -23,7 +23,7 @@ ABLATIONS = [
 INTEGRATION = "finetune"
 
 NEURAL_CONDITIONS = [
-    "Baseline-PER",
+    # "Baseline-PER",
     "Prioritization-PER",
     "Q-Augmentation-PER",
     "Reward Augmentation-PER",
@@ -32,7 +32,7 @@ NEURAL_CONDITIONS = [
 
 GRANULARITIES = ["binary", "ternary", "continuous"]
 
-SEEDS = [1,2,3,4,5,6,7,8,9,10]
+SEEDS = [1]
 
 # Domain configs: Flappy, Lunar, Robot
 DOMAIN_CONFIGS = {

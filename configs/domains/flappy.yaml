@@ -8,6 +8,7 @@ experiment:
   finetune_threshold: 0.0
   verbose: False
   eval_update: 1000
+  mlp_episode_fraction: 0.3
 
 neural:
   smoothing_window_size: 1      # 1 for no smoothing, 2 for 2-point smoothing, etc.

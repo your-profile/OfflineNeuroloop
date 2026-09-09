@@ -6,7 +6,9 @@ from src.neural.loader import DataLoader
 from src.neural.preprocessing import DatasetProcessor
 from src.models.model_training import ModelTrainer
 from src.seed_utils import set_global_seed
+from sklearn.model_selection import train_test_split
 import src.utils as utils
+import pandas as pd
 import os
 import csv
 
@@ -81,8 +83,33 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
 
     shifted_df = processor.shift_labels_for_delay(aligned_df, delay_s = cfg["neural"]["temporal_shift"], verbose = verbose)
 
+    # Split unique episodes: train MLP on one random subset; agent learns from the rest.
+    episode_cols = ["participantKey", "episode"]
+    episode_ids = (
+        task_df[episode_cols]
+        .assign(
+            participantKey=lambda d: d["participantKey"].astype(str),
+            episode=lambda d: pd.to_numeric(d["episode"], errors="coerce").astype("Int64"),
+        )
+        .dropna()
+        .drop_duplicates()
+        .reset_index(drop=True)
+    )
+    mlp_episode_fraction = float(cfg.get("experiment", {}).get("mlp_episode_fraction", 0.5))
+    mlp_episodes, agent_episodes = train_test_split(episode_ids, train_size=mlp_episode_fraction,random_state=trial_seed, shuffle=True)
+    print(f"Episode split: {len(mlp_episodes)} for MLP "f"({mlp_episode_fraction:.0%}), {len(agent_episodes)} for agent")
+
+    shifted_mlp = shifted_df.copy()
+    shifted_mlp["participantKey"] = shifted_mlp["participantKey"].astype(str)
+    shifted_mlp["episode"] = pd.to_numeric(shifted_mlp["episode"], errors="coerce").astype("Int64")
+    mlp_keys = set(map(tuple, mlp_episodes.to_numpy()))
+    
+    shifted_mlp = shifted_mlp[
+        shifted_mlp[episode_cols].apply(tuple, axis=1).isin(mlp_keys)
+    ]
+
     X, y = processor.build_balanced_dataset(
-        shifted_df,
+        shifted_mlp,
         fnirs_channels = fnirs_channels,
         label_col = "label_shifted",
         granularity = cfg["experiment"]["model_granularity"],
@@ -90,6 +117,14 @@ def run(cfg, run_name = "test", verbose = False, DATA_PATH = '.', RESULTS_PATH='
         resample_rate_hz = cfg["neural"]["fnirs_rate_hz"],
         random_state = trial_seed,
     )
+
+    # Agent offline learning uses only held-out episodes (not used to fit the MLP).
+    task_df = task_df.copy()
+    task_df["participantKey"] = task_df["participantKey"].astype(str)
+    task_df["episode"] = pd.to_numeric(task_df["episode"], errors="coerce").astype("Int64")
+    task_df = task_df[
+        ~task_df[episode_cols].apply(tuple, axis=1).isin(mlp_keys)
+    ].reset_index(drop=True)
 
     modelTrainer = ModelTrainer(cfg=cfg["mlp"], seed=trial_seed, verbose=verbose)
     classifier, report = modelTrainer.train_classifier(
