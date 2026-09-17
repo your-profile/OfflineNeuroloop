@@ -18,7 +18,7 @@ neural:
   step_size_s: 1.5
   beta: 1.0
   fnirs_rate_hz: 5.2
-  drop_suspect_channels: true   # true = intensity-only (drop DSphi), same as eval
+  drop_suspect_channels: false   # true = intensity-only (drop DSphi), same as eval
 
 mlp:
   type: lda                       # lda (eval default) | mlp
