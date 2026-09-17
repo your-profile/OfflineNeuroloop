@@ -186,12 +186,34 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
     labels_df = loader.load_labels()
 
     processor = DatasetProcessor(verbose=verbose)
+
+    # Match eval: drop DSphi (suspect) channels when configured.
+    from src.eval.settings import channel_setup
+
+    drop_suspect = bool(
+        cfg.get("neural", {}).get(
+            "drop_suspect_channels",
+            cfg.get("mlp", {}).get("drop_suspect_channels", False),
+        )
+    )
+    decoder_channels, decoder_pairs, ch_tag = channel_setup(
+        {"drop_suspect_channels": drop_suspect}
+    )
+    print(
+        f"Channels: {ch_tag} "
+        f"(drop_suspect_channels={drop_suspect}) -> {decoder_channels}"
+    )
+
     aligned_df, fnirs_channels = processor.align_streams(
         fnirs_df,
         task_df,
         labels_df,
         resample_rate_hz=cfg["neural"]["fnirs_rate_hz"],
+        neural_channels=list(decoder_channels),
     )
+    # Prefer the eval channel list (intersection already applied in align_streams).
+    fnirs_channels = [c for c in decoder_channels if c in fnirs_channels] or fnirs_channels
+
     shifted_df = processor.shift_labels_for_delay(
         aligned_df, delay_s=cfg["neural"]["temporal_shift"], verbose=verbose
     )
@@ -260,6 +282,8 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
                     step_s=float(cfg["neural"].get("step_size_s", 1.0)),
                     embargo_s=float(mlp_cfg.get("embargo_s", 4.0)),
                     rate_hz=float(cfg["neural"]["fnirs_rate_hz"]),
+                    channels=list(decoder_channels),
+                    pairs=list(decoder_pairs),
                     seed=trial_seed,
                 )
                 if clf_i is None:

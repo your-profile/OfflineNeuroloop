@@ -745,88 +745,88 @@ def train_robot(env:gymnasium.Env,
     
     last_online_episode = online_episode
     
-    # # ONLINE POST-TRAINING LOOP
-    # for online_episode in range(last_online_episode, episodes_num+end_tag_episodes):
-    #     state_dict, _ = env.reset(seed=online_seed)
+    # ONLINE POST-TRAINING LOOP
+    for online_episode in range(last_online_episode, episodes_num+end_tag_episodes):
+        state_dict, _ = env.reset(seed=online_seed)
 
-    #     online_seed += 1
-    #     total_reward = 0.0
+        online_seed += 1
+        total_reward = 0.0
 
-    #     online_ep = dc(blank_episode_dict)
+        online_ep = dc(blank_episode_dict)
 
-    #     for online_step in range(steps):
-    #         state = state_dict["observation"].astype(np.float32).ravel()
-    #         desired_goal = state_dict["desired_goal"].astype(np.float32).ravel()
-    #         achieved_goal = state_dict["achieved_goal"].astype(np.float32).ravel()
+        for online_step in range(steps):
+            state = state_dict["observation"].astype(np.float32).ravel()
+            desired_goal = state_dict["desired_goal"].astype(np.float32).ravel()
+            achieved_goal = state_dict["achieved_goal"].astype(np.float32).ravel()
 
-    #         action = agent.choose_action(state, desired_goal, train_mode=True)
-    #         next_state_dict, reward, terminated, truncated, info = env.step(action)
+            action = agent.choose_action(state, desired_goal, train_mode=True)
+            next_state_dict, reward, terminated, truncated, info = env.step(action)
             
-    #         done = float(terminated or truncated)
-    #         next_state = next_state_dict["observation"].astype(np.float32).ravel()
-    #         next_achieved_goal = next_state_dict["achieved_goal"].astype(np.float32).ravel()
+            done = float(terminated or truncated)
+            next_state = next_state_dict["observation"].astype(np.float32).ravel()
+            next_achieved_goal = next_state_dict["achieved_goal"].astype(np.float32).ravel()
 
-    #         priority = utils_rl.td_priority(agent, "DDPG", float(reward), action, state, next_state, goal=desired_goal, buffer_type=buffer_type)
+            priority = utils_rl.td_priority(agent, "DDPG", float(reward), action, state, next_state, goal=desired_goal, buffer_type=buffer_type)
 
-    #         online_ep["state"].append(state)
-    #         online_ep["action"].append(action.astype(np.float32))
-    #         online_ep["reward"].append(float(reward))
-    #         online_ep["next_state"].append(next_state)
-    #         online_ep["achieved_goal"].append(achieved_goal)
-    #         online_ep["next_achieved_goal"].append(next_achieved_goal)
-    #         online_ep["desired_goal"].append(desired_goal)
-    #         online_ep["done"].append(done)
-    #         online_ep["q_augmentation"].append(float(0.0))
-    #         online_ep["transition_priority"].append(priority)
-    #         total_reward += float(reward)
+            online_ep["state"].append(state)
+            online_ep["action"].append(action.astype(np.float32))
+            online_ep["reward"].append(float(reward))
+            online_ep["next_state"].append(next_state)
+            online_ep["achieved_goal"].append(achieved_goal)
+            online_ep["next_achieved_goal"].append(next_achieved_goal)
+            online_ep["desired_goal"].append(desired_goal)
+            online_ep["done"].append(done)
+            online_ep["q_augmentation"].append(float(0.0))
+            online_ep["transition_priority"].append(priority)
+            total_reward += float(reward)
 
-    #         if combined_steps % eval_update == 0:
-    #             eval_success, eval_reward = utils_rl.evaluate_fetch(utils.make_fetch_env(), agent, steps=steps, episodes=25, random_seed=seed)
+            if combined_steps % eval_update == 0:
+                eval_success, eval_reward = utils_rl.evaluate_fetch(utils.make_fetch_env(), agent, steps=steps, episodes=25, random_seed=seed)
                 
-    #             # store success rate
-    #             all_episode_success.append(eval_success)
-    #             all_total_rewards.extend(eval_reward)
-    #             all_episode_steps.append(combined_steps)
-    #             score_avg = np.mean(all_total_rewards[-200:])
-    #         state_dict = next_state_dict
-    #         combined_steps += 1
-    #         if terminated or truncated:
-    #             break
+                # store success rate
+                all_episode_success.append(eval_success)
+                all_total_rewards.extend(eval_reward)
+                all_episode_steps.append(combined_steps)
+                score_avg = np.mean(all_total_rewards[-200:])
+            state_dict = next_state_dict
+            combined_steps += 1
+            if terminated or truncated:
+                break
 
-    #     if eval_success >= success_save_threshold and save_agent:
-    #         agent.save_weights()
-    #         torch.save(
-    #             {
-    #                 "episode": episode,
-    #                 "actor": agent.actor.state_dict(),
-    #                 "critic": agent.critic.state_dict(),
-    #                 "actor_target": agent.actor_target.state_dict(),
-    #                 "critic_target": agent.critic_target.state_dict(),
-    #                 "actor_optim": agent.actor_optim.state_dict(),
-    #                 "critic_optim": agent.critic_optim.state_dict(),
-    #             },
-    #             "FetchPolicy" + str(int(eval_success * 100)) + ".pth",
-    #         )
+        if eval_success >= success_save_threshold and save_agent:
+            agent.save_weights()
+            torch.save(
+                {
+                    "episode": episode,
+                    "actor": agent.actor.state_dict(),
+                    "critic": agent.critic.state_dict(),
+                    "actor_target": agent.actor_target.state_dict(),
+                    "critic_target": agent.critic_target.state_dict(),
+                    "actor_optim": agent.actor_optim.state_dict(),
+                    "critic_optim": agent.critic_optim.state_dict(),
+                },
+                "FetchPolicy" + str(int(eval_success * 100)) + ".pth",
+            )
 
-    #     minibatch.append(dc(online_ep))
+        minibatch.append(dc(online_ep))
 
-    #     if len(minibatch) == 20:
-    #         agent.store(minibatch)
+        if len(minibatch) == 20:
+            agent.store(minibatch)
             
-    #         for _ in range(10): actor_loss, critic_loss = agent.train()
+            for _ in range(10): actor_loss, critic_loss = agent.train()
 
-    #         agent.update_networks()
-    #         minibatch = []
+            agent.update_networks()
+            minibatch = []
 
-    #     # bar update
-    #     pbar.set_postfix(
-    #         {"Score": f"{score_avg:7.2f}",
-    #             "Eval": f"{eval_success:.3f}",
-    #         }, refresh=True
-    #     )    
+        # bar update
+        pbar.set_postfix(
+            {"Score": f"{score_avg:7.2f}",
+                "Eval": f"{eval_success:.3f}",
+            }, refresh=True
+        )    
 
-    #     pbar.update(1)
-    #     combined_episodes += 1
+        pbar.update(1)
+        combined_episodes += 1
  
     env.close()
 

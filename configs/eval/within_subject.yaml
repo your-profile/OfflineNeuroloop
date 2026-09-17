@@ -25,4 +25,4 @@ ambig_lo: 0.25
 ambig_hi: 0.75
 min_windows: 40
 min_per_class: 15
-drop_suspect_channels: false
+drop_suspect_channels: true

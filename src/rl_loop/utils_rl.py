@@ -191,8 +191,18 @@ def classify_fnirs_at_time(
         be dropped under eval ambiguity rules (do not count toward OFFLINE F1).
     """
     from src.eval.channels import CHANNELS_8
+    from src.models.decoder_bank import normalize_pid
 
-    channels = list(fnirs_channels or CHANNELS_8)
+    # Prefer channels the decoder was trained with (e.g. intensity-only / no DSphi).
+    if fnirs_channels is not None:
+        channels = list(fnirs_channels)
+    elif hasattr(clf, "channels"):
+        channels = list(clf.channels)
+    elif hasattr(clf, "models") and participant is not None:
+        m = clf.models.get(normalize_pid(participant))
+        channels = list(getattr(m, "channels", None) or CHANNELS_8)
+    else:
+        channels = list(CHANNELS_8)
     raw_window = None
     if hasattr(processor, "get_fnirs_window"):
         raw_window = processor.get_fnirs_window(
