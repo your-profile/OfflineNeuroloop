@@ -164,28 +164,52 @@ def train_subject_eval_decoder(
     ep_idx_all = []
     Zu_pool = []
     t0_by_cond = {}
+    skip_reasons: list[str] = []
 
     for cond in conditions:
-        raw = load_aligned(
-            pid, cond, processed_dir, labeled_dir, channels=channels, granularity=g, robust_scale=True
+        raw, reason = load_aligned(
+            pid,
+            cond,
+            processed_dir,
+            labeled_dir,
+            channels=channels,
+            granularity=g,
+            robust_scale=True,
+            return_reason=True,
         )
         if raw is None:
+            skip_reasons.append(f"{cond}: {reason}")
             continue
         ts, Z, tl, y = raw
         from pathlib import Path
+        from src.eval.data import _resolve_data_file
 
-        sp = Path(processed_dir) / f"{pid}_processed_{cond}.csv"
+        sp = _resolve_data_file(Path(processed_dir), pid, cond, "processed")
+        if sp is None:
+            skip_reasons.append(f"{cond}: processed file vanished after load")
+            continue
         s = pd.read_csv(sp)
         s["time"] = pd.to_datetime(s["time"], utc=True)
         t0 = s["time"].iloc[0]
         t0_by_cond[cond] = t0
         built = build_windows(ts, Z, tl, y, channels=channels, pairs=pairs, **win)
         if built is None:
+            skip_reasons.append(
+                f"{cond}: build_windows returned None "
+                f"(need >= {win['min_windows']} windows / >= {win['min_per_class']} per class)"
+            )
             continue
         F, yw, Tw = built
 
-        raw_u = load_aligned(
-            pid, cond, processed_dir, labeled_dir, channels=channels, granularity=g, robust_scale=False
+        raw_u, _ = load_aligned(
+            pid,
+            cond,
+            processed_dir,
+            labeled_dir,
+            channels=channels,
+            granularity=g,
+            robust_scale=False,
+            return_reason=True,
         )
         if raw_u is not None:
             Zu_pool.append(raw_u[1])
@@ -197,7 +221,15 @@ def train_subject_eval_decoder(
         ep_idx_all.append(assign)
 
     if not F_all or not Zu_pool:
-        return None, {"error": "no windows"}
+        detail = "; ".join(skip_reasons) if skip_reasons else "unknown"
+        return None, {
+            "error": "no windows",
+            "detail": detail,
+            "processed_dir": str(processed_dir),
+            "labeled_dir": str(labeled_dir),
+            "conditions": list(conditions),
+            "pid": pid,
+        }
 
     med_ref, mad_ref = _robust_stats(np.vstack(Zu_pool))
 

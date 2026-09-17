@@ -263,7 +263,12 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
                     seed=trial_seed,
                 )
                 if clf_i is None:
-                    print(f"  skip pid={pid}: {report_i.get('error', report_i)}")
+                    err = report_i.get("error", report_i)
+                    detail = report_i.get("detail")
+                    msg = f"  skip pid={pid}: {err}"
+                    if detail:
+                        msg += f" | {detail}"
+                    print(msg)
                     continue
                 metric = report_i.get("holdout_metric")
                 mname = report_i.get("metric_name", "metric")
@@ -292,9 +297,25 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
             reports[pid] = report_i
 
         if not models:
+            from pathlib import Path
+
+            proc = Path(processed_dir)
+            lab = Path(labeled_dir)
+            sample = sorted(proc.glob("*processed*.csv"))[:5] if proc.is_dir() else []
+            sample_lab = sorted(lab.glob("*LabeledData*.csv"))[:5] if lab.is_dir() else []
             raise RuntimeError(
                 "No per-subject decoders could be trained. "
-                "Check participant_list / conditions / episode counts."
+                "LDA needs CSV files:\n"
+                f"  {processed_dir}/{{pid}}_processed_{{COND}}.csv\n"
+                f"  {labeled_dir}/{{pid}}_{{COND}}_LabeledData.csv\n"
+                f"processed_dir exists={proc.is_dir()} "
+                f"({len(list(proc.glob('*.csv'))) if proc.is_dir() else 0} csvs); "
+                f"labeled_dir exists={lab.is_dir()} "
+                f"({len(list(lab.glob('*.csv'))) if lab.is_dir() else 0} csvs).\n"
+                f"sample processed: {[p.name for p in sample]}\n"
+                f"sample labeled: {[p.name for p in sample_lab]}\n"
+                "TaskData pickles alone are enough for episode counts but not for the LDA decoder. "
+                "Check NEUROLOOP_DATA_ROOT / paths.data_path on the cluster."
             )
 
         bank_mode = "ensemble" if decoder_mode == "ensemble" else "single_subject"
