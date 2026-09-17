@@ -1,0 +1,15 @@
+# LOPO only among the four RW participants with within-subject signal
+test: lopo
+
+paths:
+  processed: /Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/FilteredData
+  labeled: /Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/LabeledData
+  results: /Users/juliasantaniello/Desktop/OfflineNeuroML/results/eval
+
+granularity: discrete
+conditions: [RW]
+focus_pids: [16, 17, 24]
+window_s: 7.0
+step_s: 1.5
+rate_hz: 5.2
+n_null: 100

@@ -1,0 +1,28 @@
+# Within-participant: binary, all conditions (explicit list)
+test: within_subject
+
+paths:
+  processed: /Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/FilteredData
+  labeled: /Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/LabeledData
+  results: /Users/juliasantaniello/Desktop/OfflineNeuroML/results/eval
+
+# label: binary | discrete (ternary) | continuous
+granularity: discrete
+
+# Either set conditions explicitly:
+conditions: [RW, FW, LW, RP, FP, LP]
+# Or use task + domains (comment out conditions):
+# task: passive          # passive | active | pooled | all
+# domains: [R, F, L]     # Robot, Flappy, Lunar
+
+window_s: 8.0
+step_s: 1.0
+embargo_s: 4.0
+rate_hz: 5.2
+n_folds: 8
+n_null: 200
+ambig_lo: 0.25
+ambig_hi: 0.75
+min_windows: 40
+min_per_class: 15
+drop_suspect_channels: false

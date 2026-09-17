@@ -1,0 +1,49 @@
+experiment: 
+  domain: "Robot"                        
+  task: "Passive"                         # Passive | Active | Pooled    
+  model_granularity: "binary"             # binary | ternary | continuous
+  participant_list: [10, 11, 18, 19]
+  decoder_mode: single_subject            # pooled | single_subject | ensemble
+  random_state: 42
+  pretrained_success_rate: 0.0
+  finetune_threshold: 0.0
+  verbose: False
+  eval_update: 10000
+  mlp_episode_fraction: 0.5  # time-ordered; need enough train windows after embargo
+
+neural:
+  smoothing_window_size: 1
+  temporal_shift: 0.0
+  window_size_s: 8.0              # match eval / LDA windows
+  step_size_s: 1.0
+  sliding_window_size: 1
+  beta: 1.0
+  fnirs_rate_hz: 5.2
+
+mlp:
+  type: lda                       # lda (eval default) | mlp
+  model_noise: 0.0
+  ridge_alpha: 10.0               # continuous Ridge
+  n_folds: 8                      # purged-CV folds (report)
+  window_s: 8.0                   # must match neural.window_size_s
+  embargo_s: 4.0
+  # kept for type: mlp fallback
+  binary_hidden_layer_sizes: [75, 50, 5]
+  ternary_hidden_layer_sizes: [75, 50, 5]
+  regressor_hidden_layer_sizes: [150, 75, 5]
+  binary_activation: "relu"
+  ternary_activation: "relu"
+  reg_activation: "relu"
+  binary_alpha: 0.0005
+  ternary_alpha: 0.0001
+  reg_alpha: 0.0005
+  early_stopping: True
+
+rl:
+  n_episodes: 80000
+  algorithm: "DDPG"
+  buffer_type: "PER"
+  learning_rate_init: 0.001
+  steps: 50
+  action_space: None
+  observation_space: None

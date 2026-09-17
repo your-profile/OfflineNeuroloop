@@ -1,0 +1,17 @@
+# Intensity-only channels (no DSphi)
+test: within_subject
+
+paths:
+  processed: /Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/FilteredData
+  labeled: /Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/LabeledData
+  results: /Users/juliasantaniello/Desktop/OfflineNeuroML/results/eval
+
+granularity: binary
+conditions: [RW, FW, LW, RP, FP, LP]
+window_s: 8.0
+step_s: 1.0
+embargo_s: 4.0
+rate_hz: 5.2
+n_folds: 8
+n_null: 200
+drop_suspect_channels: true

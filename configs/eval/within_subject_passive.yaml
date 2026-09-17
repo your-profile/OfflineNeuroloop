@@ -1,0 +1,17 @@
+# Passive (Watch) only across domains
+test: within_subject
+
+paths:
+  processed: /Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/FilteredData
+  labeled: /Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/LabeledData
+  results: /Users/juliasantaniello/Desktop/OfflineNeuroML/results/eval
+
+granularity: binary
+task: passive
+domains: [R, F, L]
+window_s: 8.0
+step_s: 1.0
+embargo_s: 4.0
+n_folds: 8
+n_null: 100
+drop_suspect_channels: false

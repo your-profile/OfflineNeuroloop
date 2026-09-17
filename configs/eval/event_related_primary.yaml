@@ -1,0 +1,17 @@
+test: event_related
+
+paths:
+  processed: /Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/FilteredData
+  labeled: /Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/LabeledData
+  results: /Users/juliasantaniello/Desktop/OfflineNeuroML/results/eval
+
+conditions: [RW, FW, LW, RP, FP, LP]
+primary_lag_s: 4.0
+primary_tau_s: 6.0
+primary_dir: to_suboptimal
+lags_s: [4.0]
+taus_s: [6.0]
+switch_dirs: [to_suboptimal]
+margin_s: 4.0
+n_null: 80
+drop_suspect_channels: false

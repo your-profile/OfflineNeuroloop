@@ -1,0 +1,26 @@
+# Switch-locked event-related decoding (pre-specified primary + small grid)
+#
+# Hypothesis: transient response after binary_optimal switches (esp. 1→0),
+# with lag, lasting ~tau seconds — not sustained for the whole bout.
+test: event_related
+
+paths:
+  processed: /Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/FilteredData
+  labeled: /Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/LabeledData
+  results: /Users/juliasantaniello/Desktop/OfflineNeuroML/results/eval
+
+conditions: [RW, FW, LW, RP, FP, LP]
+drop_suspect_channels: false
+
+# PRIMARY (report this first)
+primary_lag_s: 4.0
+primary_tau_s: 6.0
+primary_dir: to_suboptimal
+
+# grid (secondary; interpret with caution)
+lags_s: [0.0, 2.0, 4.0, 6.0]
+taus_s: [4.0, 6.0, 8.0]
+switch_dirs: [to_suboptimal, to_optimal]
+
+margin_s: 4.0
+n_null: 200

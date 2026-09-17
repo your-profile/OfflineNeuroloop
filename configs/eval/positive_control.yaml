@@ -1,0 +1,8 @@
+# Play vs Watch positive control (LOPO window + run level)
+test: positive_control
+
+paths:
+  processed: /Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/FilteredData
+  results: /Users/juliasantaniello/Desktop/OfflineNeuroML/results/eval
+
+window_s: 10.0

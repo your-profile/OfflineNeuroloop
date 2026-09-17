@@ -1,0 +1,23 @@
+name: offline-neuroloop
+
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pandas
+  - pyyaml
+  - tqdm
+  - scikit-learn
+  - ipykernel
+  - matplotlib
+  - mpi4py
+  - seaborn
+  - swig
+  - gymnasium
+  - box2d-py
+  - pip:
+    - pygame==2.6.1
+    - torch
+    - gymnasium_robotics

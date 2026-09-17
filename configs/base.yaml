@@ -1,0 +1,25 @@
+experiment: 
+  participant_list: [10, 11, 18, 19]
+  decoder_mode: single_subject            # pooled | single_subject | ensemble
+  verbose: False
+
+neural:
+  smoothing_window_size: 1
+  temporal_shift: 0.0
+  window_size_s: 8.0
+  step_size_s: 1.0
+  sliding_window_size: 1
+  beta: 1.0
+  fnirs_rate_hz: 5.2
+
+mlp:
+  type: lda
+  model_noise: 0.0
+  ridge_alpha: 10.0
+  n_folds: 8
+  window_s: 8.0
+  embargo_s: 4.0
+  early_stopping: True
+
+rl:
+  algorithm: "DQN"
