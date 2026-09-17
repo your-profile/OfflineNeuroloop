@@ -48,7 +48,7 @@ domains:
     tasks: [Passive, Active, Pooled]
   - domain_config: configs/domains/robot.yaml
     domain_key: Robot
-    tasks: [Passive, Active, Pooled]
+    tasks: [Passive]
 
 # Each ablation block is a separate study (not crossed with the other).
 ablations:

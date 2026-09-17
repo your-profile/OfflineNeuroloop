@@ -19,24 +19,55 @@ def pid_key(pid) -> str:
 
 def list_pids(processed_dir: str | Path, labeled_dir: str | Path, cond: str) -> list[str]:
     processed_dir, labeled_dir = Path(processed_dir), Path(labeled_dir)
-    a = {Path(p).name.split("_")[0] for p in glob.glob(str(processed_dir / f"*_processed_{cond}.csv"))}
-    b = {Path(p).name.split("_")[0] for p in glob.glob(str(labeled_dir / f"*_{cond}_LabeledData.csv"))}
+    proc_names = (
+        list(glob.glob(str(processed_dir / f"*_processed_{cond}.csv")))
+        + list(glob.glob(str(processed_dir / f"*_{cond}_processed.csv")))
+    )
+    lab_names = (
+        list(glob.glob(str(labeled_dir / f"*_{cond}_LabeledData.csv")))
+        + list(glob.glob(str(labeled_dir / f"*_LabeledData_{cond}.csv")))
+    )
+    a = {Path(p).name.split("_")[0] for p in proc_names}
+    b = {Path(p).name.split("_")[0] for p in lab_names}
     return sorted(a & b)
 
 
 def _resolve_data_file(folder: Path, pid: str, cond: str, kind: str) -> Path | None:
-    """Find processed/labeled CSV (exact name first, then DataLoader-style substring match)."""
+    """Find processed/labeled CSV.
+
+    Supports both local and cluster naming:
+      processed: ``{pid}_processed_{cond}.csv``  or  ``{pid}_{cond}_processed.csv``
+      labeled:   ``{pid}_{cond}_LabeledData.csv``
+    """
     pid = pid_key(pid)
+    folder = Path(folder)
     if kind == "processed":
-        exact = folder / f"{pid}_processed_{cond}.csv"
-        pattern = f"{pid}*processed*{cond}*.csv"
+        candidates = [
+            folder / f"{pid}_processed_{cond}.csv",
+            folder / f"{pid}_{cond}_processed.csv",
+        ]
+        patterns = [
+            f"{pid}*processed*{cond}*.csv",
+            f"{pid}*{cond}*processed*.csv",
+        ]
     else:
-        exact = folder / f"{pid}_{cond}_LabeledData.csv"
-        pattern = f"{pid}*{cond}*LabeledData*.csv"
-    if exact.exists():
-        return exact
-    hits = sorted(folder.glob(pattern))
-    return hits[0] if hits else None
+        candidates = [
+            folder / f"{pid}_{cond}_LabeledData.csv",
+            folder / f"{pid}_LabeledData_{cond}.csv",
+        ]
+        patterns = [
+            f"{pid}*{cond}*LabeledData*.csv",
+            f"{pid}*LabeledData*{cond}*.csv",
+        ]
+
+    for path in candidates:
+        if path.exists():
+            return path
+    for pattern in patterns:
+        hits = sorted(folder.glob(pattern))
+        if hits:
+            return hits[0]
+    return None
 
 
 def load_aligned(

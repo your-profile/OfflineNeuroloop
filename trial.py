@@ -305,8 +305,9 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
             sample_lab = sorted(lab.glob("*LabeledData*.csv"))[:5] if lab.is_dir() else []
             raise RuntimeError(
                 "No per-subject decoders could be trained. "
-                "LDA needs CSV files:\n"
-                f"  {processed_dir}/{{pid}}_processed_{{COND}}.csv\n"
+                "LDA needs CSV files (either naming style):\n"
+                f"  {processed_dir}/{{pid}}_processed_{{COND}}.csv"
+                f"  OR {{pid}}_{{COND}}_processed.csv\n"
                 f"  {labeled_dir}/{{pid}}_{{COND}}_LabeledData.csv\n"
                 f"processed_dir exists={proc.is_dir()} "
                 f"({len(list(proc.glob('*.csv'))) if proc.is_dir() else 0} csvs); "
