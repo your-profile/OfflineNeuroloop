@@ -50,6 +50,8 @@ TASKS_BY_DOMAIN = {
 
 RESULTS_FILE_NAME = "test_results.csv"
 
+# LabeledData + TaskData live here. New FilteredData is taken from
+# OfflineNeuroloop/data/fNIRS/FilteredData (see trial._resolve_data_roots).
 DATA_PATH = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/"
 RESULTS_PATH = "/Users/juliasantaniello/Desktop/OfflineNeuroML/"
 # DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/'

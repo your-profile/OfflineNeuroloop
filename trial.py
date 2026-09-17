@@ -18,6 +18,50 @@ import src.utils as utils
 import pandas as pd
 import os
 import csv
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parent
+
+
+def _has_new_processed_csvs(folder: str) -> bool:
+    """True if folder has ``{pid}_processed_{COND}.csv`` (reprocessed naming)."""
+    if not os.path.isdir(folder):
+        return False
+    for name in os.listdir(folder):
+        if name.endswith(".csv") and "_processed_" in name:
+            return True
+    return False
+
+
+def _resolve_data_roots(data_path: str) -> tuple[str, str, str]:
+    """Resolve FilteredData / LabeledData / TaskData directories.
+
+    LabeledData + TaskData always come from ``data_path`` (ParticipantData).
+    FilteredData prefers the **new** processed CSVs under ``repo/data/fNIRS/FilteredData``
+    (or ``NEUROLOOP_FILTERED_ROOT``) so HPC and local share the same neural inputs
+    after a git pull — not the older ``{pid}_{COND}_processed.csv`` tree on cluster.
+    """
+    data_path = os.path.abspath(data_path)
+    labeled = os.path.join(data_path, "fNIRS", "LabeledData")
+    task = os.path.join(data_path, "TaskData")
+    under_data = os.path.join(data_path, "fNIRS", "FilteredData")
+    repo_filtered = str(_REPO_ROOT / "data" / "fNIRS" / "FilteredData")
+    env_filtered = os.environ.get("NEUROLOOP_FILTERED_ROOT")
+
+    if env_filtered and os.path.isdir(env_filtered):
+        filtered = os.path.abspath(env_filtered)
+        src = "NEUROLOOP_FILTERED_ROOT"
+    elif _has_new_processed_csvs(repo_filtered):
+        filtered = repo_filtered
+        src = "repo/data/fNIRS/FilteredData"
+    else:
+        filtered = under_data
+        src = "data_path/fNIRS/FilteredData"
+
+    print(f"Data roots: filtered={filtered} ({src})")
+    print(f"            labeled={labeled}")
+    print(f"            task={task}")
+    return filtered, labeled, task
 
 
 def _episode_table(task_df: pd.DataFrame) -> pd.DataFrame:
@@ -157,17 +201,17 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
 
     if not os.path.exists(os.path.join(DATA_PATH, "fNIRS/LabeledData/")):
         try:
-            DATA_PATH = os.path.join(
-                os.environ.get("HOME", ""),
-                "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/",
-            )
+            DATA_PATH = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/"
             assert os.path.exists(os.path.join(DATA_PATH, "fNIRS/LabeledData/"))
         except AssertionError:
-            print("Please store path to participant date in DATA_PATH")
+            print("Please store path to participant data in DATA_PATH")
 
-    labeled_data_source_folder = os.path.join(DATA_PATH, "fNIRS/LabeledData/")
-    rl_taskstats_source_folder = os.path.join(DATA_PATH, "TaskData/")
-    filtered_data_source_folder = os.path.join(DATA_PATH, "fNIRS/FilteredData/")
+    (
+        filtered_data_source_folder,
+        labeled_data_source_folder,
+        rl_taskstats_source_folder,
+    ) = _resolve_data_roots(DATA_PATH)
+    # DataLoader / listdir expect trailing path separators to be optional; keep dirs as-is.
 
     condition_list = utils.get_conditions(
         cfg["experiment"]["domain"], cfg["experiment"]["task"], verbose=verbose
@@ -258,8 +302,8 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
 
     modelTrainer = ModelTrainer(cfg=mlp_cfg, seed=trial_seed, verbose=verbose)
 
-    processed_dir = os.path.join(DATA_PATH, "fNIRS/FilteredData/")
-    labeled_dir = os.path.join(DATA_PATH, "fNIRS/LabeledData/")
+    processed_dir = filtered_data_source_folder
+    labeled_dir = labeled_data_source_folder
     use_eval_decoder = decoder_type in ("lda", "shrinkage_lda", "ridge_lda", "ridge")
 
     if decoder_mode in ("single_subject", "ensemble", "per_subject", "matched"):

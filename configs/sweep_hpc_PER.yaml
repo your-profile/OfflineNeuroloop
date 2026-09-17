@@ -15,6 +15,8 @@
 base_config: configs/base.yaml
 
 paths:
+  # ParticipantData = LabeledData + TaskData. New FilteredData CSVs come from
+  # OfflineNeuroloop/data/fNIRS/FilteredData after git pull (see trial._resolve_data_roots).
   data_path: "/cluster/home/jsanta07/fNIRS2RL/Experiment/ParticipantData/"
   results_path: "/cluster/home/jsanta07/OfflineNeuroloop"
   # data_path: "/cluster/home/mbrowe02/fNIRS2RL/Experiment/ParticipantData/"
