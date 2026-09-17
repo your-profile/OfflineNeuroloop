@@ -23,7 +23,7 @@ ABLATIONS = [
 INTEGRATION = "finetune"
 
 NEURAL_CONDITIONS = [
-    # "Baseline-PER",
+    "Baseline-PER",
     "Prioritization-PER",
     "Q-Augmentation-PER",
     "Reward Augmentation-PER",

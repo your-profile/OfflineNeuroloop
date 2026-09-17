@@ -43,6 +43,11 @@ class ModelTrainer:
         self._py_rng = random.Random(seed) if seed is not None else random.Random()
 
     def get_report(self, y_test, y_pred, classifier=False):
+        y_test = np.asarray(y_test).ravel()
+        y_pred = np.asarray(y_pred).ravel()
+        if y_test.size == 0 or y_pred.size == 0:
+            return "no samples"
+
         if classifier:
             y_test = [int(x) for x in y_test]
             y_pred = [int(x) for x in y_pred]

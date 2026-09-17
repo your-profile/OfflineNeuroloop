@@ -373,16 +373,19 @@ def train(env:gymnasium.Env,
     env.close()
 
     if 0 not in flags:
-        yt = np.array(classes_truth)
-        yp = np.array(classes_pred)
-        offline_model_report = ml.get_report(yt, yp, (granularity[0] != "c"))
-        print("OFFLINE (eval-aligned windows only, n=%d):\n" % len(yt), offline_model_report)
-        if granularity[0] == "b" and len(np.unique(yt)) > 1:
-            from sklearn.metrics import roc_auc_score, f1_score
-            try:
-                print(f"OFFLINE AUC={roc_auc_score(yt, yp):.3f}  macroF1={f1_score(yt, yp, average='macro'):.3f}")
-            except Exception as _e:
-                print("OFFLINE AUC unavailable:", _e)
+        yt = np.asarray(classes_truth)
+        yp = np.asarray(classes_pred)
+        if len(yt) == 0 or len(yp) == 0:
+            print("OFFLINE: no scoreable windows collected (n=0)")
+        else:
+            offline_model_report = ml.get_report(yt, yp, (granularity[0] != "c"))
+            print("OFFLINE (eval-aligned windows only, n=%d):\n" % len(yt), offline_model_report)
+            if granularity[0] == "b" and len(np.unique(yt)) > 1:
+                from sklearn.metrics import roc_auc_score, f1_score
+                try:
+                    print(f"OFFLINE AUC={roc_auc_score(yt, yp):.3f}  macroF1={f1_score(yt, yp, average='macro'):.3f}")
+                except Exception as _e:
+                    print("OFFLINE AUC unavailable:", _e)
 
     if save_results:
         results = utils_rl.Results.save_results(experiment_list = flags, 
@@ -829,16 +832,20 @@ def train_robot(env:gymnasium.Env,
 
     results = None
 
-    yt = np.array(classes_truth)
-    yp = np.array(classes_pred)
-    offline_model_report = ml.get_report(yt, yp, (granularity[0] != "c"))
-    print("OFFLINE (eval-aligned windows only, n=%d):\n" % len(yt), offline_model_report)
-    if granularity[0] == "b" and len(yt) and len(np.unique(yt)) > 1:
-        from sklearn.metrics import roc_auc_score, f1_score
-        try:
-            print(f"OFFLINE AUC={roc_auc_score(yt, yp):.3f}  macroF1={f1_score(yt, yp, average='macro'):.3f}")
-        except Exception as _e:
-            print("OFFLINE AUC unavailable:", _e)
+    if 0 not in flags:
+        yt = np.asarray(classes_truth)
+        yp = np.asarray(classes_pred)
+        if len(yt) == 0 or len(yp) == 0:
+            print("OFFLINE: no scoreable windows collected (n=0)")
+        else:
+            offline_model_report = ml.get_report(yt, yp, (granularity[0] != "c"))
+            print("OFFLINE (eval-aligned windows only, n=%d):\n" % len(yt), offline_model_report)
+            if granularity[0] == "b" and len(np.unique(yt)) > 1:
+                from sklearn.metrics import roc_auc_score, f1_score
+                try:
+                    print(f"OFFLINE AUC={roc_auc_score(yt, yp):.3f}  macroF1={f1_score(yt, yp, average='macro'):.3f}")
+                except Exception as _e:
+                    print("OFFLINE AUC unavailable:", _e)
 
     if save_results:
         results = utils_rl.Results.save_results(experiment_list = flags, 
