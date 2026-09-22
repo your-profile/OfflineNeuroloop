@@ -51,7 +51,9 @@ def main() -> None:
     if args.trial_id is not None:
         spec = read_manifest_row(args.manifest, args.trial_id)
 
-        if os.environ.get("NEUROLOOP_DATA_ROOT"):
+        if os.environ.get("DATA_PATH"):
+            spec = {**spec, "data_path": os.environ["DATA_PATH"]}
+        elif os.environ.get("NEUROLOOP_DATA_ROOT"):
             spec = {**spec, "data_path": os.environ["NEUROLOOP_DATA_ROOT"]}
         if os.environ.get("NEUROLOOP_RESULTS_ROOT"):
             spec = {**spec, "results_path": os.environ["NEUROLOOP_RESULTS_ROOT"]}
@@ -91,7 +93,12 @@ def main() -> None:
         if cfg is None:
             print("Trial skipped by ablation rules.", file=sys.stderr)
             sys.exit(0)
-        data_path = str(args.data_path or REPO_ROOT)
+        data_path = str(
+            args.data_path
+            or os.environ.get("DATA_PATH")
+            or os.environ.get("NEUROLOOP_DATA_ROOT")
+            or REPO_ROOT
+        )
         results_path = str(args.results_path)
         trial_id = 0
         integration = args.integration

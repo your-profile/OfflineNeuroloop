@@ -43,8 +43,8 @@ So **1665 trials** → `1-1665%50` → about **34 waves × ~40 min ≈ 23 h** wa
 |----------|---------|---------|
 | `SUBMIT_MODE` | `array` | `array` = parallel; `batch` = sequential one job |
 | `ARRAY_CAP` | `50` | Max concurrent array tasks (`%50`) |
+| `DATA_PATH` / `NEUROLOOP_DATA_ROOT` | (from manifest) | ParticipantData root (`fNIRS/LabeledData` + `TaskData`). `DATA_PATH` wins if both set. |
 | `NEUROLOOP_RESULTS_ROOT` | (from manifest) | Override where `trial_*.csv` are written |
-| `NEUROLOOP_DATA_ROOT` | (from manifest) | Override fNIRS data root |
 | `NEUROLOOP_LOG_DIR` | `$SCRATCH/neuroloop_logs` | SLURM log files |
 | `NEUROLOOP_REPO` | (set by `submit_hpc.sh`) | Project root; avoids `/var/spool/slurm/...` path bug |
 | `NEUROLOOP_CONDA_ENV` | `offline-neuroloop` | Conda env activated on compute nodes |

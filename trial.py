@@ -33,6 +33,64 @@ def _has_new_processed_csvs(folder: str) -> bool:
     return False
 
 
+def _participant_data_ok(root: str) -> bool:
+    """True if ``root`` looks like ParticipantData (LabeledData + TaskData)."""
+    return os.path.isdir(os.path.join(root, "fNIRS", "LabeledData")) and os.path.isdir(
+        os.path.join(root, "TaskData")
+    )
+
+
+def _resolve_participant_data_path(data_path: str | None = None) -> str:
+    """Resolve ParticipantData root for LabeledData + TaskData.
+
+    Priority:
+      1. ``DATA_PATH`` env
+      2. ``NEUROLOOP_DATA_ROOT`` env
+      3. Explicit ``data_path`` (manifest / caller)
+      4. Known local path, only if nothing above was set and it exists
+
+    If env/manifest paths are set but invalid, raise immediately (do not
+    silently fall back to a missing Mac path on the cluster).
+    """
+    preferred: list[str] = []
+    for key in ("DATA_PATH", "NEUROLOOP_DATA_ROOT"):
+        val = os.environ.get(key)
+        if val:
+            preferred.append(os.path.abspath(os.path.expanduser(val)))
+    if data_path:
+        preferred.append(os.path.abspath(os.path.expanduser(str(data_path))))
+
+    def _unique(seq: list[str]) -> list[str]:
+        out, seen = [], set()
+        for s in seq:
+            if s not in seen:
+                seen.add(s)
+                out.append(s)
+        return out
+
+    preferred = _unique(preferred)
+    if preferred:
+        for cand in preferred:
+            if _participant_data_ok(cand):
+                return cand
+        tried_txt = "\n  ".join(preferred)
+        raise FileNotFoundError(
+            "Could not find ParticipantData (need ``fNIRS/LabeledData`` and ``TaskData``).\n"
+            "Set DATA_PATH (or NEUROLOOP_DATA_ROOT) to the ParticipantData root on this "
+            "machine, or fix paths.data_path in the sweep / manifest.\n"
+            f"Tried:\n  {tried_txt}"
+        )
+
+    local_default = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData"
+    if _participant_data_ok(local_default):
+        return local_default
+
+    raise FileNotFoundError(
+        "Could not find ParticipantData (need ``fNIRS/LabeledData`` and ``TaskData``).\n"
+        "Set environment variable DATA_PATH to the ParticipantData root."
+    )
+
+
 def _resolve_data_roots(data_path: str) -> tuple[str, str, str]:
     """Resolve FilteredData / LabeledData / TaskData directories.
 
@@ -41,7 +99,7 @@ def _resolve_data_roots(data_path: str) -> tuple[str, str, str]:
     (or ``NEUROLOOP_FILTERED_ROOT``) so HPC and local share the same neural inputs
     after a git pull — not the older ``{pid}_{COND}_processed.csv`` tree on cluster.
     """
-    data_path = os.path.abspath(data_path)
+    data_path = _resolve_participant_data_path(data_path)
     labeled = os.path.join(data_path, "fNIRS", "LabeledData")
     task = os.path.join(data_path, "TaskData")
     under_data = os.path.join(data_path, "fNIRS", "FilteredData")
@@ -58,7 +116,8 @@ def _resolve_data_roots(data_path: str) -> tuple[str, str, str]:
         filtered = under_data
         src = "data_path/fNIRS/FilteredData"
 
-    print(f"Data roots: filtered={filtered} ({src})")
+    print(f"Data roots: ParticipantData={data_path}")
+    print(f"            filtered={filtered} ({src})")
     print(f"            labeled={labeled}")
     print(f"            task={task}")
     return filtered, labeled, task
@@ -198,13 +257,6 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
         from src.training_loop_baseline import train, train_robot
     else:
         raise ValueError(f"Invalid integration type: {cfg['experiment']['integration_type']}")
-
-    if not os.path.exists(os.path.join(DATA_PATH, "fNIRS/LabeledData/")):
-        try:
-            DATA_PATH = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/"
-            assert os.path.exists(os.path.join(DATA_PATH, "fNIRS/LabeledData/"))
-        except AssertionError:
-            print("Please store path to participant data in DATA_PATH")
 
     (
         filtered_data_source_folder,

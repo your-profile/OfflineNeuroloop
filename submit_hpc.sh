@@ -42,6 +42,7 @@ export_exports() {
   parts+=("NEUROLOOP_CONDA_ENV=${NEUROLOOP_CONDA_ENV:-offline-neuroloop}")
   parts+=("MINIFORGE_MODULE=${MINIFORGE_MODULE:-miniforge/25.3.0}")
   [[ -n "${NEUROLOOP_RESULTS_ROOT:-}" ]] && parts+=("NEUROLOOP_RESULTS_ROOT=${NEUROLOOP_RESULTS_ROOT}")
+  [[ -n "${DATA_PATH:-}" ]] && parts+=("DATA_PATH=${DATA_PATH}")
   [[ -n "${NEUROLOOP_DATA_ROOT:-}" ]] && parts+=("NEUROLOOP_DATA_ROOT=${NEUROLOOP_DATA_ROOT}")
   [[ -n "${SCRATCH:-}" ]] && parts+=("SCRATCH=${SCRATCH}")
   (IFS=,; echo "${parts[*]}")
