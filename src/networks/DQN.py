@@ -125,8 +125,9 @@ class DQN():
         else:
             raise ValueError(f"Unexpected sample bundle length: {len(experiences)}")
 
+        # Match Bellman target: y = r + q_aug + γ max Q'(s') (1-done)
         q_target = self.target_net(next_states).detach().max(dim=1, keepdim=True)[0]
-        y_j = rewards + self.gamma * q_target * (1 - dones) + q_augs
+        y_j = rewards + q_augs + self.gamma * q_target * (1 - dones)
         q_eval = self.policy_net(states).gather(1, actions)
 
         if indices is not None:

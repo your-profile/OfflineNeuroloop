@@ -45,7 +45,7 @@ DOMAIN_CONFIGS = {
 TASKS_BY_DOMAIN = {
     # "Flappy": ["Passive", "Active","Pooled"],
     # "Lunar": ["Passive", "Active", "Pooled"],
-    "Robot": ["Passive", "Active", "Pooled"],
+    "Robot": ["Active", "Active", "Pooled"],
 }
 
 RESULTS_FILE_NAME = "test_results.csv"
@@ -53,7 +53,7 @@ RESULTS_FILE_NAME = "test_results.csv"
 # LabeledData + TaskData live here. New FilteredData is taken from
 # OfflineNeuroloop/data/fNIRS/FilteredData (see trial._resolve_data_roots).
 DATA_PATH = "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/"
-RESULTS_PATH = "/Users/juliasantaniello/Desktop/OfflineNeuroML/"
+RESULTS_PATH = "/Users/juliasantaniello/Desktop/OfflineNeuroloop/"
 # DATA_PATH = '/Users/maddiebrower/workspace/tufts/fNIRS2RL/Experiment/ParticipantData/'
 # RESULTS_PATH = '/Users/maddiebrower/workspace/tufts/OfflineNeuroloop/'
 # DATA_PATH = '/cluster/home/mbrowe02/fNIRS2RL/Experiment/ParticipantData/'

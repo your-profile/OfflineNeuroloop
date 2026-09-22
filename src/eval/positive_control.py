@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import f1_score, roc_auc_score
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -83,9 +83,14 @@ def run(cfg: dict) -> pd.DataFrame:
         yte = np.concatenate([[k[2] == "P"] * len(runs[k][0]) for k in te]).astype(int)
         m = _clf()
         m.fit(Xtr, ytr)
-        auc = roc_auc_score(yte, m.predict_proba(Xte)[:, 1])
-        rows.append(dict(test="lopo_window", held=held, n=len(yte), auc=float(auc)))
-        print(f"  LOPO window {held}: AUC={auc:.3f}")
+        proba = m.predict_proba(Xte)[:, 1]
+        pred = m.predict(Xte)
+        auc = roc_auc_score(yte, proba)
+        f1 = f1_score(yte, pred, average="macro")
+        rows.append(
+            dict(test="lopo_window", held=held, n=len(yte), auc=float(auc), f1=float(f1))
+        )
+        print(f"  LOPO window {held}: AUC={auc:.3f}  macroF1={f1:.3f}")
 
     # LOPO after per-run detrend+zscore
     aucs_z = []

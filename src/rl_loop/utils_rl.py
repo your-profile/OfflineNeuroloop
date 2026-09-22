@@ -1,32 +1,40 @@
 """ Utilities for the RL loop """
 
-import numpy as np
 import csv
-import os
+import datetime
 import json
+import os
+
+import numpy as np
 import torch
 
 _device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 # Calculates the TD error for the PER buffer
 def td_priority(agent, algorithm, reward, action, state, next_state, done=None, goal=None, q_augmentation=0.0, buffer_type="PER"):
-    """TD Error for PER"""
+    """TD error magnitude for PER (matches the stored Bellman target, including q_aug)."""
 
     # Set priority to 1.0 for ER buffers (uniform sampling)
     if buffer_type != "PER":
         return 1.0
 
+    q_aug = float(q_augmentation)
     # Calculate TD error for DQN or DDPG
     with torch.no_grad():
-        if algorithm.upper() == "DQN": # DQN
+        if algorithm.upper() == "DQN":  # DQN
             action = int(action)
             s = torch.from_numpy(np.asarray(state, dtype=np.float32)).float().unsqueeze(0).to(_device)
             ns = torch.from_numpy(np.asarray(next_state, dtype=np.float32)).float().unsqueeze(0).to(_device)
             q_eval = agent.policy_net(s).squeeze(0)[action]
+            # Match DQN.learn: y = r + q_aug + gamma * max Q' * (1 - done)
             if done is not None and bool(np.asarray(done).item()):
-                target = float(reward)
+                target = float(reward) + q_aug
             else:
-                target = float(reward) + agent.gamma * agent.target_net(ns).squeeze(0).max().item()
+                target = (
+                    float(reward)
+                    + q_aug
+                    + agent.gamma * agent.target_net(ns).squeeze(0).max().item()
+                )
             return abs(target - q_eval.item())
 
         # DDPG TD error
@@ -39,7 +47,11 @@ def td_priority(agent, algorithm, reward, action, state, next_state, done=None, 
         a = torch.tensor(np.asarray(action, dtype=np.float32), device=dev).unsqueeze(0)
         q = agent.critic(sg, a).squeeze()
         tq = agent.critic_target(nsg, agent.actor_target(nsg)).squeeze()
-        target = torch.clamp(torch.tensor(float(reward), device=dev) + agent.gamma * tq + float(q_augmentation), -1 / (1 - agent.gamma), 0)
+        target = torch.clamp(
+            torch.tensor(float(reward), device=dev) + agent.gamma * tq + q_aug,
+            -1 / (1 - agent.gamma),
+            0,
+        )
         return float(torch.abs(target - q).item())
 
 
@@ -47,8 +59,21 @@ class Results():
     '''
     Results: Saving hyperparameters and final results for experiments
     '''
-    def save_results(episodes, total_rewards, success_rate, steps, experiment_list, index_of_interest, save_to_csv = False, filepath = None):
-        import datetime
+    def save_results(
+        episodes,
+        total_rewards,
+        success_rate,
+        steps,
+        experiment_list,
+        index_of_interest,
+        save_to_csv=False,
+        filepath=None,
+        *,
+        offline_metrics=None,
+        decoder_fit_reports=None,
+        model_hyperparameters=None,
+    ):
+        import datetime as _dt
 
         if filepath is None:
             Exception("Filename missing")
@@ -56,8 +81,8 @@ class Results():
         print(f"Len Total Rewards: {len(total_rewards)}, Len Success Rate: {len(success_rate)}, Len Steps: {len(steps)}, Episodes: {episodes}")
 
         row = {
-            "date": datetime.date.today(),
-            "time": datetime.datetime.now(),
+            "date": _dt.date.today(),
+            "time": _dt.datetime.now(),
             "experiment_list": experiment_list,
             "episodes": episodes,
             "total_reward": json.dumps(list(map(float, total_rewards))),
@@ -65,6 +90,53 @@ class Results():
             "steps": json.dumps(list(map(float, steps))),
             "index_of_interest": index_of_interest,
         }
+
+        # Flatten a few scalar offline metrics for easy CSV filtering; keep full JSON too.
+        om = offline_metrics or {}
+        row["offline_metrics_json"] = json.dumps(om, default=_json_default)
+        for key in (
+            "n",
+            "granularity",
+            "accuracy",
+            "macro_f1",
+            "auc",
+            "r2",
+            "mse",
+            "mae",
+            "spearman",
+            "spearman_p",
+            "error",
+        ):
+            if key in om:
+                row[f"offline_{key}"] = om[key]
+
+        if decoder_fit_reports is not None:
+            row["decoder_fit_reports_json"] = json.dumps(
+                decoder_fit_reports, default=_json_default
+            )
+            holdouts = []
+            if isinstance(decoder_fit_reports, dict):
+                for pid, rep in decoder_fit_reports.items():
+                    if not isinstance(rep, dict):
+                        continue
+                    hm = rep.get("holdout_metric")
+                    if hm is not None and hm == hm:
+                        holdouts.append(float(hm))
+                        row[f"decoder_holdout_{pid}"] = float(hm)
+                        if rep.get("metric_name"):
+                            row[f"decoder_metric_name_{pid}"] = rep["metric_name"]
+                        if "n_train" in rep:
+                            row[f"decoder_n_train_{pid}"] = rep["n_train"]
+                        if "n_holdout" in rep:
+                            row[f"decoder_n_holdout_{pid}"] = rep["n_holdout"]
+            if holdouts:
+                row["decoder_holdout_mean"] = float(np.mean(holdouts))
+                row["decoder_holdout_std"] = float(np.std(holdouts))
+
+        if model_hyperparameters is not None:
+            row["model_hyperparameters_json"] = json.dumps(
+                model_hyperparameters, default=_json_default
+            )
 
         if save_to_csv:
             write_header = not os.path.exists(filepath)
@@ -79,6 +151,45 @@ class Results():
 
         return row
 
+
+def _json_default(obj):
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    if isinstance(obj, (np.floating,)):
+        return float(obj)
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, (datetime.date, datetime.datetime)):
+        return obj.isoformat()
+    return str(obj)
+
+
+def summarize_offline_decoder(ml, classes_truth, classes_pred, granularity, flags) -> dict:
+    """Print and return structured offline decoder metrics (empty if Baseline)."""
+    if 0 in flags:
+        return {}
+    yt = np.asarray(classes_truth)
+    yp = np.asarray(classes_pred)
+    if len(yt) == 0 or len(yp) == 0:
+        print("OFFLINE: no scoreable windows collected (n=0)")
+        return {"n": 0, "error": "no samples", "granularity": str(granularity).lower()}
+    metrics = ml.score_predictions(yt, yp, granularity)
+    report = ml.get_report(yt, yp, (str(granularity)[0].lower() != "c"))
+    print("OFFLINE (eval-aligned windows only, n=%d):\n" % len(yt), report)
+    if metrics.get("auc") is not None:
+        print(
+            f"OFFLINE AUC={metrics['auc']:.3f}  "
+            f"macroF1={metrics.get('macro_f1', float('nan')):.3f}"
+        )
+    elif metrics.get("spearman") is not None:
+        print(
+            f"OFFLINE Spearman={metrics['spearman']:.3f}  "
+            f"R2={metrics.get('r2', float('nan')):.3f}  "
+            f"MAE={metrics.get('mae', float('nan')):.3f}"
+        )
+    return metrics
+
+
 def adjust_signal(
     reward: float,
     neural_signal: int | float,
@@ -86,7 +197,9 @@ def adjust_signal(
     means: tuple[float, float, float] = (1.0, -0.1, -1.0),
     beta: float = 1.0,
 ):
-    """Adjust reward based on neural signal and classification probabilities. 
+    """Add a neural credit term to ``reward`` (also used for priority / Q-aug).
+
+    Soft classification uses the expectation ``Σ_c P(c) μ_c``, not ``P(ŷ) μ_ŷ``.
     """
 
     # for continuous output
@@ -94,12 +207,12 @@ def adjust_signal(
         # Reverse error to mean optimality: 1 - error = optimality
         optimal_neural_value = (1 - neural_signal)
 
-        #shift distribution to be between -1 and 1
+        # shift distribution to be between -1 and 1
         optimal_neural_value = (optimal_neural_value - 0.5) * 2
 
         # adjust reward based on the optimal neural value
-        return float((reward + optimal_neural_value*means[0]*beta))
-        
+        return float(reward + optimal_neural_value * means[0] * beta)
+
     elif clf_probs is not None and not np.isscalar(clf_probs):
         probs = np.asarray(clf_probs, dtype=np.float64).ravel()
         means_array = np.asarray(means, dtype=np.float64).ravel()
@@ -113,13 +226,71 @@ def adjust_signal(
             p_sum = float(probs.sum())
             if p_sum > 0.0:
                 probs = probs / p_sum
-                # weight means by probabilities
-                means_array = probs * means_array
+                # Soft credit: expected mean under the classifier distribution
+                return float(reward + beta * float(np.dot(probs, means_array)))
 
-                #return weighted mean associated with the neural signal classification
-                return float((reward + means_array[neural_signal]*beta))
+    idx = int(neural_signal)
+    means_array = np.asarray(means, dtype=np.float64).ravel()
+    if idx < 0 or idx >= len(means_array):
+        idx = int(np.clip(idx, 0, len(means_array) - 1))
+    return float(reward + means_array[idx] * beta)
 
-    return float((reward + means[neural_signal]*beta))
+
+def neuro_augment_transition(
+    reward,
+    *,
+    neural_signal,
+    clf_probs,
+    means,
+    beta,
+    flags,
+    agent,
+    algorithm,
+    action,
+    state,
+    next_state,
+    done=None,
+    goal=None,
+    buffer_type="PER",
+):
+    """Apply reward / Q / priority flags; TD priority uses the final stored values.
+
+    Order: reward aug → Q-aug → TD(|y−Q|) → optional neural priority nudge.
+    Priority nudge uses the same domain ``means`` as reward / Q-aug.
+    """
+    q_augmentation = 0.0
+    if 1 in flags:
+        reward = adjust_signal(
+            reward, neural_signal, clf_probs=clf_probs, means=means, beta=beta
+        )
+    if 3 in flags:
+        q_augmentation = adjust_signal(
+            0.0, neural_signal, clf_probs=clf_probs, means=means, beta=beta
+        )
+
+    priority = td_priority(
+        agent,
+        algorithm,
+        reward,
+        action,
+        state,
+        next_state,
+        done=done,
+        goal=goal,
+        q_augmentation=q_augmentation,
+        buffer_type=buffer_type,
+    )
+    if 2 in flags:
+        priority = adjust_signal(
+            abs(float(priority)),
+            neural_signal,
+            clf_probs=clf_probs,
+            means=means,
+            beta=beta,
+        )
+        priority = abs(float(priority))
+
+    return float(reward), float(priority), float(q_augmentation)
 
 def get_neural_signal(clf, features=None, participant=None, raw_window=None):
     """Get neural signal and classification probabilities.
@@ -182,7 +353,11 @@ def classify_fnirs_at_time(
     buffer=None,
     shift: float = 0.0,
 ):
-    """Eval-aligned classify: 8s window from continuous fNIRS + window label.
+    """Eval-aligned classify with hemodynamic lag.
+
+    For an event at ``timestamp``, features and pre-shifted labels are read from
+    the window ending at ``timestamp + shift`` (brain at ``t`` ↔ label at
+    ``t - shift``, matching ``build_windows`` / ``shift_labels_for_delay``).
 
     Returns
     -------
@@ -203,16 +378,21 @@ def classify_fnirs_at_time(
         channels = list(getattr(m, "channels", None) or CHANNELS_8)
     else:
         channels = list(CHANNELS_8)
+
+    lag = float(shift)
     raw_window = None
     if hasattr(processor, "get_fnirs_window"):
         raw_window = processor.get_fnirs_window(
-            timestamp, window_duration_s=window_duration_s, fnirs_channels=channels
+            timestamp,
+            window_duration_s=window_duration_s,
+            fnirs_channels=channels,
+            temporal_shift=lag,
         )
 
-    # keep streaming buffer in sync for credit/smoothing, but do not rely on it for features
+    # keep streaming buffer in sync for credit/smoothing (same delayed sample)
     if buffer is not None:
         fnirs_sample = processor.get_fnirs_sample(
-            timestamp=timestamp, temporal_shift=-shift, fnirs_channels=channels
+            timestamp=timestamp, temporal_shift=lag, fnirs_channels=channels
         )
         buffer.add_sample(timestamp=timestamp, x=fnirs_sample, classification=0.0)
 
@@ -226,7 +406,10 @@ def classify_fnirs_at_time(
         buffer.classifications[-1] = neural_signal
 
     y_true, valid = processor.get_window_label(
-        timestamp, window_duration_s=window_duration_s, granularity=granularity
+        timestamp,
+        window_duration_s=window_duration_s,
+        granularity=granularity,
+        temporal_shift=lag,
     )
     return neural_signal, clf_probs, y_true, bool(valid)
 

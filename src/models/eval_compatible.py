@@ -1,8 +1,8 @@
 """Eval-compatible decoder: robust scale + window features + shrinkage LDA/Ridge.
 
 Matches ``src/eval`` (within-subject tests): same channels/pairs features,
-ambiguity handling via ``build_windows``, and purged embargo in seconds on
-window timestamps — not a random row holdout and not ``temporal_shift``.
+ambiguity handling via ``build_windows``, hemodynamic ``temporal_shift``, and
+purged embargo in seconds on window timestamps — not a random row holdout.
 """
 
 from __future__ import annotations
@@ -128,6 +128,7 @@ def train_subject_eval_decoder(
     step_s: float = 1.0,
     embargo_s: float = 4.0,
     rate_hz: float = 5.2,
+    temporal_shift: float = 0.0,
     channels: list[str] | None = None,
     pairs: list[tuple[str, str]] | None = None,
     seed: int = 0,
@@ -136,6 +137,9 @@ def train_subject_eval_decoder(
 
     Embargo drops train windows within ``window_s + embargo_s`` seconds of any
     holdout window (same units as eval purged CV).
+
+    ``temporal_shift`` is the hemodynamic lag (seconds): brain at ``t`` trains
+    against the label from ``t - temporal_shift``.
     """
     channels = channels or CHANNELS_8
     pairs = pairs or PAIRS_8
@@ -154,6 +158,7 @@ def train_subject_eval_decoder(
         min_windows=20,
         min_per_class=8,
         min_std=1e-6,
+        temporal_shift=float(temporal_shift),
     )
 
     spans = _episode_spans(task_df, pid)
@@ -275,6 +280,8 @@ def train_subject_eval_decoder(
         "n_holdout": int(te.sum()),
         "n_embargo_dropped": int(is_dec.sum() - tr.sum()),
         "gap_s": gap,
+        "temporal_shift": float(temporal_shift),
+        "window_s": float(window_s),
     }
 
     holdout_metric = None
@@ -282,7 +289,7 @@ def train_subject_eval_decoder(
         primary, _extra = fit_score(F[tr], y[tr], F[te], y[te], granularity=g)
         holdout_metric = primary
         report["holdout_metric"] = float(primary) if primary == primary else None
-        report["metric_name"] = {"binary": "AUC", "discrete": "macroF1", "continuous": "Spearman"}[g]
+        report["metric_name"] = {"binary": "macroF1", "discrete": "macroF1", "continuous": "Spearman"}[g]
     else:
         report["holdout_metric"] = None
         report["note"] = "holdout too small or single-class"

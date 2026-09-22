@@ -300,6 +300,7 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
         flags = [1, 2, 3]
         cfg["experiment"]["experiment_list"] = flags
 
+    decoder_fit_reports = {}
     modelTrainer = ModelTrainer(cfg=mlp_cfg, seed=trial_seed, verbose=verbose)
 
     processed_dir = filtered_data_source_folder
@@ -326,6 +327,7 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
                     step_s=float(cfg["neural"].get("step_size_s", 1.0)),
                     embargo_s=float(mlp_cfg.get("embargo_s", 4.0)),
                     rate_hz=float(cfg["neural"]["fnirs_rate_hz"]),
+                    temporal_shift=float(cfg["neural"].get("temporal_shift", 0.0)),
                     channels=list(decoder_channels),
                     pairs=list(decoder_pairs),
                     seed=trial_seed,
@@ -343,7 +345,8 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
                 print(
                     f"  fitted pid={pid} eval-LDA | train={report_i['n_train']} "
                     f"holdout={report_i['n_holdout']} embargo_dropped={report_i['n_embargo_dropped']} "
-                    f"gap={report_i['gap_s']}s | holdout {mname}={metric}"
+                    f"gap={report_i['gap_s']}s shift={report_i.get('temporal_shift', 0)}s "
+                    f"| holdout {mname}={metric}"
                 )
             else:
                 clf_i, report_i, err = _train_one(
@@ -394,6 +397,7 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
         print(f"Decoder bank: {classifier}")
         for pid, rep in reports.items():
             print(f"--- pid {pid} ---\n{rep}")
+        decoder_fit_reports = {str(k): v for k, v in reports.items()}
     else:
         clf, report, err = _train_one(
             processor,
@@ -409,6 +413,33 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
             raise RuntimeError(f"Pooled decoder failed: {err}")
         classifier = clf
         print(f"Decoder ({decoder_type}) report:\n", report)
+        decoder_fit_reports = {"pooled": report if isinstance(report, dict) else {"report": str(report)}}
+
+    model_hyperparameters = {
+        "decoder_mode": decoder_mode,
+        "decoder_type": decoder_type,
+        "decoder_channels": list(decoder_channels),
+        "channel_tag": ch_tag,
+        "mlp": dict(mlp_cfg),
+        "neural": dict(cfg.get("neural", {})),
+        "experiment": {
+            k: cfg["experiment"].get(k)
+            for k in (
+                "domain",
+                "task",
+                "model_granularity",
+                "participant_list",
+                "decoder_mode",
+                "condition",
+                "integration_type",
+                "mlp_episode_fraction",
+                "finetune_threshold",
+                "random_state",
+            )
+            if k in cfg.get("experiment", {}) or k == "decoder_mode"
+        },
+    }
+    model_hyperparameters["experiment"]["decoder_mode"] = decoder_mode
 
     # RL uses only held-out episodes (never used to fit the decoder).
     task_df = task_df.copy()
@@ -456,6 +487,8 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
         finetune_threshold=cfg["experiment"]["finetune_threshold"],
         save_agent=False,
         eval_update=cfg["experiment"]["eval_update"],
+        decoder_fit_reports=decoder_fit_reports,
+        model_hyperparameters=model_hyperparameters,
     )
 
     if cfg["experiment"]["domain"][0].lower() in ("l", "f"):
@@ -463,7 +496,7 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
     else:
         results_dictionary = train_robot(**train_kwargs, success_save_threshold=0.5)
 
-    trial_dict = {"parameters": cfg, "results": results_dictionary}
+    trial_dict = {"parameters": cfg, "results": results_dictionary or {}}
 
     def flatten_dict(d, parent_key="", sep="_"):
         items = []
@@ -479,9 +512,28 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
 
     csv_path = os.path.join(RESULTS_PATH, "src/results/", RESULTS_FILE_NAME)
     os.makedirs(os.path.dirname(csv_path), exist_ok=True)
-    write_header = not os.path.exists(csv_path)
-    with open(csv_path, "a", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=flat_trial.keys())
-        if write_header:
+    _append_results_csv(csv_path, flat_trial)
+
+
+def _append_results_csv(csv_path: str, row: dict) -> None:
+    """Append a row, expanding the header if new columns appear."""
+    row = {k: ("" if v is None else v) for k, v in row.items()}
+    if not os.path.exists(csv_path):
+        with open(csv_path, "a", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=list(row.keys()))
             writer.writeheader()
-        writer.writerow(flat_trial)
+            writer.writerow(row)
+        return
+
+    with open(csv_path, newline="") as f:
+        reader = csv.DictReader(f)
+        old_fields = list(reader.fieldnames or [])
+        existing = list(reader)
+
+    fields = list(dict.fromkeys(old_fields + list(row.keys())))
+    with open(csv_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+        writer.writeheader()
+        for prev in existing:
+            writer.writerow(prev)
+        writer.writerow(row)

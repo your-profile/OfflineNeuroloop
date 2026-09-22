@@ -274,13 +274,17 @@ class DatasetProcessor:
                     label_col_continuous: str = 'continuous_optimal',
                     verbose: bool = False
             ) -> pd.DataFrame:
+        """Align labels to delayed hemodynamics.
 
+        After the shift, brain at time ``t`` pairs with the event label from
+        ``t - delay_s`` (``label_shifted[t] = label[t - delay]``).
+        """
         df = aligned_df.copy()
         # normalize continuous labels to be between 0 and 1
         df[label_col_continuous] = (df[label_col_continuous] - df[label_col_continuous].min()) / (df[label_col_continuous].max() - df[label_col_continuous].min())
         
         dt = (df.index[1] - df.index[0]).total_seconds()
-        shift_periods = int(round(delay_s / dt))
+        shift_periods = int(round(float(delay_s) / dt))
 
         # detect segment boundaries
         gaps = df.index.to_series().diff().dt.total_seconds()
@@ -294,12 +298,15 @@ class DatasetProcessor:
             for seg in segment_id.unique():
                 mask = segment_id == seg
                 seg_labels = df.loc[mask, col_orig]
-                df.loc[mask, col_shifted] = seg_labels.shift(-shift_periods).values
+                # Positive lag: label_shifted[t] = label[t - delay]
+                df.loc[mask, col_shifted] = seg_labels.shift(+shift_periods).values
 
-        self.label_df = df[['binary_label_shifted', 'ternary_label_shifted', 'continuous_label_shifted']].copy()
         df = df.dropna(subset=['binary_label_shifted', 'ternary_label_shifted', 'continuous_label_shifted'])
-
+        self.label_df = df[['binary_label_shifted', 'ternary_label_shifted', 'continuous_label_shifted']].copy()
         self.fnirs_df = df
+
+        if verbose:
+            print(f"shift_labels_for_delay: delay_s={delay_s} periods={shift_periods} rows={len(df)}")
 
         return df
 
@@ -336,7 +343,7 @@ class DatasetProcessor:
 
     def get_fnirs_sample(self,
         timestamp,
-        temporal_shift: float = 4.0,
+        temporal_shift: float = 0.0,
         fnirs_channels: List[str] = ["L_O_DSI", "L_D_DSI", "L_O_DSphi", "L_D_DSphi",
                                     "R_O_DSI", "R_D_DSI", "R_O_DSphi", "R_D_DSphi"]
     ):
@@ -362,11 +369,14 @@ class DatasetProcessor:
         window_duration_s: float = 8.0,
         fnirs_channels: List[str] | None = None,
         min_fill: float = 0.85,
+        temporal_shift: float = 0.0,
     ):
-        """Return raw fNIRS window [T, C] ending at ``timestamp`` (eval-style).
+        """Return raw fNIRS window [T, C] ending at ``timestamp + temporal_shift``.
 
+        ``temporal_shift`` is the hemodynamic lag: for an event at ``timestamp``,
+        the delayed brain response is read ``temporal_shift`` seconds later.
         Uses the aligned ``fnirs_df`` stream (not the RL-step buffer), so short
-        episodes still see a full 8s context from the continuous recording.
+        episodes still see a full context from the continuous recording.
         """
         if self.fnirs_df is None or len(self.fnirs_df) < 2:
             return None
@@ -374,7 +384,7 @@ class DatasetProcessor:
         if not channels:
             return None
 
-        target = pd.Timestamp(timestamp)
+        target = pd.Timestamp(timestamp) + pd.Timedelta(seconds=float(temporal_shift))
         if target.tzinfo is None:
             target = target.tz_localize("UTC")
         else:
@@ -405,8 +415,13 @@ class DatasetProcessor:
         ambig_lo: float = 0.25,
         ambig_hi: float = 0.75,
         min_majority: float = 0.5,
+        temporal_shift: float = 0.0,
     ):
         """Window-aggregated label matching ``src.eval.features.build_windows``.
+
+        Looks up the pre-shifted label columns over the neural window ending at
+        ``timestamp + temporal_shift``. With ``shift_labels_for_delay`` applied,
+        that yields the event label from ``timestamp`` (brain lags the event).
 
         Returns (label, valid). ``valid=False`` for ambiguous binary / weak
         discrete majority (those windows are dropped in eval).
@@ -421,7 +436,7 @@ class DatasetProcessor:
         else:
             col = "binary_label_shifted"
 
-        target = pd.Timestamp(timestamp)
+        target = pd.Timestamp(timestamp) + pd.Timedelta(seconds=float(temporal_shift))
         if target.tzinfo is None:
             target = target.tz_localize("UTC")
         else:
@@ -454,7 +469,7 @@ class DatasetProcessor:
 
     def get_label_sample(self,
         timestamp,
-        temporal_shift: float = 4.0,
+        temporal_shift: float = 0.0,
         label_types: List[str] = ['binary_label_shifted', 'ternary_label_shifted', 'continuous_label_shifted']
     ):
         # Convert temporal_shift to Timedelta if it isn't already

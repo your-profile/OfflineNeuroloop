@@ -4,7 +4,7 @@ test: lopo
 paths:
   processed: /Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/FilteredData
   labeled: /Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/LabeledData
-  results: /Users/juliasantaniello/Desktop/OfflineNeuroML/results/eval
+  results: /Users/juliasantaniello/Desktop/OfflineNeuroloop/results/eval
 
 granularity: discrete
 conditions: [RW]

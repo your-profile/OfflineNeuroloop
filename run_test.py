@@ -1,7 +1,7 @@
 """
 Run offline ML evaluation tests (decoding / controls / power).
 
-Uses the same models + purged-CV splits as prior OfflineNeuroML tests
+Uses the same models + purged-CV splits as prior OfflineNeuroloop tests
 (shrinkage LDA / Ridge; contiguous blocks + embargo), with OfflineNeuroloop
 data layout:
 
@@ -38,6 +38,7 @@ DEFAULT_DATA_PATH = Path(
         "/Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData",
     )
 )
+REPO_FILTERED = REPO_ROOT / "data" / "fNIRS" / "FilteredData"
 
 DEFAULT_TESTS = [
     REPO_ROOT / "configs/eval/within_subject.yaml",
@@ -50,12 +51,22 @@ DEFAULT_TESTS = [
 
 
 def default_paths() -> dict:
-    """OfflineNeuroloop ParticipantData layout."""
+    """Prefer repo ``data/fNIRS/FilteredData`` when present; labels from ParticipantData."""
+    processed = REPO_FILTERED if REPO_FILTERED.is_dir() and any(REPO_FILTERED.glob("*.csv")) else (
+        DEFAULT_DATA_PATH / "fNIRS" / "FilteredData"
+    )
     return {
-        "processed": str(DEFAULT_DATA_PATH / "fNIRS" / "FilteredData"),
+        "processed": str(processed),
         "labeled": str(DEFAULT_DATA_PATH / "fNIRS" / "LabeledData"),
         "results": str(REPO_ROOT / "results" / "eval"),
     }
+
+
+def _resolve_path(p: str | Path) -> str:
+    path = Path(p)
+    if not path.is_absolute():
+        path = REPO_ROOT / path
+    return str(path)
 
 
 def load_cfg(path: Path) -> dict:
@@ -65,6 +76,9 @@ def load_cfg(path: Path) -> dict:
         raise ValueError(f"{path}: config must be a mapping with a 'test' field")
     paths = dict(default_paths())
     paths.update(cfg.get("paths") or {})
+    for key in ("processed", "labeled", "results"):
+        if key in paths and paths[key]:
+            paths[key] = _resolve_path(paths[key])
     cfg["paths"] = paths
     cfg["_config_path"] = str(path)
     return cfg

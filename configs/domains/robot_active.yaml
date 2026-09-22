@@ -1,6 +1,6 @@
 experiment: 
   domain: "Robot"                        
-  task: "Active"                         # Passive | Active | Pooled    
+  task: "Passive"                         # Passive | Active | Pooled    
   model_granularity: "binary"             # binary | ternary | continuous
   participant_list: [7, 9, 14, 15, 20, 23, 24]
   decoder_mode: ensemble            # pooled | single_subject | ensemble
@@ -9,7 +9,7 @@ experiment:
   finetune_threshold: 0.0
   verbose: False
   eval_update: 10000
-  mlp_episode_fraction: 0.6  # time-ordered; need enough train windows after embargo
+  mlp_episode_fraction: 0.5  # time-ordered; need enough train windows after embargo
 
 neural:
   smoothing_window_size: 1
@@ -18,7 +18,7 @@ neural:
   step_size_s: 1.0
   beta: 1.0
   fnirs_rate_hz: 5.2
-  drop_suspect_channels: true   # true = intensity-only (drop DSphi), same as eval
+  drop_suspect_channels: false   # true = intensity-only (drop DSphi), same as eval
 
 mlp:
   type: lda                       # lda (eval default) | mlp
@@ -26,8 +26,7 @@ mlp:
   ridge_alpha: 10.0               # continuous Ridge
   n_folds: 8                      # purged-CV folds (report)
   window_s: 6.0                   # must match neural.window_size_s
-  embargo_s: 1.0
-  # kept for type: mlp fallback
+  embargo_s:  1.0
   binary_hidden_layer_sizes: [75, 50, 5]
   ternary_hidden_layer_sizes: [75, 50, 5]
   regressor_hidden_layer_sizes: [150, 75, 5]
@@ -40,7 +39,7 @@ mlp:
   early_stopping: True
 
 rl:
-  n_episodes: 1
+  n_episodes: 80000
   algorithm: "DDPG"
   buffer_type: "PER"
   learning_rate_init: 0.001

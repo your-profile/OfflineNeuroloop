@@ -438,11 +438,13 @@ class Memory:
                 desired_goals[relabel_indices],
                 None,
             )
+            # Neural credit was for the original goal-conditioned transition;
+            # do not carry Q-aug onto HER-relabeled (fictitious) goals.
+            q_augmentation = np.asarray(q_augmentation, dtype=np.float32).copy()
+            q_augmentation[relabel_indices] = 0.0
 
-        # Original: always recompute from goals (discards stored reward augmentation).
-        # rewards = np.expand_dims(
-        #     self.env.compute_reward(next_achieved_goals, desired_goals, None), 1
-        # )
+        # Non-HER transitions keep stored rewards (including neural reward aug).
+        # HER transitions use recomputed env reward above (no neural reward aug).
 
         return (
             self.clip_obs(states),

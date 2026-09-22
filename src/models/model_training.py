@@ -3,11 +3,19 @@ import random
 import numpy as np
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.linear_model import Ridge
-from sklearn.metrics import classification_report, mean_squared_error, r2_score
+from sklearn.metrics import (
+    accuracy_score,
+    classification_report,
+    f1_score,
+    mean_squared_error,
+    r2_score,
+    roc_auc_score,
+)
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+from scipy.stats import spearmanr
 
 """
 ModelTrainer():
@@ -60,6 +68,54 @@ class ModelTrainer:
             "MSE": mean_squared_error(y_test, y_pred),
             "MAE": float(np.mean(np.abs(y_test - y_pred))),
         }
+
+    def score_predictions(self, y_test, y_pred, granularity: str) -> dict:
+        """Structured offline decoder metrics for CSV / logging.
+
+        Classification (binary / ternary): accuracy, macro-F1, optional AUC,
+        plus full ``classification_report`` as a dict.
+        Continuous: R2, MSE, MAE, Spearman rho.
+        """
+        yt = np.asarray(y_test).ravel()
+        yp = np.asarray(y_pred).ravel()
+        g = str(granularity).lower().strip()
+        out: dict = {"n": int(yt.size), "granularity": g}
+        if yt.size == 0 or yp.size == 0:
+            out["error"] = "no samples"
+            return out
+
+        if g.startswith("c"):
+            yt = yt.astype(float)
+            yp = yp.astype(float)
+            out["r2"] = float(r2_score(yt, yp))
+            out["mse"] = float(mean_squared_error(yt, yp))
+            out["mae"] = float(np.mean(np.abs(yt - yp)))
+            if yt.size >= 2 and np.std(yt) > 0 and np.std(yp) > 0:
+                rho, p = spearmanr(yt, yp)
+                out["spearman"] = float(rho) if rho == rho else None
+                out["spearman_p"] = float(p) if p == p else None
+            else:
+                out["spearman"] = None
+                out["spearman_p"] = None
+            return out
+
+        yt_i = np.asarray([int(x) for x in yt])
+        yp_i = np.asarray([int(x) for x in yp])
+        out["accuracy"] = float(accuracy_score(yt_i, yp_i))
+        out["macro_f1"] = float(f1_score(yt_i, yp_i, average="macro", zero_division=0))
+        out["classification_report"] = classification_report(
+            yt_i, yp_i, output_dict=True, zero_division=0
+        )
+        if g.startswith("b") and len(np.unique(yt_i)) > 1:
+            try:
+                # Predictions are hard labels; AUC on {0,1} labels is still informative.
+                out["auc"] = float(roc_auc_score(yt_i, yp_i))
+            except Exception as e:
+                out["auc"] = None
+                out["auc_error"] = str(e)
+        else:
+            out["auc"] = None
+        return out
 
     def noisy_output(self, model, X, granularity, flip_rate):
         if granularity[0] == "c":

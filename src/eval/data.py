@@ -33,11 +33,7 @@ def list_pids(processed_dir: str | Path, labeled_dir: str | Path, cond: str) -> 
 
 
 def _resolve_data_file(folder: Path, pid: str, cond: str, kind: str) -> Path | None:
-    """Find processed/labeled CSV.
-
-    Supports both local and cluster naming:
-      processed: ``{pid}_processed_{cond}.csv``  or  ``{pid}_{cond}_processed.csv``
-      labeled:   ``{pid}_{cond}_LabeledData.csv``
+    """Find processed/labeled CSV
     """
     pid = pid_key(pid)
     folder = Path(folder)
@@ -81,10 +77,8 @@ def load_aligned(
     *,
     return_reason: bool = False,
 ):
-    """Return (ts, Z, tl, y) aligned in elapsed seconds, or None.
-
+    """
     y dtype: int for binary/discrete, float for continuous.
-    If ``return_reason=True``, returns ``(data_or_None, reason_str)``.
     """
     channels = channels or CHANNELS_8
     g = normalize_granularity(granularity)
@@ -149,7 +143,7 @@ def load_aligned(
 
 
 def load_run_only(path: str | Path, channels: list[str] | None = None):
-    """Load a single processed run: (X, elapsed, hz)."""
+    """Load a single processed run"""
     channels = channels or CHANNELS_8
     d = pd.read_csv(path)
     t = pd.to_datetime(d["time"], utc=True)

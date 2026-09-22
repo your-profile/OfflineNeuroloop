@@ -51,6 +51,8 @@ def train(env:gymnasium.Env,
           finetune_threshold = 0.0,
           success_save_threshold = 0.0,
           save_agent = False,
+          decoder_fit_reports=None,
+          model_hyperparameters=None,
     ):
 
     set_global_seed(seed)
@@ -234,27 +236,26 @@ def train(env:gymnasium.Env,
                 if noise > 0.0:
                     new_neural_signal = ml.noisy_output(clf, new_neural_signal, granularity, flip_rate=noise)
 
-                
-                # Reward Augmentation Experiment
-                if 1 in flags:
-                    if verbose:
-                        print(f"Experiment Condition 1: Reward Augmentation -- Episode {episode} -- Participant: {participant}")
-                        print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal)
-                    reward = utils_rl.adjust_signal(reward, new_neural_signal, clf_probs = clf_probs, means = means, beta = beta)
-                
-                # Priorirization experiment
-                if 2 in flags:
-                    if verbose:
-                        print(f"Experiment Condition 2: Prioritization -- Episode {episode} -- Participant: {participant}")
-                        print("Original Priority: ", abs(priority), "| Neural Signal: ", new_neural_signal)
-                    priority = abs(priority)
-                    priority = utils_rl.adjust_signal(priority, new_neural_signal, clf_probs = clf_probs, beta = beta)
-
-                # Q Augmentation Experiment
-                if 3 in flags:
-                    if verbose:
-                        print(f"Experiment Condition 3: Q-Augmentation -- Episode {episode} -- Participant: {participant}")
-                    q_augmentation = utils_rl.adjust_signal(0.0, new_neural_signal, clf_probs = clf_probs, beta = beta)
+                if verbose and (1 in flags or 2 in flags or 3 in flags):
+                    print(
+                        f"Neuro aug flags={flags} ep={episode} pid={participant} "
+                        f"signal={new_neural_signal} reward={reward}"
+                    )
+                reward, priority, q_augmentation = utils_rl.neuro_augment_transition(
+                    reward,
+                    neural_signal=new_neural_signal,
+                    clf_probs=clf_probs,
+                    means=means,
+                    beta=beta,
+                    flags=flags,
+                    agent=agent,
+                    algorithm="DQN",
+                    action=action,
+                    state=state,
+                    next_state=next_state,
+                    done=done,
+                    buffer_type=buffer_type,
+                )
 
                 # store sample optimality prediction and truth (eval-aligned windows only)
                 if scoreable and class_truth is not None:
@@ -372,29 +373,24 @@ def train(env:gymnasium.Env,
     pbar.close()
     env.close()
 
-    if 0 not in flags:
-        yt = np.asarray(classes_truth)
-        yp = np.asarray(classes_pred)
-        if len(yt) == 0 or len(yp) == 0:
-            print("OFFLINE: no scoreable windows collected (n=0)")
-        else:
-            offline_model_report = ml.get_report(yt, yp, (granularity[0] != "c"))
-            print("OFFLINE (eval-aligned windows only, n=%d):\n" % len(yt), offline_model_report)
-            if granularity[0] == "b" and len(np.unique(yt)) > 1:
-                from sklearn.metrics import roc_auc_score, f1_score
-                try:
-                    print(f"OFFLINE AUC={roc_auc_score(yt, yp):.3f}  macroF1={f1_score(yt, yp, average='macro'):.3f}")
-                except Exception as _e:
-                    print("OFFLINE AUC unavailable:", _e)
+    results = None
+    offline_metrics = utils_rl.summarize_offline_decoder(
+        ml, classes_truth, classes_pred, granularity, flags
+    )
 
     if save_results:
-        results = utils_rl.Results.save_results(experiment_list = flags, 
-                                   episodes = total_participant_episodes, 
-                                   total_rewards = all_total_rewards, 
-                                   success_rate = all_episode_success,
-                                   steps = all_episode_steps,
-                                   index_of_interest = starting_neural_injection,
-                                   save_to_csv = save_to_csv)
+        results = utils_rl.Results.save_results(
+            experiment_list=flags,
+            episodes=total_participant_episodes,
+            total_rewards=all_total_rewards,
+            success_rate=all_episode_success,
+            steps=all_episode_steps,
+            index_of_interest=starting_neural_injection,
+            save_to_csv=save_to_csv,
+            offline_metrics=offline_metrics,
+            decoder_fit_reports=decoder_fit_reports,
+            model_hyperparameters=model_hyperparameters,
+        )
 
     print(f"Episode {episode}, Reward: {total_reward:.2f}, Success: {eval_success:.2f}")
 
@@ -432,6 +428,8 @@ def train_robot(env:gymnasium.Env,
           finetune_threshold = 0.0,
           success_save_threshold = 0.0,
           save_agent = False,
+          decoder_fit_reports=None,
+          model_hyperparameters=None,
     ):
     """
     Offline neuro + online Fetch (DDPG + HER) with the same experiment_list flags as ``train``
@@ -470,7 +468,7 @@ def train_robot(env:gymnasium.Env,
     if robot_df.empty:
         raise ValueError("No robot rows in task_df (need desired_goal or RW in participantKey).")
 
-    end_tag_episodes = 5000 #episodes to follow neural injection
+    end_tag_episodes = 0#5000 #episodes to follow neural injection
 
     # granularity index
     if granularity[0] == "b": gr = 0
@@ -657,30 +655,27 @@ def train_robot(env:gymnasium.Env,
                 if noise > 0.0:
                     new_neural_signal = ml.noisy_output(clf, new_neural_signal, granularity, flip_rate=noise)
 
-                
-                # Reward Augmentation Experiment
-                if 1 in flags:
-                    if verbose: 
-                        print(f"Reward Augmentation — ep {episode} participant {participant}")
-                        print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal, "| Adjusted Reward: ")
-                    reward = utils_rl.adjust_signal(reward, new_neural_signal, clf_probs = clf_probs, means = means, beta = beta)
+                if verbose and (1 in flags or 2 in flags or 3 in flags):
+                    print(
+                        f"Neuro aug flags={flags} ep={episode} pid={participant} "
+                        f"signal={new_neural_signal} reward={reward}"
+                    )
+                reward, priority, q_augmentation = utils_rl.neuro_augment_transition(
+                    float(reward),
+                    neural_signal=new_neural_signal,
+                    clf_probs=clf_probs,
+                    means=means,
+                    beta=beta,
+                    flags=flags,
+                    agent=agent,
+                    algorithm="DDPG",
+                    action=action,
+                    state=state,
+                    next_state=next_state,
+                    goal=desired_goal,
+                    buffer_type=buffer_type,
+                )
 
-                # Priorirization experiment
-                if 2 in flags:
-                    if verbose:
-                        print(f"Prioritization — ep {episode} participant {participant}")
-                        print("Original Priority: ", abs(priority), "| Neural Signal: ", new_neural_signal, "| Adjusted Priority: ")
-                    priority = abs(priority)
-                    priority = utils_rl.adjust_signal(priority, new_neural_signal, clf_probs = clf_probs, beta = beta)
-
-                # Q Augmentation Experiment
-                if 3 in flags:
-                    if verbose:
-                        print(f"Q-aug analogue — ep {episode} participant {participant}")
-                        print("Neural Signal: ", new_neural_signal, "| Q-Value: ", reward)
-                    q_augmentation = utils_rl.adjust_signal(0.0, new_neural_signal, clf_probs = clf_probs, beta = beta)
-
-                # store sample optimality prediction and truth
                 # store sample optimality prediction and truth (eval-aligned windows only)
                 if scoreable and class_truth is not None:
                     if smoothing_window_size > 1 or noise > 0.0:
@@ -745,116 +740,110 @@ def train_robot(env:gymnasium.Env,
     
     last_online_episode = online_episode
     
-    # ONLINE POST-TRAINING LOOP
-    for online_episode in range(last_online_episode, episodes_num+end_tag_episodes):
-        state_dict, _ = env.reset(seed=online_seed)
+    # # ONLINE POST-TRAINING LOOP
+    # for online_episode in range(last_online_episode, episodes_num+end_tag_episodes):
+    #     state_dict, _ = env.reset(seed=online_seed)
 
-        online_seed += 1
-        total_reward = 0.0
+    #     online_seed += 1
+    #     total_reward = 0.0
 
-        online_ep = dc(blank_episode_dict)
+    #     online_ep = dc(blank_episode_dict)
 
-        for online_step in range(steps):
-            state = state_dict["observation"].astype(np.float32).ravel()
-            desired_goal = state_dict["desired_goal"].astype(np.float32).ravel()
-            achieved_goal = state_dict["achieved_goal"].astype(np.float32).ravel()
+    #     for online_step in range(steps):
+    #         state = state_dict["observation"].astype(np.float32).ravel()
+    #         desired_goal = state_dict["desired_goal"].astype(np.float32).ravel()
+    #         achieved_goal = state_dict["achieved_goal"].astype(np.float32).ravel()
 
-            action = agent.choose_action(state, desired_goal, train_mode=True)
-            next_state_dict, reward, terminated, truncated, info = env.step(action)
+    #         action = agent.choose_action(state, desired_goal, train_mode=True)
+    #         next_state_dict, reward, terminated, truncated, info = env.step(action)
             
-            done = float(terminated or truncated)
-            next_state = next_state_dict["observation"].astype(np.float32).ravel()
-            next_achieved_goal = next_state_dict["achieved_goal"].astype(np.float32).ravel()
+    #         done = float(terminated or truncated)
+    #         next_state = next_state_dict["observation"].astype(np.float32).ravel()
+    #         next_achieved_goal = next_state_dict["achieved_goal"].astype(np.float32).ravel()
 
-            priority = utils_rl.td_priority(agent, "DDPG", float(reward), action, state, next_state, goal=desired_goal, buffer_type=buffer_type)
+    #         priority = utils_rl.td_priority(agent, "DDPG", float(reward), action, state, next_state, goal=desired_goal, buffer_type=buffer_type)
 
-            online_ep["state"].append(state)
-            online_ep["action"].append(action.astype(np.float32))
-            online_ep["reward"].append(float(reward))
-            online_ep["next_state"].append(next_state)
-            online_ep["achieved_goal"].append(achieved_goal)
-            online_ep["next_achieved_goal"].append(next_achieved_goal)
-            online_ep["desired_goal"].append(desired_goal)
-            online_ep["done"].append(done)
-            online_ep["q_augmentation"].append(float(0.0))
-            online_ep["transition_priority"].append(priority)
-            total_reward += float(reward)
+    #         online_ep["state"].append(state)
+    #         online_ep["action"].append(action.astype(np.float32))
+    #         online_ep["reward"].append(float(reward))
+    #         online_ep["next_state"].append(next_state)
+    #         online_ep["achieved_goal"].append(achieved_goal)
+    #         online_ep["next_achieved_goal"].append(next_achieved_goal)
+    #         online_ep["desired_goal"].append(desired_goal)
+    #         online_ep["done"].append(done)
+    #         online_ep["q_augmentation"].append(float(0.0))
+    #         online_ep["transition_priority"].append(priority)
+    #         total_reward += float(reward)
 
-            if combined_steps % eval_update == 0:
-                eval_success, eval_reward = utils_rl.evaluate_fetch(utils.make_fetch_env(), agent, steps=steps, episodes=25, random_seed=seed)
+    #         if combined_steps % eval_update == 0:
+    #             eval_success, eval_reward = utils_rl.evaluate_fetch(utils.make_fetch_env(), agent, steps=steps, episodes=25, random_seed=seed)
                 
-                # store success rate
-                all_episode_success.append(eval_success)
-                all_total_rewards.extend(eval_reward)
-                all_episode_steps.append(combined_steps)
-                score_avg = np.mean(all_total_rewards[-200:])
-            state_dict = next_state_dict
-            combined_steps += 1
-            if terminated or truncated:
-                break
+    #             # store success rate
+    #             all_episode_success.append(eval_success)
+    #             all_total_rewards.extend(eval_reward)
+    #             all_episode_steps.append(combined_steps)
+    #             score_avg = np.mean(all_total_rewards[-200:])
+    #         state_dict = next_state_dict
+    #         combined_steps += 1
+    #         if terminated or truncated:
+    #             break
 
-        if eval_success >= success_save_threshold and save_agent:
-            agent.save_weights()
-            torch.save(
-                {
-                    "episode": episode,
-                    "actor": agent.actor.state_dict(),
-                    "critic": agent.critic.state_dict(),
-                    "actor_target": agent.actor_target.state_dict(),
-                    "critic_target": agent.critic_target.state_dict(),
-                    "actor_optim": agent.actor_optim.state_dict(),
-                    "critic_optim": agent.critic_optim.state_dict(),
-                },
-                "FetchPolicy" + str(int(eval_success * 100)) + ".pth",
-            )
+    #     if eval_success >= success_save_threshold and save_agent:
+    #         agent.save_weights()
+    #         torch.save(
+    #             {
+    #                 "episode": episode,
+    #                 "actor": agent.actor.state_dict(),
+    #                 "critic": agent.critic.state_dict(),
+    #                 "actor_target": agent.actor_target.state_dict(),
+    #                 "critic_target": agent.critic_target.state_dict(),
+    #                 "actor_optim": agent.actor_optim.state_dict(),
+    #                 "critic_optim": agent.critic_optim.state_dict(),
+    #             },
+    #             "FetchPolicy" + str(int(eval_success * 100)) + ".pth",
+    #         )
 
-        minibatch.append(dc(online_ep))
+    #     minibatch.append(dc(online_ep))
 
-        if len(minibatch) == 20:
-            agent.store(minibatch)
+    #     if len(minibatch) == 20:
+    #         agent.store(minibatch)
             
-            for _ in range(10): actor_loss, critic_loss = agent.train()
+    #         for _ in range(10): actor_loss, critic_loss = agent.train()
 
-            agent.update_networks()
-            minibatch = []
+    #         agent.update_networks()
+    #         minibatch = []
 
-        # bar update
-        pbar.set_postfix(
-            {"Score": f"{score_avg:7.2f}",
-                "Eval": f"{eval_success:.3f}",
-            }, refresh=True
-        )    
+    #     # bar update
+    #     pbar.set_postfix(
+    #         {"Score": f"{score_avg:7.2f}",
+    #             "Eval": f"{eval_success:.3f}",
+    #         }, refresh=True
+    #     )    
 
-        pbar.update(1)
-        combined_episodes += 1
+    #     pbar.update(1)
+    #     combined_episodes += 1
  
     env.close()
 
     results = None
 
-    if 0 not in flags:
-        yt = np.asarray(classes_truth)
-        yp = np.asarray(classes_pred)
-        if len(yt) == 0 or len(yp) == 0:
-            print("OFFLINE: no scoreable windows collected (n=0)")
-        else:
-            offline_model_report = ml.get_report(yt, yp, (granularity[0] != "c"))
-            print("OFFLINE (eval-aligned windows only, n=%d):\n" % len(yt), offline_model_report)
-            if granularity[0] == "b" and len(np.unique(yt)) > 1:
-                from sklearn.metrics import roc_auc_score, f1_score
-                try:
-                    print(f"OFFLINE AUC={roc_auc_score(yt, yp):.3f}  macroF1={f1_score(yt, yp, average='macro'):.3f}")
-                except Exception as _e:
-                    print("OFFLINE AUC unavailable:", _e)
+    offline_metrics = utils_rl.summarize_offline_decoder(
+        ml, classes_truth, classes_pred, granularity, flags
+    )
 
     if save_results:
-        results = utils_rl.Results.save_results(experiment_list = flags, 
-                episodes = total_participant_episodes, 
-                total_rewards = all_total_rewards, 
-                success_rate = all_episode_success,
-                steps = all_episode_steps,
-                index_of_interest = index_of_interest,
-                save_to_csv = save_to_csv)
+        results = utils_rl.Results.save_results(
+            experiment_list=flags,
+            episodes=total_participant_episodes,
+            total_rewards=all_total_rewards,
+            success_rate=all_episode_success,
+            steps=all_episode_steps,
+            index_of_interest=index_of_interest,
+            save_to_csv=save_to_csv,
+            offline_metrics=offline_metrics,
+            decoder_fit_reports=decoder_fit_reports,
+            model_hyperparameters=model_hyperparameters,
+        )
 
     print(f"Robot episode {online_episode}, Reward: {total_reward:.2f}, Success: {eval_success:.2f}")
     print("Summation of participant episodes seen: ", total_participant_episodes)

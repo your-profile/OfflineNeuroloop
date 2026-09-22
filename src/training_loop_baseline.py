@@ -46,6 +46,8 @@ def train(env:gymnasium.Env,
           finetune_threshold = 0.0,
           success_save_threshold = 1.0,
           save_agent = False,
+          decoder_fit_reports=None,
+          model_hyperparameters=None,
     ):
 
     start_time = time.time()
@@ -145,17 +147,24 @@ def train(env:gymnasium.Env,
     pbar.close()
     env.close()
 
-    if 0 not in flags:
-        offline_model_report = ml.get_report(np.array(classes_truth), np.array(classes_pred), (granularity[0] != "c"))
-        print("OFFLINE:\n", offline_model_report)
+    offline_metrics = utils_rl.summarize_offline_decoder(
+        ml, classes_truth, classes_pred, granularity, flags
+    )
 
+    results = None
     if save_results:
-        results = utils_rl.Results.save_results(experiment_list = flags, 
-                                   episodes = total_participant_episodes, 
-                                   total_rewards = all_total_rewards, 
-                                   success_rate = all_episode_success,
-                                   steps = all_episode_steps,
-                                   save_to_csv = save_to_csv)
+        results = utils_rl.Results.save_results(
+            experiment_list=flags,
+            episodes=total_participant_episodes,
+            total_rewards=all_total_rewards,
+            success_rate=all_episode_success,
+            steps=all_episode_steps,
+            index_of_interest=0,
+            save_to_csv=save_to_csv,
+            offline_metrics=offline_metrics,
+            decoder_fit_reports=decoder_fit_reports,
+            model_hyperparameters=model_hyperparameters,
+        )
 
     print(f"Episode {online_episode}, Reward: {total_reward:.2f}, Success: {eval_success:.2f}")
 
@@ -195,6 +204,8 @@ def train_robot(env:gymnasium.Env,
           finetune_threshold = 0.0,
           success_save_threshold = 1.0,
           save_agent = False,
+          decoder_fit_reports=None,
+          model_hyperparameters=None,
     ):
     """
     Offline neuro + online Fetch (DDPG + HER) with the same experiment_list flags as ``train``
@@ -315,15 +326,25 @@ def train_robot(env:gymnasium.Env,
  
     env.close()
 
+    offline_metrics = utils_rl.summarize_offline_decoder(
+        ml, classes_truth, classes_pred, granularity, flags
+    )
+
     results = None
 
     if save_results:
-        results = utils_rl.Results.save_results(experiment_list = flags, 
-                episodes = total_participant_episodes, 
-                total_rewards = all_total_rewards, 
-                success_rate = all_episode_success,
-                steps = all_episode_steps,
-                save_to_csv = save_to_csv)
+        results = utils_rl.Results.save_results(
+            experiment_list=flags,
+            episodes=total_participant_episodes,
+            total_rewards=all_total_rewards,
+            success_rate=all_episode_success,
+            steps=all_episode_steps,
+            index_of_interest=0,
+            save_to_csv=save_to_csv,
+            offline_metrics=offline_metrics,
+            decoder_fit_reports=decoder_fit_reports,
+            model_hyperparameters=model_hyperparameters,
+        )
 
     print(f"Robot episode {last_participant_episode}, Reward: {total_reward:.2f}, Success: {eval_success:.2f}")
     print("Summation of participant episodes seen: ", total_participant_episodes)

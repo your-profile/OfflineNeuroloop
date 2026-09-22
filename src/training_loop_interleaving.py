@@ -52,7 +52,9 @@ def train(env:gymnasium.Env,
           finetune_threshold = 0.0,
           success_save_threshold = 1.0,
           save_agent = False,
-          interleaving_n = 4
+          interleaving_n = 4,
+          decoder_fit_reports=None,
+          model_hyperparameters=None,
     ):
 
     start_time = time.time()
@@ -155,27 +157,26 @@ def train(env:gymnasium.Env,
                 if noise > 0.0:
                     new_neural_signal = ml.noisy_output(clf, new_neural_signal, granularity, flip_rate=noise)
 
-                
-                # Reward Augmentation Experiment
-                if 1 in flags:
-                    if verbose:
-                        print(f"Experiment Condition 1: Reward Augmentation -- Episode {episode} -- Participant: {participant}")
-                        print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal, "| Adjusted Reward: ")
-                    reward = utils_rl.adjust_signal(reward, new_neural_signal, clf_probs = clf_probs, means = means, beta = beta)
-                
-                # Priorirization experiment
-                if 2 in flags:
-                    if verbose:
-                        print(f"Experiment Condition 2: Prioritization -- Episode {episode} -- Participant: {participant}")
-                        print("Original Priority: ", abs(priority), "| Neural Signal: ", new_neural_signal, "| Adjusted Priority: ")
-                    priority = abs(priority)
-                    priority = utils_rl.adjust_signal(priority, new_neural_signal, clf_probs = clf_probs, beta = beta)
-
-                # Q Augmentation Experiment
-                if 3 in flags:
-                    if verbose:
-                        print(f"Experiment Condition 3: Q-Augmentation -- Episode {episode} -- Participant: {participant}")
-                    q_augmentation = utils_rl.adjust_signal(0.0, new_neural_signal, clf_probs = clf_probs, beta = beta)
+                if verbose and (1 in flags or 2 in flags or 3 in flags):
+                    print(
+                        f"Neuro aug flags={flags} ep={episode} pid={participant} "
+                        f"signal={new_neural_signal} reward={reward}"
+                    )
+                reward, priority, q_augmentation = utils_rl.neuro_augment_transition(
+                    reward,
+                    neural_signal=new_neural_signal,
+                    clf_probs=clf_probs,
+                    means=means,
+                    beta=beta,
+                    flags=flags,
+                    agent=agent,
+                    algorithm="DQN",
+                    action=action,
+                    state=state,
+                    next_state=next_state,
+                    done=done,
+                    buffer_type=buffer_type,
+                )
 
                 # store sample optimality prediction and truth (eval-aligned windows only)
                 if scoreable and class_truth is not None:
@@ -187,6 +188,21 @@ def train(env:gymnasium.Env,
                 
             if domain_key == "L" and offline_step == n-1:
                 reward -= 100
+                # terminal shaping changes the stored reward; refresh TD (+ optional priority nudge)
+                priority = utils_rl.td_priority(
+                    agent, "DQN", reward, action, state, next_state,
+                    done=done, buffer_type=buffer_type, q_augmentation=q_augmentation,
+                )
+                if 0 not in flags and 2 in flags:
+                    priority = abs(
+                        utils_rl.adjust_signal(
+                            abs(float(priority)),
+                            new_neural_signal,
+                            clf_probs=clf_probs,
+                            means=means,
+                            beta=beta,
+                        )
+                    )
 
             agent.remember(state, action, reward, next_state, done, priority = priority, q_augmentation = q_augmentation)
             state = next_state
@@ -362,29 +378,24 @@ def train(env:gymnasium.Env,
     pbar.close()
     env.close()
 
-    if 0 not in flags:
-        yt = np.asarray(classes_truth)
-        yp = np.asarray(classes_pred)
-        if len(yt) == 0 or len(yp) == 0:
-            print("OFFLINE: no scoreable windows collected (n=0)")
-        else:
-            offline_model_report = ml.get_report(yt, yp, (granularity[0] != "c"))
-            print("OFFLINE (eval-aligned windows only, n=%d):\n" % len(yt), offline_model_report)
-            if granularity[0] == "b" and len(np.unique(yt)) > 1:
-                from sklearn.metrics import roc_auc_score, f1_score
-                try:
-                    print(f"OFFLINE AUC={roc_auc_score(yt, yp):.3f}  macroF1={f1_score(yt, yp, average='macro'):.3f}")
-                except Exception as _e:
-                    print("OFFLINE AUC unavailable:", _e)
+    results = None
+    offline_metrics = utils_rl.summarize_offline_decoder(
+        ml, classes_truth, classes_pred, granularity, flags
+    )
 
     if save_results:
-        results = utils_rl.Results.save_results(experiment_list = flags, 
-                                   episodes = total_participant_episodes, 
-                                   total_rewards = all_total_rewards, 
-                                   success_rate = all_episode_success,
-                                   steps = all_episode_steps,
-                                   index_of_interest = post_training_episode_start,
-                                   save_to_csv = save_to_csv)
+        results = utils_rl.Results.save_results(
+            experiment_list=flags,
+            episodes=total_participant_episodes,
+            total_rewards=all_total_rewards,
+            success_rate=all_episode_success,
+            steps=all_episode_steps,
+            index_of_interest=post_training_episode_start,
+            save_to_csv=save_to_csv,
+            offline_metrics=offline_metrics,
+            decoder_fit_reports=decoder_fit_reports,
+            model_hyperparameters=model_hyperparameters,
+        )
 
     print("Summation of participant episodes seen: ", total_participant_episodes)
     print("Elapsed time in hours: ", (time.time() - start_time) / 3600)
@@ -421,6 +432,8 @@ def train_robot(env:gymnasium.Env,
           success_save_threshold = 1.0,
           interleaving_n = 10,
           save_agent = False,
+          decoder_fit_reports=None,
+          model_hyperparameters=None,
     ):
     """
     Offline neuro + online Fetch (DDPG + HER) with the same experiment_list flags as ``train``
@@ -552,27 +565,26 @@ def train_robot(env:gymnasium.Env,
                 if noise > 0.0:
                     new_neural_signal = ml.noisy_output(clf, new_neural_signal, granularity, flip_rate=noise)
 
-                # Reward Augmentation Experiment
-                if 1 in flags:
-                    if verbose: 
-                        print(f"Reward Augmentation — ep {episode} participant {participant}")
-                        print("Original Reward: ", reward, "| Neural Signal: ", new_neural_signal, "| Adjusted Reward: ")
-                    reward = utils_rl.adjust_signal(reward, new_neural_signal, clf_probs = clf_probs, means = means, beta = beta)
-
-                # Priorirization experiment
-                if 2 in flags:
-                    if verbose:
-                        print(f"Prioritization — ep {episode} participant {participant}")
-                        print("Original Priority: ", abs(priority), "| Neural Signal: ", new_neural_signal, "| Adjusted Priority: ")
-                    priority = abs(priority)
-                    priority = utils_rl.adjust_signal(priority, new_neural_signal, clf_probs = clf_probs, beta = beta)
-
-                # Q Augmentation Experiment
-                if 3 in flags:
-                    if verbose:
-                        print(f"Q-aug analogue — ep {episode} participant {participant}")
-                        print("Neural Signal: ", new_neural_signal, "| Q-Value: ", reward)
-                    q_augmentation = utils_rl.adjust_signal(0.0, new_neural_signal, clf_probs = clf_probs, beta = beta)
+                if verbose and (1 in flags or 2 in flags or 3 in flags):
+                    print(
+                        f"Neuro aug flags={flags} ep={episode} pid={participant} "
+                        f"signal={new_neural_signal} reward={reward}"
+                    )
+                reward, priority, q_augmentation = utils_rl.neuro_augment_transition(
+                    float(reward),
+                    neural_signal=new_neural_signal,
+                    clf_probs=clf_probs,
+                    means=means,
+                    beta=beta,
+                    flags=flags,
+                    agent=agent,
+                    algorithm="DDPG",
+                    action=action,
+                    state=state,
+                    next_state=next_state,
+                    goal=desired_goal,
+                    buffer_type=buffer_type,
+                )
 
                 if scoreable and class_truth is not None:
                     if smoothing_window_size > 1 or noise > 0.0:
@@ -813,15 +825,24 @@ def train_robot(env:gymnasium.Env,
  
     env.close()
 
+    offline_metrics = utils_rl.summarize_offline_decoder(
+        ml, classes_truth, classes_pred, granularity, flags
+    )
+
     results = None
     if save_results:
-        results = utils_rl.Results.save_results(experiment_list = flags, 
-                episodes = total_participant_episodes, 
-                total_rewards = all_total_rewards, 
-                success_rate = all_episode_success,
-                steps = all_episode_steps,
-                index_of_interest = index_of_interest,
-                save_to_csv = save_to_csv)
+        results = utils_rl.Results.save_results(
+            experiment_list=flags,
+            episodes=total_participant_episodes,
+            total_rewards=all_total_rewards,
+            success_rate=all_episode_success,
+            steps=all_episode_steps,
+            index_of_interest=index_of_interest,
+            save_to_csv=save_to_csv,
+            offline_metrics=offline_metrics,
+            decoder_fit_reports=decoder_fit_reports,
+            model_hyperparameters=model_hyperparameters,
+        )
 
     print(f"Robot episode {online_episode}, Reward: {total_reward:.2f}, Success: {eval_success:.2f}")
     print("Summation of participant episodes seen: ", total_participant_episodes)

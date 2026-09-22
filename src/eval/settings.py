@@ -54,9 +54,23 @@ def expand_jobs(cfg: dict) -> list[tuple[str, list[str]]]:
     """Return [(job_name, [condition codes]), ...].
 
     Priority:
-      1. explicit ``conditions`` list (backward compatible)
-      2. ``task`` + ``domains``  (passive / active / pooled)
+      1. ``condition_groups`` — explicit multi-condition jobs
+         e.g. ``[{name: robot_passive, conditions: [RW]}, ...]``
+      2. explicit ``conditions`` list (one job per condition)
+      3. ``task`` + ``domains``  (passive / active / pooled)
     """
+    groups = cfg.get("condition_groups")
+    if groups:
+        out = []
+        for g in groups:
+            if isinstance(g, str):
+                out.append((g, [g]))
+                continue
+            name = g.get("name") or "+".join(g["conditions"])
+            conds = list(g["conditions"])
+            out.append((str(name), conds))
+        return out
+
     if cfg.get("conditions"):
         return [(c, [c]) for c in cfg["conditions"]]
 
@@ -93,6 +107,7 @@ def win_kwargs(cfg: dict) -> dict:
         min_windows=cfg.get("min_windows", 40),
         min_per_class=cfg.get("min_per_class", 15),
         min_std=cfg.get("min_std", 1e-6),
+        temporal_shift=float(cfg.get("temporal_shift", 0.0)),
     )
 
 

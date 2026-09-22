@@ -12,7 +12,6 @@ def _map_labels(ts, tl, y, continuous: bool):
     """Map label timestamps onto the signal grid."""
     if continuous:
         return np.interp(ts, tl, y.astype(float))
-    # nearest (left) label — avoids fractional discrete/binary values
     idx = np.searchsorted(tl, ts, side="right") - 1
     idx = np.clip(idx, 0, len(tl) - 1)
     return y[idx].astype(float)
@@ -47,19 +46,27 @@ def build_windows(
     min_windows: int = 40,
     min_per_class: int = 15,
     min_std: float = 1e-6,
+    temporal_shift: float = 0.0,
 ):
-    """Build overlapping windows. Returns (F, y, T) or None.
+    """Build overlapping windows.
 
     binary: mean of labels in window; drop ambiguous; class = mean >= 0.5
     discrete: majority vote; drop if plurality < min_majority
     continuous: mean of continuous_optimal in window
+
+    ``temporal_shift`` (seconds) accounts for hemodynamic lag: neural activity
+    at time ``t`` is paired with the label from ``t - temporal_shift``. Window
+    timestamps ``T`` are stored on the label/event timeline so episode splits
+    and embargoes stay aligned with task time.
     """
     channels = channels or CHANNELS_8
     pairs = pairs or PAIRS_8
     g = normalize_granularity(granularity)
     w = int(round(window_s * rate))
     st = max(int(round(step_s * rate)), 1)
-    yi = _map_labels(ts, tl, y, continuous=(g == "continuous"))
+    shift = float(temporal_shift)
+    # Brain at ts[i] ↔ label at ts[i] - shift
+    yi = _map_labels(ts - shift, tl, y, continuous=(g == "continuous"))
 
     F, L, T = [], [], []
     for s0 in range(0, len(Z) - w + 1, st):
@@ -83,7 +90,8 @@ def build_windows(
 
         F.append(_featurize_seg(seg, tt, channels, pairs))
         L.append(lab)
-        T.append(ts[s0])
+        # Event-time stamp (neural window start minus hemodynamic lag)
+        T.append(float(ts[s0]) - shift)
 
     if len(F) < min_windows:
         return None
@@ -99,7 +107,6 @@ def build_windows(
 
 
 def concat_runs(windows_list, gap_s: float = 1e6):
-    """Concatenate several (F, y, T) runs with a time gap so purge CV does not bridge runs."""
     if not windows_list:
         return None
     Fs, ys, Ts = [], [], []

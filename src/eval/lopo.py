@@ -34,9 +34,12 @@ def run(cfg: dict) -> pd.DataFrame:
     win = win_kwargs(cfg)
     n_null = cfg.get("n_null", 100)
     g = normalize_granularity(cfg.get("granularity", "binary"))
-    focus = cfg.get("focus_pids")
+    metric_name = {"binary": "AUC", "discrete": "macroF1", "continuous": "Spearman"}[g]
+    focus = cfg.get("participant_list") or cfg.get("focus_pids") or cfg.get("pids")
     if focus:
         focus = [pid_key(p) for p in focus]
+    rl_raw = cfg.get("rl_participant_list") or cfg.get("rl_pids") or []
+    rl_pids = {pid_key(p) for p in rl_raw}
 
     rows = []
     for job, conds in expand_jobs(cfg):
@@ -54,7 +57,7 @@ def run(cfg: dict) -> pd.DataFrame:
         if len(pool) < 3:
             print(f"\n== {job}: skip (n={len(pool)}) ==")
             continue
-        print(f"\n== {job} [{g}]: LOPO over {pool} ==")
+        print(f"\n== {job} [{g}]: LOPO multi-subject over {pool} ==")
         for held in pool:
             others = [q for q in pool if q != held]
             Xtr = np.vstack([data[q][0] for q in others])
@@ -70,18 +73,26 @@ def run(cfg: dict) -> pd.DataFrame:
                     nulls.append(a)
             null = float(np.mean(nulls)) if nulls else np.nan
             p = ((np.array(nulls) >= primary).sum() + 1) / (len(nulls) + 1) if nulls else np.nan
+            primary_cond = conds[0] if len(conds) == 1 else "+".join(conds)
             rows.append(
                 dict(
+                    model="lopo_multisubject",
                     job=job,
                     conds="+".join(conds),
+                    condition=primary_cond,
                     granularity=g,
+                    metric_name=metric_name,
+                    pid=held,
                     held=held,
-                    n_train=len(others),
+                    n_train_subjects=len(others),
+                    n=len(yte),
                     n_te=len(yte),
                     metric=float(primary) if np.isfinite(primary) else np.nan,
                     f1=float(f1) if np.isfinite(f1) else np.nan,
                     null=null,
                     p=float(p),
+                    significant=bool(p < 0.05) if np.isfinite(p) else False,
+                    in_rl_subset=bool(held in rl_pids) if rl_pids else False,
                     channels=ch_tag,
                 )
             )

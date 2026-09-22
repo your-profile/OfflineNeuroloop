@@ -1,0 +1,22 @@
+# Multi-subject LOPO on the same conditions as within_subject_paper.
+# Train on all but one participant; test the held-out subject.
+#
+#   python run_test.py configs/eval/lopo_paper.yaml
+
+test: lopo
+
+paths:
+  processed: data/fNIRS/FilteredData
+  labeled: /Users/juliasantaniello/Desktop/fNIRS-2-RL/Experiment/ParticipantData/fNIRS/LabeledData
+  results: results/eval
+
+granularity: binary
+conditions: [RW, RP, FW, FP, LW, LP]
+rl_participant_list: [10, 11, 18, 19]
+
+window_s: 7.0
+step_s: 1.5
+embargo_s: 3.5
+rate_hz: 5.2
+n_null: 50
+drop_suspect_channels: false
