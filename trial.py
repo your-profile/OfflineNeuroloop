@@ -78,6 +78,8 @@ def _resolve_participant_data_path(data_path: str | None = None) -> str:
             "Could not find ParticipantData (need ``fNIRS/LabeledData`` and ``TaskData``).\n"
             "Set DATA_PATH (or NEUROLOOP_DATA_ROOT) to the ParticipantData root on this "
             "machine, or fix paths.data_path in the sweep / manifest.\n"
+            "On the cluster the repo is usually ``fNIRS2RL`` (no hyphens), not "
+            "``fNIRS-2-RL``.\n"
             f"Tried:\n  {tried_txt}"
         )
 

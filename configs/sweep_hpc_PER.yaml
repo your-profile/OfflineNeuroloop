@@ -18,10 +18,9 @@ paths:
   # ParticipantData = LabeledData + TaskData. New FilteredData CSVs come from
   # OfflineNeuroloop/data/fNIRS/FilteredData after git pull (see trial._resolve_data_roots).
   # Override at runtime with: export DATA_PATH=/cluster/home/$USER/.../ParticipantData
-  data_path: "/cluster/home/jsanta07/fNIRS-2-RL/Experiment/ParticipantData"
+  # Cluster clone is ``fNIRS2RL`` (no hyphens) — not the local Desktop ``fNIRS-2-RL`` name.
+  data_path: "/cluster/home/jsanta07/fNIRS2RL/Experiment/ParticipantData"
   results_path: "/cluster/home/jsanta07/OfflineNeuroloop"
-  # Alternate naming on some accounts:
-  # data_path: "/cluster/home/jsanta07/fNIRS2RL/Experiment/ParticipantData/"
   # data_path: "/cluster/home/mbrowe02/fNIRS2RL/Experiment/ParticipantData/"
   # results_path: "/cluster/home/mbrowe02/OfflineNeuroloop/"
 
