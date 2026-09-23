@@ -189,6 +189,29 @@ def _keys(eps: pd.DataFrame) -> set[tuple]:
     return set(map(tuple, eps[["participantKey", "episode"]].to_numpy()))
 
 
+def _holdout_f1(report) -> float | None:
+    if not isinstance(report, dict):
+        return None
+    for key in ("holdout_f1", "holdout_metric"):
+        val = report.get(key)
+        if val is not None and val == val:
+            return float(val)
+    return None
+
+
+def _save_decoder_screen(rows: list[dict], results_path: str, cfg: dict) -> Path:
+    """Write kept/skipped participant holdout scores."""
+    out_dir = Path(results_path) / "results" / "eval"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    domain = str(cfg.get("experiment", {}).get("domain", "domain"))
+    task = str(cfg.get("experiment", {}).get("task", "task"))
+    stamp = pd.Timestamp.utcnow().strftime("%Y%m%d_%H%M%S")
+    path = out_dir / f"decoder_holdout_screen_{domain}_{task}_{stamp}.csv"
+    pd.DataFrame(rows).to_csv(path, index=False)
+    print(f"Decoder screen saved → {path}")
+    return path
+
+
 def _train_one(
     processor,
     shifted_df,
@@ -324,9 +347,10 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
     decoder_fraction = float(
         cfg.get("experiment", {}).get(
             "decoder_episode_fraction",
-            cfg.get("experiment", {}).get("mlp_episode_fraction", 0.5),
+            cfg.get("experiment", {}).get("mlp_episode_fraction", 0.65),
         )
     )
+    min_holdout_f1 = float(cfg.get("experiment", {}).get("min_holdout_f1", 0.55))
 
     episode_ids = _episode_table(task_df)
     if decoder_mode in ("single_subject", "ensemble", "per_subject", "matched"):
@@ -363,8 +387,11 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
 
     if decoder_mode in ("single_subject", "ensemble", "per_subject", "matched"):
         models, reports = {}, {}
+        screen_rows: list[dict] = []
         for pid, grp in decoder_eps.groupby("pid", sort=True):
             agent_grp = agent_eps[agent_eps["pid"] == pid]
+            n_dec_eps = int(len(grp))
+            n_rl_eps = int(len(agent_grp))
             if use_eval_decoder:
                 from src.models.eval_compatible import train_subject_eval_decoder
 
@@ -387,21 +414,55 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
                     seed=trial_seed,
                 )
                 if clf_i is None:
-                    err = report_i.get("error", report_i)
-                    detail = report_i.get("detail")
+                    err = report_i.get("error", report_i) if isinstance(report_i, dict) else report_i
+                    detail = report_i.get("detail") if isinstance(report_i, dict) else None
                     msg = f"  skip pid={pid}: {err}"
                     if detail:
                         msg += f" | {detail}"
                     print(msg)
+                    screen_rows.append(
+                        dict(
+                            pid=str(pid),
+                            used=False,
+                            reason=str(err),
+                            decoder_fraction=decoder_fraction,
+                            n_decoder_episodes=n_dec_eps,
+                            n_rl_episodes=n_rl_eps,
+                            holdout_f1=None,
+                            holdout_auc=None,
+                        )
+                    )
                     continue
-                metric = report_i.get("holdout_metric")
-                mname = report_i.get("metric_name", "metric")
+                f1 = _holdout_f1(report_i)
+                auc = report_i.get("holdout_auc")
                 print(
                     f"  fitted pid={pid} eval-LDA | train={report_i['n_train']} "
                     f"holdout={report_i['n_holdout']} embargo_dropped={report_i['n_embargo_dropped']} "
                     f"gap={report_i['gap_s']}s shift={report_i.get('temporal_shift', 0)}s "
-                    f"| holdout {mname}={metric}"
+                    f"| holdout F1={f1} AUC={auc}"
                 )
+                if f1 is None or f1 < min_holdout_f1:
+                    print(
+                        f"  skip pid={pid}: holdout F1={f1} < min_holdout_f1={min_holdout_f1} "
+                        f"(decoder_fraction={decoder_fraction})"
+                    )
+                    screen_rows.append(
+                        dict(
+                            pid=str(pid),
+                            used=False,
+                            reason=f"holdout_f1 {f1} < {min_holdout_f1}",
+                            decoder_fraction=decoder_fraction,
+                            n_decoder_episodes=n_dec_eps,
+                            n_rl_episodes=n_rl_eps,
+                            n_train=report_i.get("n_train"),
+                            n_holdout=report_i.get("n_holdout"),
+                            holdout_f1=f1,
+                            holdout_auc=auc,
+                            window_s=report_i.get("window_s"),
+                            temporal_shift=report_i.get("temporal_shift"),
+                        )
+                    )
+                    continue
             else:
                 clf_i, report_i, err = _train_one(
                     processor,
@@ -415,33 +476,74 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
                 )
                 if clf_i is None:
                     print(f"  skip pid={pid}: {err}")
+                    screen_rows.append(
+                        dict(
+                            pid=str(pid),
+                            used=False,
+                            reason=str(err),
+                            decoder_fraction=decoder_fraction,
+                            n_decoder_episodes=n_dec_eps,
+                            n_rl_episodes=n_rl_eps,
+                            holdout_f1=None,
+                            holdout_auc=None,
+                        )
+                    )
                     continue
                 print(f"  fitted pid={pid} on {len(grp)} episodes (legacy features)")
 
             models[pid] = clf_i
             reports[pid] = report_i
+            screen_rows.append(
+                dict(
+                    pid=str(pid),
+                    used=True,
+                    reason="kept",
+                    decoder_fraction=decoder_fraction,
+                    n_decoder_episodes=n_dec_eps,
+                    n_rl_episodes=n_rl_eps,
+                    n_train=report_i.get("n_train") if isinstance(report_i, dict) else None,
+                    n_holdout=report_i.get("n_holdout") if isinstance(report_i, dict) else None,
+                    holdout_f1=_holdout_f1(report_i),
+                    holdout_auc=report_i.get("holdout_auc") if isinstance(report_i, dict) else None,
+                    window_s=report_i.get("window_s") if isinstance(report_i, dict) else cfg["neural"].get("window_size_s"),
+                    temporal_shift=report_i.get("temporal_shift") if isinstance(report_i, dict) else cfg["neural"].get("temporal_shift"),
+                    step_s=cfg["neural"].get("step_size_s", 1.0),
+                    embargo_s=mlp_cfg.get("embargo_s"),
+                )
+            )
+
+        screen_path = _save_decoder_screen(screen_rows, RESULTS_PATH, cfg)
+        kept = [r for r in screen_rows if r.get("used")]
+        skipped = [r for r in screen_rows if not r.get("used")]
+        print(
+            f"Decoder screen: kept {len(kept)} / {len(screen_rows)} "
+            f"(min_holdout_f1={min_holdout_f1}, decoder_fraction={decoder_fraction}) → {screen_path}"
+        )
+        for r in kept:
+            print(f"  keep {r['pid']} F1={r.get('holdout_f1')} AUC={r.get('holdout_auc')}")
+        for r in skipped:
+            print(f"  drop {r['pid']} {r.get('reason')}")
 
         if not models:
             from pathlib import Path
 
             proc = Path(processed_dir)
             lab = Path(labeled_dir)
-            sample = sorted(proc.glob("*processed*.csv"))[:5] if proc.is_dir() else []
-            sample_lab = sorted(lab.glob("*LabeledData*.csv"))[:5] if lab.is_dir() else []
+            outcomes = (
+                "\n".join(
+                    f"  pid={r.get('pid')} used={r.get('used')} reason={r.get('reason')} "
+                    f"F1={r.get('holdout_f1')}"
+                    for r in screen_rows
+                )
+                or "  (no decoder episodes — TaskData empty for this participant_list × condition)"
+            )
             raise RuntimeError(
-                "No per-subject decoders could be trained. "
-                "LDA needs CSV files (either naming style):\n"
-                f"  {processed_dir}/{{pid}}_processed_{{COND}}.csv"
-                f"  OR {{pid}}_{{COND}}_processed.csv\n"
-                f"  {labeled_dir}/{{pid}}_{{COND}}_LabeledData.csv\n"
-                f"processed_dir exists={proc.is_dir()} "
-                f"({len(list(proc.glob('*.csv'))) if proc.is_dir() else 0} csvs); "
-                f"labeled_dir exists={lab.is_dir()} "
-                f"({len(list(lab.glob('*.csv'))) if lab.is_dir() else 0} csvs).\n"
-                f"sample processed: {[p.name for p in sample]}\n"
-                f"sample labeled: {[p.name for p in sample_lab]}\n"
-                "TaskData pickles alone are enough for episode counts but not for the LDA decoder. "
-                "Check NEUROLOOP_DATA_ROOT / paths.data_path on the cluster."
+                "No per-subject decoders passed the screen "
+                f"(task={cfg['experiment'].get('task')} conditions={condition_list} "
+                f"decoder_fraction={decoder_fraction} min_holdout_f1={min_holdout_f1}).\n"
+                f"Per-subject outcomes:\n{outcomes}\n"
+                f"processed={processed_dir} exists={proc.is_dir()}; "
+                f"labeled={labeled_dir} exists={lab.is_dir()}."
             )
 
         bank_mode = "ensemble" if decoder_mode == "ensemble" else "single_subject"
@@ -487,6 +589,8 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
                 "condition",
                 "integration_type",
                 "mlp_episode_fraction",
+                "decoder_episode_fraction",
+                "min_holdout_f1",
                 "finetune_threshold",
                 "random_state",
             )
@@ -494,6 +598,10 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
         },
     }
     model_hyperparameters["experiment"]["decoder_mode"] = decoder_mode
+    model_hyperparameters["experiment"]["decoder_episode_fraction"] = decoder_fraction
+    model_hyperparameters["experiment"]["min_holdout_f1"] = min_holdout_f1
+    if decoder_mode in ("single_subject", "ensemble", "per_subject", "matched"):
+        model_hyperparameters["decoder_screen_path"] = str(screen_path)
 
     # RL uses only held-out episodes (never used to fit the decoder).
     task_df = task_df.copy()

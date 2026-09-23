@@ -286,12 +286,22 @@ def train_subject_eval_decoder(
 
     holdout_metric = None
     if te.sum() >= 10 and (g == "continuous" or len(np.unique(y[te])) >= 2):
-        primary, _extra = fit_score(F[tr], y[tr], F[te], y[te], granularity=g)
-        holdout_metric = primary
-        report["holdout_metric"] = float(primary) if primary == primary else None
-        report["metric_name"] = {"binary": "macroF1", "discrete": "macroF1", "continuous": "Spearman"}[g]
+        primary, extra = fit_score(F[tr], y[tr], F[te], y[te], granularity=g)
+        if g == "continuous":
+            holdout_metric = primary
+            report["holdout_metric"] = float(primary) if primary == primary else None
+            report["metric_name"] = "Spearman"
+        else:
+            # fit_score returns (AUC, macro-F1) for classification
+            report["holdout_auc"] = float(primary) if primary == primary else None
+            report["holdout_f1"] = float(extra) if extra == extra else None
+            holdout_metric = extra
+            report["holdout_metric"] = report["holdout_f1"]
+            report["metric_name"] = "macroF1"
     else:
         report["holdout_metric"] = None
+        report["holdout_f1"] = None
+        report["holdout_auc"] = None
         report["note"] = "holdout too small or single-class"
 
     dec = RobustWindowDecoder(

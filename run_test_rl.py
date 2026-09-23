@@ -32,20 +32,22 @@ NEURAL_CONDITIONS = [
 
 GRANULARITIES = ["binary", "ternary", "continuous"]
 
-SEEDS = [1]
+SEEDS = [10]
 
 # Domain configs: Flappy, Lunar, Robot
 DOMAIN_CONFIGS = {
     # "Flappy": REPO_ROOT / "configs/test_flappy.yaml",
-    # "Lunar": REPO_ROOT / "configs/test_lunar.yaml",
+    "Lunar": REPO_ROOT / "configs/test_lunar.yaml",
     "Robot": REPO_ROOT / "configs/test_robot.yaml",
 }
 
 # Task types: Passive, Active, Pooled
+# test_robot.yaml is the RW (Passive) cohort. Do not run Active here — those
+# participants mostly have no RP CSVs, which empties the decoder bank.
 TASKS_BY_DOMAIN = {
-    # "Flappy": ["Passive", "Active","Pooled"],
-    # "Lunar": ["Passive", "Active", "Pooled"],
-    "Robot": ["Active", "Active", "Pooled"],
+    # "Flappy": ["Pooled", "Active","Pooled"],
+    "Lunar": ["Pooled", "Active", "Pooled"],
+    "Robot": ["Pooled", "Active"],
 }
 
 RESULTS_FILE_NAME = "test_results.csv"

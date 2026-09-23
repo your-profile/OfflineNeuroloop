@@ -1,24 +1,26 @@
 experiment: 
   domain: "Robot"                        
-  task: "Active"                         # Passive | Active | Pooled    
+  task: "Passive"                         # Passive | Active | Pooled    
   model_granularity: "binary"             # binary | ternary | continuous
-  participant_list: [7, 9, 14, 15, 20, 23, 24]
+  participant_list: [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]  # 0.65 holdout F1 >= 0.55
   decoder_mode: ensemble            # pooled | single_subject | ensemble
   random_state: 42
   pretrained_success_rate: 0.0
   finetune_threshold: 0.0
   verbose: False
   eval_update: 10000
-  mlp_episode_fraction: 0.6  # time-ordered; need enough train windows after embargo
+  mlp_episode_fraction: 0.65  # time-ordered; early episodes train the LDA
+  decoder_episode_fraction: 0.65
+  min_holdout_f1: 0.55        # drop subjects below this holdout macro-F1
 
 neural:
   smoothing_window_size: 1
-  temporal_shift: 4.0
+  temporal_shift: 5.0              # match RW holdout screen / robot_passive.yaml
   window_size_s: 6.0              # match eval / LDA windows
   step_size_s: 1.0
   beta: 1.0
   fnirs_rate_hz: 5.2
-  drop_suspect_channels: true   # true = intensity-only (drop DSphi), same as eval
+  drop_suspect_channels: false   # true = intensity-only (drop DSphi), same as eval
 
 mlp:
   type: lda                       # lda (eval default) | mlp
@@ -26,7 +28,7 @@ mlp:
   ridge_alpha: 10.0               # continuous Ridge
   n_folds: 8                      # purged-CV folds (report)
   window_s: 6.0                   # must match neural.window_size_s
-  embargo_s: 1.0
+  embargo_s: 2.0
   # kept for type: mlp fallback
   binary_hidden_layer_sizes: [75, 50, 5]
   ternary_hidden_layer_sizes: [75, 50, 5]

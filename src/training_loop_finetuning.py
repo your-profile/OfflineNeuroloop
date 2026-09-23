@@ -468,7 +468,7 @@ def train_robot(env:gymnasium.Env,
     if robot_df.empty:
         raise ValueError("No robot rows in task_df (need desired_goal or RW in participantKey).")
 
-    end_tag_episodes = 1000 #episodes to follow neural injection
+    end_tag_episodes = 0 #episodes to follow neural injection
 
     # granularity index
     if granularity[0] == "b": gr = 0
