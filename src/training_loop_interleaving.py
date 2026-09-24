@@ -199,7 +199,6 @@ def train(env:gymnasium.Env,
                             abs(float(priority)),
                             new_neural_signal,
                             clf_probs=clf_probs,
-                            means=means,
                             beta=beta,
                         )
                     )

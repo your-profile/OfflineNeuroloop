@@ -197,9 +197,9 @@ def adjust_signal(
     means: tuple[float, float, float] = (1.0, -0.1, -1.0),
     beta: float = 1.0,
 ):
-    """Add a neural credit term to ``reward`` (also used for priority / Q-aug).
+    """Adjust reward based on neural signal and classification probabilities.
 
-    Soft classification uses the expectation ``Σ_c P(c) μ_c``, not ``P(ŷ) μ_ŷ``.
+    Classification uses the predicted class only: ``P(ŷ) μ_ŷ``, not ``Σ_c P(c) μ_c``.
     """
 
     # for continuous output
@@ -211,7 +211,7 @@ def adjust_signal(
         optimal_neural_value = (optimal_neural_value - 0.5) * 2
 
         # adjust reward based on the optimal neural value
-        return float(reward + optimal_neural_value * means[0] * beta)
+        return float((reward + optimal_neural_value * means[0]) * beta)
 
     elif clf_probs is not None and not np.isscalar(clf_probs):
         probs = np.asarray(clf_probs, dtype=np.float64).ravel()
@@ -226,14 +226,18 @@ def adjust_signal(
             p_sum = float(probs.sum())
             if p_sum > 0.0:
                 probs = probs / p_sum
-                # Soft credit: expected mean under the classifier distribution
-                return float(reward + beta * float(np.dot(probs, means_array)))
+                # weight means by probabilities
+                means_array = probs * means_array
+
+                # return weighted mean associated with the neural signal classification
+                idx = int(neural_signal)
+                idx = int(np.clip(idx, 0, k - 1))
+                return float((reward + means_array[idx]) * beta)
 
     idx = int(neural_signal)
     means_array = np.asarray(means, dtype=np.float64).ravel()
-    if idx < 0 or idx >= len(means_array):
-        idx = int(np.clip(idx, 0, len(means_array) - 1))
-    return float(reward + means_array[idx] * beta)
+    idx = int(np.clip(idx, 0, max(len(means_array) - 1, 0)))
+    return float((reward + means_array[idx]) * beta)
 
 
 def neuro_augment_transition(
@@ -256,7 +260,8 @@ def neuro_augment_transition(
     """Apply reward / Q / priority flags; TD priority uses the final stored values.
 
     Order: reward aug → Q-aug → TD(|y−Q|) → optional neural priority nudge.
-    Priority nudge uses the same domain ``means`` as reward / Q-aug.
+    Only reward uses domain expected-reward ``means`` (class-conditional).
+    Q-aug and priority use the default class offsets ``(1.0, -0.1, -1.0)``.
     """
     q_augmentation = 0.0
     if 1 in flags:
@@ -265,7 +270,7 @@ def neuro_augment_transition(
         )
     if 3 in flags:
         q_augmentation = adjust_signal(
-            0.0, neural_signal, clf_probs=clf_probs, means=means, beta=beta
+            0.0, neural_signal, clf_probs=clf_probs, beta=beta
         )
 
     priority = td_priority(
@@ -285,7 +290,6 @@ def neuro_augment_transition(
             abs(float(priority)),
             neural_signal,
             clf_probs=clf_probs,
-            means=means,
             beta=beta,
         )
         priority = abs(float(priority))

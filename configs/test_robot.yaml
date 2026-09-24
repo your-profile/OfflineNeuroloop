@@ -11,7 +11,7 @@ experiment:
   eval_update: 10000
   mlp_episode_fraction: 0.65  # time-ordered; early episodes train the LDA
   decoder_episode_fraction: 0.65
-  min_holdout_f1: 0.55        # drop subjects below this holdout macro-F1
+  min_holdout_f1: 0.15       # drop subjects below this holdout macro-F1
 
 neural:
   smoothing_window_size: 1
