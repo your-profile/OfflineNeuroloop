@@ -30,7 +30,7 @@ NEURAL_CONDITIONS = [
     "All-PER",
 ]
 
-GRANULARITIES = ["continuous", "ternary", "continuous"]
+GRANULARITIES = ["ternary", "ternary", "continuous"]
 
 SEEDS = [1]
 
