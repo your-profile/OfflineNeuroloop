@@ -11,13 +11,13 @@ experiment:
   eval_update: 10000
   mlp_episode_fraction: 0.65  # time-ordered; early episodes train the LDA
   decoder_episode_fraction: 0.65
-  min_holdout_f1: 0.38      # drop subjects below this holdout macro-F1
+  min_holdout_f1: 0.1      # drop subjects below this holdout macro-F1
 
 neural:
   smoothing_window_size: 1
-  temporal_shift: 5.0              # match RW holdout screen / robot_passive.yaml
-  window_size_s: 6.0              # match eval / LDA windows
-  step_size_s: 1.0
+  temporal_shift: 2.0              # binary: 5.0 | continuous: 2.0 | ternary: 5.0
+  window_size_s: 4.0              # binary: 6.0 | continuous: 4.0 | ternary: 6.0
+  step_size_s: 0.5                # binary: 1.0 | continuous: 0.5 | ternary: 1.0  
   beta: 1.0
   fnirs_rate_hz: 5.2
   drop_suspect_channels: false   # true = intensity-only (drop DSphi), same as eval
@@ -27,9 +27,8 @@ mlp:
   model_noise: 0.0
   ridge_alpha: 10.0               # continuous Ridge
   n_folds: 8                      # purged-CV folds (report)
-  window_s: 6.0                   # must match neural.window_size_s
-  embargo_s: 2.0
-  # kept for type: mlp fallback
+  window_s: 4.0                   # binary: 6.0 | continuous: 4.0 | ternary: 6.0
+  embargo_s: 2.0  
   binary_hidden_layer_sizes: [75, 50, 5]
   ternary_hidden_layer_sizes: [75, 50, 5]
   regressor_hidden_layer_sizes: [150, 75, 5]
