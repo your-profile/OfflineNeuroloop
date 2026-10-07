@@ -30,14 +30,14 @@ NEURAL_CONDITIONS = [
     "All-PER",
 ]
 
-GRANULARITIES = ["continuous", "ternary", "continuous"]
+GRANULARITIES = ["binary", "ternary", "continuous"]
 
 SEEDS = [1]
 
 # Domain configs: Flappy, Lunar, Robot
 DOMAIN_CONFIGS = {
     # "Flappy": REPO_ROOT / "configs/test_flappy.yaml",
-    # "Lunar": REPO_ROOT / "configs/test_lunar.yaml",
+    "Lunar": REPO_ROOT / "configs/test_lunar.yaml",
     "Robot": REPO_ROOT / "configs/test_robot.yaml",
 }
 
@@ -46,7 +46,7 @@ DOMAIN_CONFIGS = {
 # participants mostly have no RP CSVs, which empties the decoder bank.
 TASKS_BY_DOMAIN = {
     # "Flappy": ["Pooled", "Active","Pooled"],
-    # "Lunar": ["Pooled", "Active", "Pooled"],
+    "Lunar": ["Passive", "Active", "Pooled"],
     "Robot": ["Active", "Active"],
 }
 

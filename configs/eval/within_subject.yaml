@@ -7,19 +7,19 @@ paths:
   results: /Users/juliasantaniello/Desktop/OfflineNeuroloop/results/eval
 
 # label: binary | discrete (ternary) | continuous
-granularity: continuous
+granularity: binary
 
 # Either set conditions explicitly:
-conditions: [RP]
+conditions: [LW, LP]
 # Or use task + domains (comment out conditions):
 # task: passive          # passive | active | pooled | all
 # domains: [R, F, L]     # Robot, Flappy, Lunar
 
-window_s: 4.0
-step_s: 0.5
-embargo_s: 2.0
+window_s: 2.0
+step_s: 0.3
+embargo_s: 3.0
 # Hemodynamic lag (seconds): brain at t pairs with label at t - temporal_shift
-temporal_shift: 2.0
+temporal_shift: 3.0
 ridge_alpha: 10.0
 rate_hz: 5.2
 n_folds: 8
