@@ -36,7 +36,7 @@ SEEDS = [1]
 
 # Domain configs: Flappy, Lunar, Robot
 DOMAIN_CONFIGS = {
-    # "Flappy": REPO_ROOT / "configs/test_flappy.yaml",
+    "Flappy": REPO_ROOT / "configs/test_flappy.yaml",
     "Lunar": REPO_ROOT / "configs/test_lunar.yaml",
     "Robot": REPO_ROOT / "configs/test_robot.yaml",
 }
@@ -45,7 +45,7 @@ DOMAIN_CONFIGS = {
 # test_robot.yaml is the RW (Passive) cohort. Do not run Active here — those
 # participants mostly have no RP CSVs, which empties the decoder bank.
 TASKS_BY_DOMAIN = {
-    # "Flappy": ["Pooled", "Active","Pooled"],
+    "Flappy": ["Passive","Pooled"],
     "Lunar": ["Passive", "Active", "Pooled"],
     "Robot": ["Active", "Active"],
 }

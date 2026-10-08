@@ -10,7 +10,7 @@ paths:
 granularity: binary
 
 # Either set conditions explicitly:
-conditions: [LW, LP]
+conditions: [FW, FP]
 # Or use task + domains (comment out conditions):
 # task: passive          # passive | active | pooled | all
 # domains: [R, F, L]     # Robot, Flappy, Lunar

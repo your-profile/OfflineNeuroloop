@@ -8,7 +8,7 @@ from pathlib import Path
 """
 Example:
 For Robot domain, finetune integration, and binary granularity:
-python generate_manifest.py -s configs/sweep_hpc_PER.yaml --filter-domain Robot_Active --filter-integration finetune --filter-granularity ternary -o manifests/robotActive_finetune_ternary_PER.csv
+python generate_manifest.py -s configs/sweep_hpc_PER.yaml --filter-domain Flappy --filter-integration finetune --filter-granularity ternary -o manifests/robotActive_finetune_ternary_PER.csv
 
 """
 

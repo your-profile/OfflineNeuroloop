@@ -1,0 +1,9 @@
+pid,used,reason,decoder_fraction,n_decoder_episodes,n_rl_episodes,n_train,n_holdout,holdout_f1,holdout_auc,window_s,temporal_shift,step_s,embargo_s
+003,False,holdout_f1 0.29358626919602526 < 0.55,0.55,14,11,43.0,34.0,0.29358626919602526,0.3846153846153846,4.0,2.0,,
+006,False,holdout_f1 0.4119502523431867 < 0.55,0.55,16,14,205.0,225.0,0.4119502523431867,0.4015916149068323,4.0,2.0,,
+009,True,kept,0.55,8,7,18.0,54.0,0.6164772727272727,0.8457223001402524,4.0,2.0,0.5,2.0
+014,False,holdout_f1 0.5454545454545454 < 0.55,0.55,11,9,179.0,45.0,0.5454545454545454,0.6155555555555555,4.0,2.0,,
+016,False,holdout_f1 0.5076013513513513 < 0.55,0.55,8,7,31.0,53.0,0.5076013513513513,0.6627906976744187,4.0,2.0,,
+018,False,train windows lack both classes,0.55,11,9,,,,,,,,
+019,False,train windows lack both classes,0.55,11,9,,,,,,,,
+024,False,train windows lack both classes,0.55,11,9,,,,,,,,

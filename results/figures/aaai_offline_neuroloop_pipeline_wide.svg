@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="2200" height="980" viewBox="0 0 2200 980"
-     role="img" aria-label="Offline Neuro-Loop: holdout fNIRS inferred by trained LDA; holdout tuples drive RL">
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="900" viewBox="0 0 2400 900"
+     role="img" aria-label="Offline Neuro-Loop pipeline matching AAAI Figures-3 layout">
   <defs>
     <marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0 0 L10 5 L0 10 z" fill="#1E8449"/>
@@ -9,225 +9,172 @@
       <path d="M0 0 L10 5 L0 10 z" fill="#2E86C1"/>
     </marker>
     <style type="text/css"><![CDATA[
-      .title { font: 700 34px Cambria, "Times New Roman", Times, serif; fill: #1C2833; }
-      .sub { font: 400 16px Cambria, "Times New Roman", Times, serif; fill: #5D6D7E; }
-      .h { font: 700 18px Cambria, "Times New Roman", Times, serif; }
-      .lab { font: 600 14px Cambria, "Times New Roman", Times, serif; fill: #1C2833; }
-      .sm { font: 400 12px Cambria, "Times New Roman", Times, serif; fill: #5D6D7E; }
+      .title { font: 700 30px Cambria, "Times New Roman", Times, serif; fill: #1C2833; }
+      .lab { font: 600 15px Cambria, "Times New Roman", Times, serif; fill: #1C2833; }
+      .sm { font: 400 13px Cambria, "Times New Roman", Times, serif; fill: #5D6D7E; }
       .tiny { font: 600 12px Cambria, "Times New Roman", Times, serif; }
-      .math { font: italic 600 13px Cambria, "Times New Roman", Times, serif; }
-      .stepT { font: 700 15px Cambria, "Times New Roman", Times, serif; fill: #2E86C1; }
-      .stepB { font: 400 12px Cambria, "Times New Roman", Times, serif; fill: #1C2833; }
-      .call { font: italic 600 13px Cambria, "Times New Roman", Times, serif; fill: #1C2833; }
+      .math { font: italic 600 14px Cambria, "Times New Roman", Times, serif; }
+      .h { font: 700 16px Cambria, "Times New Roman", Times, serif; }
     ]]></style>
   </defs>
 
-  <rect width="2200" height="980" fill="#FFFFFF"/>
+  <rect width="2400" height="900" fill="#FFFFFF"/>
+  <text x="1200" y="40" text-anchor="middle" class="title">Offline Neuro-Loop Pipeline</text>
 
-  <text x="1100" y="38" text-anchor="middle" class="title">Offline Neuro-Loop Pipeline</text>
-  <text x="1100" y="62" text-anchor="middle" class="sub">Holdout fNIRS is classified by the trained LDA; holdout MDP tuples drive RL</text>
+  <!-- ===== LEFT: Collection (blue) ===== -->
+  <!-- Passive / Active humans -->
+  <circle cx="90" cy="130" r="28" fill="#D6EAF8" stroke="#2E86C1" stroke-width="2"/>
+  <path d="M72 128 C80 112, 100 112, 108 128" fill="none" stroke="#2E86C1" stroke-width="2"/>
+  <text x="90" y="180" text-anchor="middle" class="tiny" fill="#2E86C1">Passive</text>
 
-  <rect x="1760" y="16" width="18" height="12" rx="2" fill="#D6EAF8" stroke="#2E86C1"/>
-  <text x="1786" y="27" class="sm">preprocessing / training</text>
-  <rect x="1760" y="36" width="18" height="12" rx="2" fill="#D5F5E3" stroke="#1E8449"/>
-  <text x="1786" y="47" class="sm">RL loop / holdout</text>
+  <text x="140" y="135" text-anchor="middle" class="lab" fill="#2E86C1">or</text>
 
-  <!-- A -->
-  <rect x="30" y="75" width="2140" height="175" rx="12" fill="#FBFCFC" stroke="#D5D8DC"/>
-  <text x="50" y="100" class="h" fill="#2E86C1">A. Online HITL collection</text>
+  <circle cx="200" cy="130" r="28" fill="#D6EAF8" stroke="#2E86C1" stroke-width="2"/>
+  <path d="M182 128 C190 112, 210 112, 218 128" fill="none" stroke="#2E86C1" stroke-width="2"/>
+  <rect x="180" y="162" width="40" height="16" rx="4" fill="#EBF5FB" stroke="#2E86C1"/>
+  <circle cx="190" cy="170" r="3" fill="#2E86C1"/>
+  <circle cx="210" cy="170" r="3" fill="#2E86C1"/>
+  <text x="200" y="198" text-anchor="middle" class="tiny" fill="#2E86C1">Active</text>
 
-  <rect x="50" y="115" width="340" height="115" rx="10" fill="#FFFFFF" stroke="#2E86C1" stroke-width="1.6"/>
-  <text x="220" y="138" text-anchor="middle" class="lab" fill="#2E86C1">Passive (Watch)</text>
-  <circle cx="110" cy="180" r="22" fill="#D6EAF8" stroke="#2E86C1" stroke-width="2"/>
-  <rect x="190" y="155" width="150" height="45" rx="7" fill="#FEF9E7" stroke="#F4D03F"/>
-  <text x="265" y="183" text-anchor="middle" class="lab">Environment</text>
-  <line x1="132" y1="175" x2="188" y2="175" stroke="#2E86C1" stroke-width="1.5" stroke-dasharray="2 3" marker-end="url(#ab)"/>
-  <text x="220" y="220" text-anchor="middle" class="sm">RW / FW / LW</text>
+  <!-- Collection Environment -->
+  <rect x="280" y="90" width="150" height="70" rx="8" fill="#FEF9E7" stroke="#F4D03F" stroke-width="1.5"/>
+  <text x="355" y="120" text-anchor="middle" class="lab">Environment</text>
+  <text x="355" y="142" text-anchor="middle" class="sm">map / task</text>
 
-  <circle cx="430" cy="170" r="18" fill="#F4F6F7" stroke="#AEB6BF"/>
-  <text x="430" y="175" text-anchor="middle" class="lab">or</text>
+  <!-- Collection Agent with pi* -->
+  <rect x="500" y="70" width="150" height="110" rx="10" fill="#D6EAF8" stroke="#2E86C1" stroke-width="1.8"/>
+  <circle cx="575" cy="105" r="18" fill="#5DADE2" stroke="#2E86C1"/>
+  <text x="575" y="110" text-anchor="middle" class="tiny" fill="#FFFFFF">R</text>
+  <rect x="525" y="135" width="100" height="30" rx="5" fill="#FFFFFF" stroke="#2E86C1"/>
+  <text x="575" y="155" text-anchor="middle" class="math" fill="#2E86C1">&#960;*</text>
 
-  <rect x="480" y="115" width="340" height="115" rx="10" fill="#FFFFFF" stroke="#2E86C1" stroke-width="1.6"/>
-  <text x="650" y="138" text-anchor="middle" class="lab" fill="#2E86C1">Active (Play)</text>
-  <circle cx="540" cy="180" r="22" fill="#D6EAF8" stroke="#2E86C1" stroke-width="2"/>
-  <rect x="520" y="208" width="40" height="14" rx="3" fill="#EBF5FB" stroke="#2E86C1"/>
-  <rect x="620" y="155" width="150" height="45" rx="7" fill="#FEF9E7" stroke="#F4D03F"/>
-  <text x="695" y="183" text-anchor="middle" class="lab">Environment</text>
-  <line x1="562" y1="175" x2="618" y2="175" stroke="#2E86C1" stroke-width="1.5" marker-end="url(#ab)"/>
-  <text x="650" y="220" text-anchor="middle" class="sm">RP / FP / LP</text>
+  <line x1="430" y1="115" x2="498" y2="115" stroke="#2E86C1" stroke-width="1.8" marker-end="url(#ab)"/>
+  <text x="460" y="105" text-anchor="middle" class="tiny" fill="#2E86C1">State, Reward</text>
+  <path d="M525 165 C470 200, 450 160, 430 145" fill="none" stroke="#2E86C1" stroke-width="1.8" marker-end="url(#ab)"/>
+  <text x="460" y="185" class="tiny" fill="#2E86C1">Action</text>
 
-  <text x="980" y="155" text-anchor="middle" class="math" fill="#2E86C1">f_t , tup_t</text>
-  <line x1="820" y1="170" x2="920" y2="170" stroke="#2E86C1" stroke-width="1.6" stroke-dasharray="2 3" marker-end="url(#ab)"/>
-  <line x1="1040" y1="170" x2="1120" y2="170" stroke="#2E86C1" stroke-width="1.6" stroke-dasharray="2 3" marker-end="url(#ab)"/>
+  <!-- gaze / play from humans -->
+  <line x1="228" y1="120" x2="278" y2="115" stroke="#2E86C1" stroke-width="1.4" stroke-dasharray="2 3" marker-end="url(#ab)"/>
 
-  <rect x="1130" y="120" width="260" height="100" rx="10" fill="#D6EAF8" stroke="#2E86C1" stroke-width="2"/>
-  <text x="1260" y="165" text-anchor="middle" class="h" fill="#2E86C1">Dataset</text>
-  <text x="1260" y="195" text-anchor="middle" class="sm">aligned streams by episode</text>
+  <!-- Data labels into Dataset -->
+  <text x="575" y="220" text-anchor="middle" class="math" fill="#2E86C1">fNIRS Data: f_t</text>
+  <text x="575" y="242" text-anchor="middle" class="math" fill="#2E86C1">MDP Tuples: tup_t</text>
+  <line x1="575" y1="180" x2="575" y2="205" stroke="#2E86C1" stroke-width="1.5" stroke-dasharray="2 3"/>
+  <line x1="575" y1="250" x2="575" y2="280" stroke="#2E86C1" stroke-width="1.5" stroke-dasharray="2 3" marker-end="url(#ab)"/>
 
-  <text x="1450" y="160" class="sm">Same logged streams for both cohorts;</text>
-  <text x="1450" y="180" class="sm">human role differs (Watch vs Play).</text>
+  <!-- Dataset -->
+  <rect x="480" y="285" width="190" height="55" rx="8" fill="#D6EAF8" stroke="#2E86C1" stroke-width="2"/>
+  <text x="575" y="320" text-anchor="middle" class="h" fill="#2E86C1">Dataset</text>
 
-  <!-- B -->
-  <rect x="30" y="270" width="2140" height="385" rx="12" fill="#FBFCFC" stroke="#D5D8DC"/>
-  <text x="50" y="298" class="h" fill="#2E86C1">B. Train LDA on early episodes; classify holdout fNIRS with the trained LDA</text>
+  <!-- Split down -->
+  <line x1="575" y1="340" x2="575" y2="380" stroke="#2E86C1" stroke-width="1.5" stroke-dasharray="2 3"/>
+  <line x1="280" y1="380" x2="1100" y2="380" stroke="#AEB6BF" stroke-width="1.2" stroke-dasharray="2 3"/>
+  <line x1="350" y1="380" x2="350" y2="410" stroke="#2E86C1" stroke-width="1.5" stroke-dasharray="2 3"/>
+  <line x1="950" y1="380" x2="950" y2="410" stroke="#1E8449" stroke-width="1.5" stroke-dasharray="2 3"/>
 
-  <rect x="620" y="278" width="780" height="28" rx="6" fill="#FFF9E6" stroke="#F4D03F"/>
-  <text x="1010" y="297" text-anchor="middle" class="call">Holdout fNIRS -&gt; trained LDA (inference); holdout actions/tuples drive RL</text>
+  <!-- Decoder Train/Test -->
+  <text x="350" y="430" text-anchor="middle" class="lab" fill="#2E86C1">Decoder Train/Test</text>
 
-  <!-- left: train set -->
-  <rect x="50" y="325" width="380" height="300" rx="10" fill="#EBF5FB" stroke="#2E86C1" stroke-width="1.6"/>
-  <text x="240" y="352" text-anchor="middle" class="lab" fill="#2E86C1">Decoder Train / Test</text>
-  <text x="240" y="372" text-anchor="middle" class="tiny" fill="#2E86C1">fit only  |  never used in RL</text>
+  <rect x="170" y="450" width="100" height="160" rx="6" fill="#FFFFFF" stroke="#2E86C1" stroke-width="1.5"/>
+  <text x="220" y="475" text-anchor="middle" class="tiny" fill="#2E86C1">EP_0</text>
+  <text x="220" y="505" text-anchor="middle" class="sm">tup_0</text>
+  <text x="220" y="525" text-anchor="middle" class="sm">tup_1</text>
+  <text x="220" y="545" text-anchor="middle" class="sm">tup_2</text>
+  <text x="220" y="565" text-anchor="middle" class="sm">...</text>
+  <text x="220" y="585" text-anchor="middle" class="sm">tup_T</text>
 
-  <rect x="75" y="395" width="95" height="145" rx="6" fill="#FFFFFF" stroke="#2E86C1"/>
-  <text x="122" y="420" text-anchor="middle" class="tiny" fill="#2E86C1">EP_0</text>
-  <text x="122" y="450" text-anchor="middle" class="sm">tup_0..T</text>
-  <text x="122" y="475" text-anchor="middle" class="sm">+ f_t</text>
+  <rect x="290" y="450" width="100" height="160" rx="6" fill="#FFFFFF" stroke="#2E86C1" stroke-width="1.5"/>
+  <text x="340" y="475" text-anchor="middle" class="tiny" fill="#2E86C1">EP_1</text>
+  <text x="340" y="505" text-anchor="middle" class="sm">tup_0</text>
+  <text x="340" y="525" text-anchor="middle" class="sm">tup_1</text>
+  <text x="340" y="545" text-anchor="middle" class="sm">tup_2</text>
+  <text x="340" y="565" text-anchor="middle" class="sm">...</text>
+  <text x="340" y="585" text-anchor="middle" class="sm">tup_T</text>
 
-  <rect x="185" y="395" width="95" height="145" rx="6" fill="#FFFFFF" stroke="#2E86C1"/>
-  <text x="232" y="420" text-anchor="middle" class="tiny" fill="#2E86C1">EP_1</text>
-  <text x="232" y="450" text-anchor="middle" class="sm">tup_0..T</text>
-  <text x="232" y="475" text-anchor="middle" class="sm">+ f_t</text>
+  <rect x="410" y="450" width="100" height="160" rx="6" fill="#FFFFFF" stroke="#2E86C1" stroke-width="1.5"/>
+  <text x="460" y="475" text-anchor="middle" class="tiny" fill="#2E86C1">EP_2</text>
+  <text x="460" y="505" text-anchor="middle" class="sm">tup_0</text>
+  <text x="460" y="525" text-anchor="middle" class="sm">tup_1</text>
+  <text x="460" y="545" text-anchor="middle" class="sm">tup_2</text>
+  <text x="460" y="565" text-anchor="middle" class="sm">...</text>
+  <text x="460" y="585" text-anchor="middle" class="sm">tup_T</text>
 
-  <rect x="295" y="395" width="95" height="145" rx="6" fill="#FFFFFF" stroke="#2E86C1"/>
-  <text x="342" y="420" text-anchor="middle" class="tiny" fill="#2E86C1">EP_2</text>
-  <text x="342" y="450" text-anchor="middle" class="sm">tup_0..T</text>
-  <text x="342" y="475" text-anchor="middle" class="sm">+ f_t</text>
+  <!-- Train LDA (blue, fit) -->
+  <line x1="350" y1="610" x2="350" y2="680" stroke="#2E86C1" stroke-width="2" stroke-dasharray="2 3" marker-end="url(#ab)"/>
+  <text x="370" y="650" class="tiny" fill="#2E86C1">fit</text>
+  <rect x="285" y="685" width="130" height="55" rx="8" fill="#D6EAF8" stroke="#2E86C1" stroke-width="2"/>
+  <text x="350" y="718" text-anchor="middle" class="h" fill="#2E86C1">LDA</text>
+  <text x="350" y="770" text-anchor="middle" class="sm">trained on early episodes only</text>
 
-  <text x="240" y="575" text-anchor="middle" class="sm">early episodes only</text>
-  <text x="240" y="598" text-anchor="middle" class="sm">used solely to train LDA</text>
+  <!-- ===== CENTER: RL Holdout (green) ===== -->
+  <text x="950" y="430" text-anchor="middle" class="lab" fill="#1E8449">RL Holdout</text>
 
-  <!-- fit arrow -->
-  <line x1="430" y1="460" x2="510" y2="420" stroke="#2E86C1" stroke-width="2.4" marker-end="url(#ab)"/>
-  <text x="455" y="430" class="tiny" fill="#2E86C1">fit</text>
+  <rect x="780" y="450" width="120" height="160" rx="6" fill="#FFFFFF" stroke="#1E8449" stroke-width="1.5"/>
+  <text x="840" y="475" text-anchor="middle" class="tiny" fill="#1E8449">EP_3</text>
+  <text x="840" y="510" text-anchor="middle" class="sm">tup_0</text>
+  <text x="840" y="530" text-anchor="middle" class="sm">tup_1</text>
+  <text x="840" y="550" text-anchor="middle" class="sm">...</text>
+  <text x="840" y="570" text-anchor="middle" class="sm">tup_T</text>
 
-  <!-- trained LDA -->
-  <rect x="515" y="370" width="160" height="100" rx="10" fill="#D6EAF8" stroke="#2E86C1" stroke-width="2.4"/>
-  <text x="595" y="408" text-anchor="middle" class="lab" fill="#2E86C1">Trained LDA</text>
-  <text x="595" y="432" text-anchor="middle" class="sm">parameters fixed</text>
-  <text x="595" y="452" text-anchor="middle" class="tiny" fill="#2E86C1">after training</text>
+  <rect x="930" y="450" width="140" height="160" rx="6" fill="#FFFFFF" stroke="#1E8449" stroke-width="1.5"/>
+  <text x="1000" y="475" text-anchor="middle" class="tiny" fill="#1E8449">EP_x</text>
+  <text x="1000" y="510" text-anchor="middle" class="sm">tup_0</text>
+  <text x="1000" y="530" text-anchor="middle" class="sm">tup_1</text>
+  <text x="1000" y="550" text-anchor="middle" class="sm">...</text>
+  <text x="1000" y="570" text-anchor="middle" class="sm">tup_T</text>
 
-  <!-- holdout -->
-  <rect x="720" y="325" width="460" height="300" rx="10" fill="#E8F8F5" stroke="#1E8449" stroke-width="1.6"/>
-  <text x="950" y="352" text-anchor="middle" class="lab" fill="#1E8449">RL Holdout</text>
-  <text x="950" y="372" text-anchor="middle" class="tiny" fill="#1E8449">never used to train LDA</text>
+  <text x="950" y="635" text-anchor="middle" class="sm">never used to train LDA</text>
 
-  <rect x="755" y="395" width="170" height="145" rx="6" fill="#FFFFFF" stroke="#1E8449"/>
-  <text x="840" y="425" text-anchor="middle" class="tiny" fill="#1E8449">EP_3</text>
-  <text x="840" y="455" text-anchor="middle" class="sm">tup_0 .. tup_T</text>
-  <text x="840" y="480" text-anchor="middle" class="sm">f_t (fNIRS)</text>
-  <text x="840" y="510" text-anchor="middle" class="tiny" fill="#2E86C1">neural</text>
-  <text x="840" y="528" text-anchor="middle" class="tiny" fill="#1E8449">MDP</text>
+  <!-- Holdout streams: a_t and f_t -->
+  <!-- a_t up then right to Environment -->
+  <path d="M1000 450 C1000 300, 1400 280, 1550 280" fill="none" stroke="#1E8449" stroke-width="2" stroke-dasharray="2 3" marker-end="url(#ag)"/>
+  <text x="1200" y="270" class="math" fill="#1E8449">a_t</text>
 
-  <rect x="960" y="395" width="180" height="145" rx="6" fill="#FFFFFF" stroke="#1E8449"/>
-  <text x="1050" y="425" text-anchor="middle" class="tiny" fill="#1E8449">EP_X</text>
-  <text x="1050" y="455" text-anchor="middle" class="sm">tup_0 .. tup_T</text>
-  <text x="1050" y="480" text-anchor="middle" class="sm">f_t (fNIRS)</text>
-  <text x="1050" y="510" text-anchor="middle" class="tiny" fill="#2E86C1">neural</text>
-  <text x="1050" y="528" text-anchor="middle" class="tiny" fill="#1E8449">MDP</text>
+  <!-- f_t down/right to trained LDA (green inference) -->
+  <path d="M1000 610 C1000 700, 1200 720, 1320 720" fill="none" stroke="#1E8449" stroke-width="2" stroke-dasharray="2 3" marker-end="url(#ag)"/>
+  <text x="1120" y="700" class="math" fill="#1E8449">f_t</text>
 
-  <text x="950" y="575" text-anchor="middle" class="sm">source of RL transitions</text>
-  <text x="950" y="598" text-anchor="middle" class="sm">and neural inputs for replay</text>
+  <!-- Trained LDA inference (green) - same model -->
+  <line x1="415" y1="712" x2="1320" y2="712" stroke="#2E86C1" stroke-width="1.4" stroke-dasharray="4 4"/>
+  <text x="900" y="700" class="tiny" fill="#2E86C1">same trained LDA (inference)</text>
 
-  <!-- holdout fNIRS -> trained LDA (infer) -->
-  <path d="M755 470 C700 470, 680 510, 595 470" fill="none" stroke="#2E86C1" stroke-width="2.2" stroke-dasharray="2 3" marker-end="url(#ab)"/>
-  <text x="680" y="500" class="tiny" fill="#2E86C1">holdout f_t (infer)</text>
+  <rect x="1325" y="690" width="120" height="50" rx="8" fill="#E8F8F5" stroke="#1E8449" stroke-width="2"/>
+  <text x="1385" y="721" text-anchor="middle" class="h" fill="#1E8449">LDA</text>
 
-  <!-- LDA -> yhat -> Algorithm 1 -->
-  <line x1="675" y1="420" x2="1220" y2="420" stroke="#2E86C1" stroke-width="2" stroke-dasharray="2 3"/>
-  <text x="900" y="408" class="math" fill="#2E86C1">y&#770;_t</text>
-  <line x1="1220" y1="420" x2="1220" y2="500" stroke="#2E86C1" stroke-width="2" stroke-dasharray="2 3" marker-end="url(#ab)"/>
+  <line x1="1445" y1="715" x2="1520" y2="715" stroke="#1E8449" stroke-width="2" stroke-dasharray="2 3" marker-end="url(#ag)"/>
+  <text x="1480" y="700" class="math" fill="#1E8449">y&#770;_t</text>
 
-  <rect x="1145" y="505" width="150" height="70" rx="8" fill="#D6EAF8" stroke="#2E86C1" stroke-width="2"/>
-  <text x="1220" y="535" text-anchor="middle" class="lab" fill="#2E86C1">Algorithm 1</text>
-  <text x="1220" y="558" text-anchor="middle" class="sm">neural inject</text>
-  <text x="1220" y="595" text-anchor="middle" class="math" fill="#2E86C1">n_t</text>
+  <rect x="1525" y="690" width="140" height="50" rx="8" fill="#E8F8F5" stroke="#1E8449" stroke-width="2"/>
+  <text x="1595" y="721" text-anchor="middle" class="h" fill="#1E8449">Algorithm 1</text>
 
-  <!-- holdout tup -> agent -->
-  <line x1="1180" y1="460" x2="1420" y2="460" stroke="#1E8449" stroke-width="2.2" stroke-dasharray="2 3" marker-end="url(#ag)"/>
-  <text x="1300" y="448" text-anchor="middle" class="tiny" fill="#1E8449">holdout tup_t</text>
+  <line x1="1665" y1="715" x2="1750" y2="550" stroke="#1E8449" stroke-width="2" stroke-dasharray="2 3" marker-end="url(#ag)"/>
+  <text x="1730" y="640" class="math" fill="#1E8449">n_t</text>
 
-  <!-- Env / Agent -->
-  <rect x="1420" y="325" width="160" height="70" rx="9" fill="#FEF9E7" stroke="#F4D03F" stroke-width="1.6"/>
-  <text x="1500" y="355" text-anchor="middle" class="lab">Environment</text>
-  <text x="1500" y="375" text-anchor="middle" class="sm">task dynamics</text>
+  <!-- ===== RIGHT: RL loop ===== -->
+  <rect x="1550" y="90" width="170" height="80" rx="10" fill="#FEF9E7" stroke="#F4D03F" stroke-width="1.6"/>
+  <text x="1635" y="125" text-anchor="middle" class="lab">Environment</text>
+  <text x="1635" y="148" text-anchor="middle" class="sm">map / task</text>
 
-  <rect x="1660" y="325" width="280" height="250" rx="12" fill="#D5F5E3" stroke="#1E8449" stroke-width="2"/>
-  <text x="1800" y="355" text-anchor="middle" class="lab" fill="#1E8449">Agent</text>
-  <circle cx="1800" cy="410" r="26" fill="#58D68D" stroke="#1E8449" stroke-width="2"/>
-  <text x="1800" y="416" text-anchor="middle" class="lab" fill="#FFFFFF">R</text>
-  <text x="1800" y="460" text-anchor="middle" class="math" fill="#1E8449">&#960;*</text>
-  <rect x="1705" y="490" width="190" height="55" rx="8" fill="#FFFFFF" stroke="#1E8449"/>
-  <text x="1800" y="523" text-anchor="middle" class="lab" fill="#1E8449">Base Algorithm</text>
-
-  <line x1="1580" y1="355" x2="1658" y2="355" stroke="#1E8449" stroke-width="2.2" marker-end="url(#ag)"/>
-  <text x="1615" y="345" text-anchor="middle" class="tiny" fill="#1E8449">State, Reward</text>
-  <path d="M1705 530 C1600 570, 1590 430, 1580 395" fill="none" stroke="#1E8449" stroke-width="2.2" marker-end="url(#ag)"/>
-  <text x="1625" y="545" text-anchor="middle" class="tiny" fill="#1E8449">Action</text>
+  <rect x="1850" y="70" width="220" height="200" rx="12" fill="#D5F5E3" stroke="#1E8449" stroke-width="2"/>
+  <text x="1960" y="100" text-anchor="middle" class="lab" fill="#1E8449">Agent</text>
+  <circle cx="1960" cy="145" r="28" fill="#58D68D" stroke="#1E8449" stroke-width="2"/>
+  <text x="1960" y="151" text-anchor="middle" class="lab" fill="#FFFFFF">R</text>
+  <rect x="1890" y="200" width="140" height="45" rx="8" fill="#FFFFFF" stroke="#1E8449"/>
+  <text x="1960" y="228" text-anchor="middle" class="lab" fill="#1E8449">Base Algorithm</text>
 
   <!-- n_t into base algorithm -->
-  <line x1="1295" y1="540" x2="1703" y2="517" stroke="#2E86C1" stroke-width="2.2" stroke-dasharray="2 3" marker-end="url(#ab)"/>
-  <text x="1500" y="515" class="tiny" fill="#2E86C1">n_t</text>
+  <line x1="1750" y1="540" x2="1890" y2="230" stroke="#1E8449" stroke-width="2" stroke-dasharray="2 3" marker-end="url(#ag)"/>
 
-  <text x="1970" y="400" class="sm">Robot: DDPG+HER+PER</text>
-  <text x="1970" y="420" class="sm">Flappy/Lunar: DQN+PER</text>
+  <line x1="1720" y1="130" x2="1848" y2="130" stroke="#1E8449" stroke-width="2.2" marker-end="url(#ag)"/>
+  <text x="1780" y="118" text-anchor="middle" class="tiny" fill="#1E8449">State, Reward</text>
+  <path d="M1890 245 C1800 280, 1760 200, 1720 170" fill="none" stroke="#1E8449" stroke-width="2.2" marker-end="url(#ag)"/>
+  <text x="1785" y="255" text-anchor="middle" class="tiny" fill="#1E8449">Action</text>
 
-  <!-- dataset to split -->
-  <line x1="1260" y1="220" x2="240" y2="325" stroke="#2E86C1" stroke-width="1.3" stroke-dasharray="2 3"/>
-  <line x1="1260" y1="220" x2="950" y2="325" stroke="#1E8449" stroke-width="1.3" stroke-dasharray="2 3"/>
+  <!-- Legend -->
+  <rect x="2100" y="320" width="18" height="12" rx="2" fill="#D6EAF8" stroke="#2E86C1"/>
+  <text x="2128" y="331" class="sm">train / preprocess</text>
+  <rect x="2100" y="345" width="18" height="12" rx="2" fill="#D5F5E3" stroke="#1E8449"/>
+  <text x="2128" y="356" class="sm">RL holdout loop</text>
 
-  <!-- C -->
-  <rect x="30" y="675" width="2140" height="280" rx="12" fill="#EBF5FB" stroke="#2E86C1" stroke-width="2"/>
-  <text x="50" y="702" class="h" fill="#2E86C1">C. Shared offline pipeline</text>
-  <text x="320" y="702" class="sm">same for Passive and Active; step 4 = holdout tuples + holdout fNIRS through trained LDA</text>
-
-  <rect x="50" y="725" width="360" height="110" rx="10" fill="#FFFFFF" stroke="#2E86C1" stroke-width="1.6"/>
-  <circle cx="80" cy="752" r="14" fill="#2E86C1"/><text x="80" y="757" text-anchor="middle" class="tiny" fill="#FFFFFF">1</text>
-  <text x="105" y="757" class="stepT">Align streams</text>
-  <text x="230" y="790" text-anchor="middle" class="stepB">Resample and join fNIRS,</text>
-  <text x="230" y="810" text-anchor="middle" class="stepB">TaskData, and Labels</text>
-
-  <line x1="410" y1="780" x2="440" y2="780" stroke="#2E86C1" stroke-width="2.2" marker-end="url(#ab)"/>
-
-  <rect x="445" y="725" width="360" height="110" rx="10" fill="#FFFFFF" stroke="#2E86C1" stroke-width="1.6"/>
-  <circle cx="475" cy="752" r="14" fill="#2E86C1"/><text x="475" y="757" text-anchor="middle" class="tiny" fill="#FFFFFF">2</text>
-  <text x="500" y="757" class="stepT">Hemodynamic lag</text>
-  <text x="625" y="790" text-anchor="middle" class="stepB">Shift labels by delay so</text>
-  <text x="625" y="810" text-anchor="middle" class="stepB">brain at t maps to t-d</text>
-
-  <line x1="805" y1="780" x2="835" y2="780" stroke="#2E86C1" stroke-width="2.2" marker-end="url(#ab)"/>
-
-  <rect x="840" y="725" width="360" height="110" rx="10" fill="#FFFFFF" stroke="#2E86C1" stroke-width="1.6"/>
-  <circle cx="870" cy="752" r="14" fill="#2E86C1"/><text x="870" y="757" text-anchor="middle" class="tiny" fill="#FFFFFF">3</text>
-  <text x="895" y="757" class="stepT">Train decoder</text>
-  <text x="1020" y="790" text-anchor="middle" class="stepB">Fit LDA on early episodes</text>
-  <text x="1020" y="810" text-anchor="middle" class="stepB">holdout unused for fitting</text>
-
-  <line x1="1200" y1="780" x2="1230" y2="780" stroke="#2E86C1" stroke-width="2.2" marker-end="url(#ab)"/>
-
-  <rect x="1235" y="725" width="420" height="110" rx="10" fill="#FFFFFF" stroke="#2E86C1" stroke-width="1.6"/>
-  <circle cx="1265" cy="752" r="14" fill="#2E86C1"/><text x="1265" y="757" text-anchor="middle" class="tiny" fill="#FFFFFF">4</text>
-  <text x="1290" y="757" class="stepT">Holdout replay</text>
-  <text x="1445" y="785" text-anchor="middle" class="stepB">holdout f_t -&gt; trained LDA -&gt; y&#770;_t</text>
-  <text x="1445" y="805" text-anchor="middle" class="stepB">holdout tup_t + n_t -&gt; Agent</text>
-  <text x="1445" y="825" text-anchor="middle" class="stepB">reward / priority / Q-aug</text>
-
-  <line x1="1655" y1="780" x2="1685" y2="780" stroke="#2E86C1" stroke-width="2.2" marker-end="url(#ab)"/>
-
-  <rect x="1690" y="725" width="450" height="110" rx="10" fill="#FFFFFF" stroke="#2E86C1" stroke-width="1.6"/>
-  <circle cx="1720" cy="752" r="14" fill="#2E86C1"/><text x="1720" y="757" text-anchor="middle" class="tiny" fill="#FFFFFF">5</text>
-  <text x="1745" y="757" class="stepT">Continue online RL</text>
-  <text x="1915" y="790" text-anchor="middle" class="stepB">Post-neuro training; no live fNIRS</text>
-  <text x="1915" y="810" text-anchor="middle" class="stepB">finetune / interleave schedules</text>
-
-  <rect x="50" y="860" width="150" height="40" rx="8" fill="#FFFFFF" stroke="#2E86C1"/>
-  <text x="125" y="885" text-anchor="middle" class="tiny" fill="#2E86C1">Reward aug.</text>
-  <rect x="215" y="860" width="150" height="40" rx="8" fill="#FFFFFF" stroke="#2E86C1"/>
-  <text x="290" y="885" text-anchor="middle" class="tiny" fill="#2E86C1">Priority (PER)</text>
-  <rect x="380" y="860" width="150" height="40" rx="8" fill="#FFFFFF" stroke="#2E86C1"/>
-  <text x="455" y="885" text-anchor="middle" class="tiny" fill="#2E86C1">Q-augmentation</text>
-  <rect x="545" y="860" width="160" height="40" rx="8" fill="#FFFFFF" stroke="#2E86C1"/>
-  <text x="625" y="885" text-anchor="middle" class="tiny" fill="#2E86C1">All (1+2+3)</text>
-  <rect x="730" y="860" width="460" height="40" rx="8" fill="#D5F5E3" stroke="#1E8449"/>
-  <text x="960" y="885" text-anchor="middle" class="tiny" fill="#1E8449">Baseline: online RL only (no neuro replay)</text>
+  <text x="1200" y="860" text-anchor="middle" class="sm">Holdout f_t is classified by the trained LDA; holdout a_t / tuples drive the RL loop.</text>
 </svg>
