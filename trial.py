@@ -12,6 +12,10 @@ from src.neural.loader import DataLoader
 from src.neural.preprocessing import DatasetProcessor
 from src.models.model_training import ModelTrainer
 from src.models.decoder_bank import SubjectDecoderBank, normalize_pid
+from src.models.state_window_decoder_single_frame import (
+    SubjectStateDecoderBank,
+    train_subject_state_window_decoder,
+)
 from src.seed_utils import set_global_seed
 from sklearn.model_selection import train_test_split
 import src.utils as utils
@@ -343,6 +347,9 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
     shifted_df["episode"] = pd.to_numeric(shifted_df["episode"], errors="coerce").astype("Int64")
 
     decoder_mode = str(cfg["experiment"].get("decoder_mode", "pooled")).lower().strip()
+    decoder_source = str(
+        cfg["experiment"].get("decoder_source", "fnirs")
+    ).lower().strip()
     decoder_type = str(cfg.get("mlp", {}).get("type", "lda")).lower()
     decoder_fraction = float(
         cfg.get("experiment", {}).get(
@@ -392,7 +399,90 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
             agent_grp = agent_eps[agent_eps["pid"] == pid]
             n_dec_eps = int(len(grp))
             n_rl_eps = int(len(agent_grp))
-            if use_eval_decoder:
+            if decoder_source == "state_window_single_frame":
+                clf_i, report_i = train_subject_state_window_decoder(
+                    pid,
+                    condition_list,
+                    processed_dir,
+                    labeled_dir,
+                    task_df,
+                    decoder_keys=_keys(grp),
+                    agent_keys=_keys(agent_grp) if len(agent_grp) else set(),
+                    granularity=granularity,
+                    window_s=float(cfg["neural"]["window_size_s"]),
+                    step_s=float(cfg["neural"].get("step_size_s", 1.0)),
+                    embargo_s=float(mlp_cfg.get("embargo_s", 4.0)),
+                    rate_hz=float(cfg["neural"]["fnirs_rate_hz"]),
+                    temporal_shift=float(cfg["neural"].get("temporal_shift", 0.0)),
+                    channels=list(decoder_channels),
+                    pairs=list(decoder_pairs),
+                    regressor_type="ridge",
+                    ridge_alpha=float(mlp_cfg.get("ridge_alpha", 10.0)),
+                    seed=trial_seed,
+                )
+                err = None
+                f1 = None
+                if clf_i is None:
+                    err = (
+                        report_i.get("error", report_i)
+                        if isinstance(report_i, dict)
+                        else report_i
+                    )
+                else:
+                    f1 = _holdout_f1(report_i)
+                    if f1 is None or f1 < min_holdout_f1:
+                        err = f"holdout_f1 {f1} < {min_holdout_f1}"
+                if err is not None:
+                    detail = (
+                        report_i.get("detail") if isinstance(report_i, dict) else None
+                    )
+                    msg = f"  skip pid={pid}: {err}"
+                    if detail:
+                        msg += f" | {detail}"
+                    print(msg)
+                    screen_rows.append(
+                        dict(
+                            pid=str(pid),
+                            used=False,
+                            reason=str(err),
+                            decoder_fraction=decoder_fraction,
+                            n_decoder_episodes=n_dec_eps,
+                            n_rl_episodes=n_rl_eps,
+                            n_train=(
+                                report_i.get("n_train")
+                                if isinstance(report_i, dict)
+                                else None
+                            ),
+                            n_holdout=(
+                                report_i.get("n_holdout")
+                                if isinstance(report_i, dict)
+                                else None
+                            ),
+                            holdout_f1=f1,
+                            holdout_auc=(
+                                report_i.get("holdout_auc")
+                                if isinstance(report_i, dict)
+                                else None
+                            ),
+                            window_s=(
+                                report_i.get("window_s")
+                                if isinstance(report_i, dict)
+                                else None
+                            ),
+                            temporal_shift=(
+                                report_i.get("temporal_shift")
+                                if isinstance(report_i, dict)
+                                else None
+                            ),
+                        )
+                    )
+                    continue
+                print(
+                    f"  fitted pid={pid} single-frame ridge | train={report_i['n_train']} "
+                    f"holdout={report_i['n_holdout']} | holdout F1={f1} "
+                    f"AUC={report_i.get('holdout_auc')}"
+                )
+            elif use_eval_decoder:
                 from src.models.eval_compatible import train_subject_eval_decoder
 
                 clf_i, report_i = train_subject_eval_decoder(
@@ -547,14 +637,25 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
             )
 
         bank_mode = "ensemble" if decoder_mode == "ensemble" else "single_subject"
-        classifier = SubjectDecoderBank(
-            models, mode=bank_mode, granularity=granularity, reports=reports
-        )
+        if decoder_source == "state_window_single_frame":
+            classifier = SubjectStateDecoderBank(
+                models, mode=bank_mode, granularity=granularity, reports=reports
+            )
+        else:
+            classifier = SubjectDecoderBank(
+                models, mode=bank_mode, granularity=granularity, reports=reports
+            )
         print(f"Decoder bank: {classifier}")
         for pid, rep in reports.items():
             print(f"--- pid {pid} ---\n{rep}")
         decoder_fit_reports = {str(k): v for k, v in reports.items()}
     else:
+        if decoder_source == "state_window_single_frame":
+            raise ValueError(
+                "decoder_source=state_window_single_frame only supports "
+                "decoder_mode in (single_subject, ensemble, per_subject, matched); "
+                "no pooled state-window trainer exists."
+            )
         clf, report, err = _train_one(
             processor,
             shifted_df,
@@ -573,6 +674,7 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
 
     model_hyperparameters = {
         "decoder_mode": decoder_mode,
+        "decoder_source": decoder_source,
         "decoder_type": decoder_type,
         "decoder_channels": list(decoder_channels),
         "channel_tag": ch_tag,
@@ -628,6 +730,7 @@ def run(cfg, run_name="test", verbose=False, DATA_PATH=".", RESULTS_PATH=".", RE
         task_df=task_df,
         agent=agent,
         flags=cfg["experiment"]["experiment_list"],
+        decoder_source=decoder_source,
         granularity=granularity,
         means=means,
         episodes_num=cfg["rl"]["n_episodes"],

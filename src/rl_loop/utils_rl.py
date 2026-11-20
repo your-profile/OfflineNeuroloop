@@ -417,6 +417,137 @@ def classify_fnirs_at_time(
     )
     return neural_signal, clf_probs, y_true, bool(valid)
 
+
+def classify_state_at_time(
+    clf,
+    *,
+    rows,
+    step_idx,
+    processor,
+    timestamp,
+    participant=None,
+    window_duration_s: float = 8.0,
+    fnirs_channels=None,
+    granularity: str = "binary",
+    buffer=None,
+    shift: float = 0.0,
+    require_goal: bool | None = None,
+):
+    """Eval-aligned classification with the single-frame state decoder.
+
+    The single-frame decoder was fit on the state at the **end** of each
+    window's event span (``state_window_decoder_single_frame.py:566-612``),
+    i.e. the state at event time ``t`` for a label window ``[t - window_s, t]``.
+    At an RL step we therefore feed the state at that step's timestamp — no
+    raw fNIRS window is needed.
+
+    Returns the same ``(signal, probs, y_true, scoreable)`` tuple as
+    :func:`classify_fnirs_at_time`, so reward/Q/priority augmentation and the
+    offline metrics need no changes.
+    """
+    from src.models.state_window_decoder_single_frame import extract_row_state
+
+    if rows is None or step_idx is None:
+        raise ValueError("classify_state_at_time requires rows and step_idx")
+
+    s_val = rows["states"].iloc[step_idx]
+    g_val = rows["desired_goal"].iloc[step_idx] if "desired_goal" in rows.columns else None
+    if require_goal is None:
+        cond = rows["condition"].iloc[step_idx] if "condition" in rows.columns else None
+        require_goal = cond is not None and str(cond).strip().upper().startswith("R")
+
+    state_vec = extract_row_state(s_val, g_val, require_goal=bool(require_goal))
+    if state_vec is None:
+        return 0.0, 0.0, None, False
+
+    if participant is not None and hasattr(clf, "set_participant"):
+        clf.set_participant(participant)
+
+    # SubjectStateDecoderBank routes by participant; a bare StateToWindowDecoder
+    # exposes predict/predict_proba directly.
+    if hasattr(clf, "predict_state"):
+        signal = clf.predict_state(state_vec, participant=participant)[0]
+        try:
+            probs = clf.predict_proba_state(state_vec, participant=participant)[0]
+        except Exception:
+            probs = "regression"
+    else:
+        signal = clf.predict(state_vec, participant=participant)[0]
+        try:
+            probs = clf.predict_proba(state_vec, participant=participant)[0]
+        except Exception:
+            probs = "regression"
+
+    # Keep the smoothing buffer in sync (same delayed sample fNIRS path uses).
+    if buffer is not None:
+        from src.eval.channels import CHANNELS_8
+
+        channels = list(fnirs_channels) if fnirs_channels else list(CHANNELS_8)
+        sample = processor.get_fnirs_sample(
+            timestamp=timestamp, temporal_shift=shift, fnirs_channels=channels
+        )
+        if hasattr(buffer, "channels"):
+            missing = [c for c in buffer.channels if c not in sample.index]
+            if missing:
+                sample = sample.reindex(list(buffer.channels))
+        buffer.add_sample(timestamp=timestamp, x=sample, classification=0.0)
+        if len(buffer.classifications):
+            buffer.classifications[-1] = signal
+
+    y_true, valid = processor.get_window_label(
+        timestamp,
+        window_duration_s=window_duration_s,
+        granularity=granularity,
+        temporal_shift=shift,
+    )
+    return signal, probs, y_true, bool(valid)
+
+
+def classify_neural_at_time(
+    clf,
+    *,
+    decoder_source: str,
+    processor,
+    timestamp,
+    rows=None,
+    step_idx=None,
+    participant=None,
+    window_duration_s: float = 8.0,
+    fnirs_channels=None,
+    granularity: str = "binary",
+    buffer=None,
+    shift: float = 0.0,
+    require_goal: bool | None = None,
+):
+    """Dispatch to the fNIRS-window or single-frame state decoder path."""
+    if str(decoder_source).lower().strip() == "state_window_single_frame":
+        return classify_state_at_time(
+            clf,
+            rows=rows,
+            step_idx=step_idx,
+            processor=processor,
+            timestamp=timestamp,
+            participant=participant,
+            window_duration_s=window_duration_s,
+            fnirs_channels=fnirs_channels,
+            granularity=granularity,
+            buffer=buffer,
+            shift=shift,
+            require_goal=require_goal,
+        )
+    return classify_fnirs_at_time(
+        clf,
+        processor,
+        timestamp,
+        participant=participant,
+        window_duration_s=window_duration_s,
+        fnirs_channels=fnirs_channels,
+        granularity=granularity,
+        buffer=buffer,
+        shift=shift,
+    )
+
+
 # Evaluates the agent on the Lunar nad Flappy environments
 def evaluate(env, agent, steps=600, episodes=20, domain_key=None, random_seed=0):
     """

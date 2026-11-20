@@ -1,6 +1,7 @@
 experiment: 
   participant_list: [10, 11, 18, 19]
   decoder_mode: single_subject            # pooled | single_subject | ensemble
+  decoder_source: fnirs                   # fnirs | state_window_single_frame
   verbose: False
 
 neural:

@@ -29,7 +29,7 @@ def train(env:gymnasium.Env,
           clf, 
           processor: DatasetProcessor,
           ml: ModelTrainer,
-          flags: list, 
+          flags: list,
           fnirs_channel_names: List[str], 
           episodes_num: int, 
           steps: int, 
@@ -44,6 +44,7 @@ def train(env:gymnasium.Env,
           buffer_type: str = 'ER', 
           seed: int = 42,
           beta: float = 1.0,
+          decoder_source: str = "fnirs",
           epsilon: float = 0.1,
           save_results: bool = False, 
           save_to_csv: bool = False,
@@ -171,6 +172,7 @@ def train(env:gymnasium.Env,
     for (participant, episode), episode_df in grouped:  
         total_reward = 0.0
         done = False
+        buffer.clear()  # smoothing must not carry classifications across episodes
 
         # get episode data
         rows = episode_df.reset_index(drop=True)
@@ -216,10 +218,13 @@ def train(env:gymnasium.Env,
 
             if 0 not in flags:
                 rl_timestamp = rows["time"].iloc[offline_step]
-                neural_signal, clf_probs, class_truth, scoreable = utils_rl.classify_fnirs_at_time(
+                neural_signal, clf_probs, class_truth, scoreable = utils_rl.classify_neural_at_time(
                     clf,
-                    processor,
-                    rl_timestamp,
+                    decoder_source=decoder_source,
+                    rows=rows,
+                    step_idx=offline_step,
+                    processor=processor,
+                    timestamp=rl_timestamp,
                     participant=participant,
                     window_duration_s=window_duration_s,
                     fnirs_channels=fnirs_channel_names,
@@ -406,7 +411,7 @@ def train_robot(env:gymnasium.Env,
           clf, 
           processor: DatasetProcessor,
           ml: ModelTrainer,
-          flags: list, 
+          flags: list,
           fnirs_channel_names: List[str], 
           episodes_num: int, 
           steps: int, 
@@ -421,6 +426,7 @@ def train_robot(env:gymnasium.Env,
           buffer_type: str = 'ER', 
           seed: int = 42,
           beta: float = 1.0,
+          decoder_source: str = "fnirs",
           #epsilon
           save_results: bool = False, 
           save_to_csv: bool = False,
@@ -586,6 +592,7 @@ def train_robot(env:gymnasium.Env,
         done = False
 
         # get episode data
+        buffer.clear()  # smoothing must not carry classifications across episodes
         episode_dict = dc(blank_episode_dict)
         rows = episode_df.reset_index(drop=True)
         n = len(rows)
@@ -635,10 +642,13 @@ def train_robot(env:gymnasium.Env,
 
             if 0 not in flags:
                 rl_timestamp = rows["time"].iloc[offline_step]
-                neural_signal, clf_probs, class_truth, scoreable = utils_rl.classify_fnirs_at_time(
+                neural_signal, clf_probs, class_truth, scoreable = utils_rl.classify_neural_at_time(
                     clf,
-                    processor,
-                    rl_timestamp,
+                    decoder_source=decoder_source,
+                    rows=rows,
+                    step_idx=offline_step,
+                    processor=processor,
+                    timestamp=rl_timestamp,
                     participant=participant,
                     window_duration_s=window_duration_s,
                     fnirs_channels=fnirs_channel_names,
